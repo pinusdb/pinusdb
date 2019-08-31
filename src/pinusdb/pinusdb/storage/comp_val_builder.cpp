@@ -5,6 +5,10 @@ CompValBuilder::CompValBuilder()
   this->pData_ = nullptr;
   this->pCur_ = nullptr;
   this->dataLen_ = 0;
+
+  this->i64Val_ = 0;
+  this->u64Val_ = 0;
+  this->u32Val_ = 0;
 }
 
 CompValBuilder::~CompValBuilder()
