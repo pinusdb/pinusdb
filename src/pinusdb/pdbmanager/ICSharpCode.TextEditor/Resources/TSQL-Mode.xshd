@@ -1,0 +1,228 @@
+<?xml version="1.0"?>
+<!-- syntaxdefinition for TSQL 2000 by Yoshihiro Kawabata -->
+
+<SyntaxDefinition name="TSQL" extensions=".sql">
+	
+	<Properties>
+		<Property name="LineComment" value="--"/>
+	</Properties>
+	
+	<Digits name="Digits" bold="false" italic="false" color="Black"/>
+
+	<RuleSets>
+		<RuleSet ignorecase="true">
+			<Delimiters>&amp;&lt;&gt;~!%^*()-+=|\#/{}[]:;"' ,	.?</Delimiters>
+			
+			<Span 
+				name="PreprocessorDirectives" 
+				bold="false" 
+				italic="false" 
+				color="Blue" 
+				stopateol="true">
+				<Begin bold="false" italic="false" color="Blue">#</Begin>
+			</Span>
+			
+			<Span 
+				name="DocLineComment" 
+				rule="DocCommentSet" 
+				bold="false"
+				italic="false"
+				color="Green"
+				stopateol="true">
+				<Begin bold="false" italic="false" color="Gray">---</Begin>
+			</Span>
+		  
+		  	<Span 
+		  		name="LineComment" 
+		  		rule="CommentMarkerSet"
+		  		bold="false" 
+		  		italic="false"
+		  		color="Green"
+		  		stopateol="true">
+			   	<Begin>--@!-@</Begin>
+		  	</Span>
+		  
+			<Span 
+				name="BlockComment" 
+				rule="CommentMarkerSet" 
+				bold="false" 
+				italic="false" 
+				color="Green" 
+				stopateol="false">
+				<Begin>/*</Begin>
+				<End>*/</End>
+			</Span>
+		  	
+			<Span name="String" bold="false" italic="false" color="Red" stopateol="false">
+				<Begin>&apos;</Begin>
+				<End>&apos;</End>
+			</Span>
+			
+			<MarkPrevious bold="false" italic="false" color="Black">(</MarkPrevious>
+			
+			<KeyWords 
+				name="Punctuation" 
+				bold="false" 
+				italic="false" 
+				color="Gray">
+				<Key word="?" />
+				<Key word="," />
+				<Key word="." />
+				<Key word=";" />
+				<Key word="(" />
+				<Key word=")" />
+				<Key word="[" />
+				<Key word="]" />
+				<Key word="{" />
+				<Key word="}" />
+				<Key word="+" />
+				<Key word="-" />
+				<Key word="/" />
+				<Key word="%" />
+				<Key word="*" />
+				<Key word="&lt;" />
+				<Key word="&gt;" />
+				<Key word="^" />
+				<Key word="=" />
+				<Key word="~" />
+				<Key word="!" />
+				<Key word="|" />
+			    <Key word="&amp;" />
+		  	</KeyWords>
+
+      <KeyWords name="Keywords1" bold="false" italic="false" color="Blue">
+	    <Key word="ADD" />
+        <Key word="AND" />
+        <Key word="AS" />
+        <Key word="DROP" />
+        <Key word="FROM" />
+        <Key word="INSERT" />
+        <Key word="INTO" />
+        <Key word="SELECT" />
+        <Key word="TABLE" />
+        <Key word="VALUES" />
+        <Key word="WHERE" />
+        <Key word="CREATE" />
+        <Key word="GROUP" />
+        <Key word="BY" />
+        <Key word="ORDER" />
+        <Key word="LIKE" />
+        <Key word="USER" />
+        <Key word="IDENTIFIED" />
+        <Key word="ROLE" />
+        <Key word="SET" />
+        <Key word="PASSWORD" />
+        <Key word="FOR" />
+        <Key word="DELETE" />
+		<Key word="BOOL" />
+		<Key word="TINYINT" />
+		<Key word="SMALLINT" />
+		<Key word="INT" />
+        <Key word="BIGINT" />
+        <Key word="DATETIME" />
+        <Key word="FLOAT" />
+        <Key word="DOUBLE" />
+        <Key word="STRING" />
+        <Key word="BLOB" />
+        <Key word="ATTACH" />
+        <Key word="DETACH" />
+        <Key word="FLUSH" />
+        <Key word="TRUE" />
+        <Key word="FALSE" />
+        <Key word="ASC" />
+        <Key word="DESC" />
+        <Key word="CONFIG" />
+		<Key word="LIMIT" />
+		<Key word="DATAFILE" />
+		<Key word="REAL2" />
+		<Key word="REAL3" />
+		<Key word="REAL4" />
+		<Key word="REAL6" />
+      </KeyWords>
+
+      <KeyWords name="Keywords 2" bold="false" italic="false" color="Magenta">
+        <Key word="AVG" />
+        <Key word="COUNT" />
+        <Key word="LAST" />
+        <Key word="MAX" />
+        <Key word="MIN" />
+        <Key word="SUM" />
+        <Key word="FIRST" />
+      </KeyWords>
+
+
+		</RuleSet>
+		
+		<RuleSet name="CommentMarkerSet" ignorecase="true">
+		  	<Delimiters>&lt;&gt;~!@%^*()-+=|\#/{}[]:;"' ,	.?</Delimiters>
+			<KeyWords name="ErrorWords" bold="false" italic="false" color="Green">
+				<Key word="TODO" />
+				<Key word="FIXME" />
+	 	 	</KeyWords>
+			<KeyWords name="WarningWords" bold="false" italic="false" color="Green">
+				<Key word="HACK" />
+				<Key word="UNDONE" />
+	 	 	</KeyWords>
+		</RuleSet>
+		
+		<RuleSet name="DocCommentSet" ignorecase="false">
+		  	<Delimiters>&lt;&gt;~!@%^*()-+=|\#/{}[]:;"' ,	.?</Delimiters>
+			
+			<Span name="XmlTag" rule="XmlDocSet" bold="false" italic="false" color="Gray" stopateol="true">
+				<Begin>&lt;</Begin>
+				<End>&gt;</End>
+			</Span>
+			
+			<KeyWords name="ErrorWords" bold="false" italic="false" color="Green">
+				    <Key word="TODO" />
+				    <Key word="FIXME" />
+			</KeyWords>
+			
+			<KeyWords name="WarningWords" bold="false" italic="false" color="Green">
+				    <Key word="HACK" />
+				    <Key word="UNDONE" />
+			</KeyWords>
+		</RuleSet>
+		
+		<RuleSet name="XmlDocSet" ignorecase="false">
+		  	<Delimiters>&lt;&gt;~!@%^*()-+=|\#/{}[]:;"' ,	.?</Delimiters>
+	  	    
+			<Span name="String" bold="false" italic="false" color="Gray" stopateol="true">
+				<Begin>"</Begin>
+				<End>"</End>
+			</Span>
+		
+			<KeyWords name="Punctuation" bold="false" italic="false" color="Gray">
+				<Key word="/" />
+				<Key word="|" />
+				<Key word="=" />
+		  	</KeyWords>
+		  	
+		 	<KeyWords name="SpecialComment" bold="false" italic="false" color="Gray">
+				    <Key word="c" />
+				    <Key word="code" />
+				    <Key word="example" />
+				    <Key word="exception" />
+				    <Key word="list" />
+				    <Key word="para" />
+				    <Key word="param" />
+				    <Key word="paramref" />
+				    <Key word="permission" />
+				    <Key word="remarks" />
+				    <Key word="returns" />
+				    <Key word="see" />
+				    <Key word="seealso" />
+				    <Key word="summary" />
+				    <Key word="value" />
+				    <Key word="type" />
+				    <Key word="name" />
+				    <Key word="cref" />
+				    <Key word="item" />
+				    <Key word="term" />
+				    <Key word="description" />
+				    <Key word="listheader" />
+	 	 	</KeyWords>
+		</RuleSet>
+	
+	</RuleSets>
+</SyntaxDefinition>

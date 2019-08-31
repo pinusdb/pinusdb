@@ -1,0 +1,300 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Debug|x64">
+      <Configuration>Debug</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|x64">
+      <Configuration>Release</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{8B5F173B-C25D-4B5E-89AD-3F6D645BC743}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>pinusdb</RootNamespace>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v140</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="Shared">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)bin_x64\debug</OutDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)bin_x64\release</OutDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;.\include;..\deps;..\deps\zlib;c:\local\boost_1_67_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\deps\zlib\lib\debug_x64;C:\local\boost_1_67_0\lib64-msvc-14.0;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib;wsock32.lib;dbghelp.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.;.\include;..\deps;..\deps\zlib;c:\local\boost_1_67_0;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\deps\zlib\lib\release_x64;C:\local\boost_1_67_0\lib64-msvc-14.0;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>ws2_32.lib;wsock32.lib;dbghelp.lib;zlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClInclude Include="commitlog\commit_log_block.h" />
+    <ClInclude Include="commitlog\commit_log_file.h" />
+    <ClInclude Include="commitlog\commit_log_list.h" />
+    <ClInclude Include="db\db_impl.h" />
+    <ClInclude Include="db\page_pool.h" />
+    <ClInclude Include="db\table_set.h" />
+    <ClInclude Include="expr\column_item.h" />
+    <ClInclude Include="expr\expr_item.h" />
+    <ClInclude Include="expr\group_opt.h" />
+    <ClInclude Include="expr\insert_sql.h" />
+    <ClInclude Include="expr\limit_opt.h" />
+    <ClInclude Include="expr\orderby_opt.h" />
+    <ClInclude Include="expr\parse.h" />
+    <ClInclude Include="expr\pdb_db_int.h" />
+    <ClInclude Include="expr\sql_parser.h" />
+    <ClInclude Include="expr\tokenize.h" />
+    <ClInclude Include="include\global_variable.h" />
+    <ClInclude Include="include\internal.h" />
+    <ClInclude Include="include\pdb.h" />
+    <ClInclude Include="include\pdb_error.h" />
+    <ClInclude Include="include\sys_table_schema.h" />
+    <ClInclude Include="port\mem_map_file.h" />
+    <ClInclude Include="port\os_file.h" />
+    <ClInclude Include="query\agg_avg_function.h" />
+    <ClInclude Include="query\agg_count_function.h" />
+    <ClInclude Include="query\agg_devid.h" />
+    <ClInclude Include="query\agg_first_function.h" />
+    <ClInclude Include="query\agg_last_function.h" />
+    <ClInclude Include="query\agg_max_function.h" />
+    <ClInclude Include="query\agg_min_function.h" />
+    <ClInclude Include="query\agg_sum_function.h" />
+    <ClInclude Include="query\agg_tstamp.h" />
+    <ClInclude Include="query\condition_filter.h" />
+    <ClInclude Include="query\condition_item.h" />
+    <ClInclude Include="query\data_table.h" />
+    <ClInclude Include="query\dev_filter.h" />
+    <ClInclude Include="query\raw_field.h" />
+    <ClInclude Include="query\result_field.h" />
+    <ClInclude Include="query\result_filter.h" />
+    <ClInclude Include="query\result_filter_group_all.h" />
+    <ClInclude Include="query\result_filter_group_devid.h" />
+    <ClInclude Include="query\result_filter_group_tstamp.h" />
+    <ClInclude Include="query\result_filter_raw.h" />
+    <ClInclude Include="query\result_object.h" />
+    <ClInclude Include="query\tstamp_filter.h" />
+    <ClInclude Include="server\event_handle.h" />
+    <ClInclude Include="server\iocp_event.h" />
+    <ClInclude Include="server\proto_header.h" />
+    <ClInclude Include="server\server_connection.h" />
+    <ClInclude Include="server\server_iocp.h" />
+    <ClInclude Include="server\server_pdb.h" />
+    <ClInclude Include="server\sys_config.h" />
+    <ClInclude Include="server\table_config.h" />
+    <ClInclude Include="server\user_config.h" />
+    <ClInclude Include="storage\comp_block_builder.h" />
+    <ClInclude Include="storage\comp_data_part.h" />
+    <ClInclude Include="storage\comp_format.h" />
+    <ClInclude Include="storage\comp_part_builder.h" />
+    <ClInclude Include="storage\comp_val_builder.h" />
+    <ClInclude Include="storage\data_part.h" />
+    <ClInclude Include="storage\normal_data_page.h" />
+    <ClInclude Include="storage\normal_data_part.h" />
+    <ClInclude Include="storage\normal_part_idx.h" />
+    <ClInclude Include="storage\page_hdr.h" />
+    <ClInclude Include="table\data_column.h" />
+    <ClInclude Include="table\db_obj.h" />
+    <ClInclude Include="table\db_value.h" />
+    <ClInclude Include="table\devid_table.h" />
+    <ClInclude Include="table\field_info.h" />
+    <ClInclude Include="table\mutex_manager.h" />
+    <ClInclude Include="table\pdb_table.h" />
+    <ClInclude Include="table\table_info.h" />
+    <ClInclude Include="table\table_part.h" />
+    <ClInclude Include="util\arena.h" />
+    <ClInclude Include="util\coding.h" />
+    <ClInclude Include="util\date_time.h" />
+    <ClInclude Include="util\dbg.h" />
+    <ClInclude Include="util\ker_list.h" />
+    <ClInclude Include="util\log_util.h" />
+    <ClInclude Include="util\object_pool.h" />
+    <ClInclude Include="util\performance_counter.h" />
+    <ClInclude Include="util\random.h" />
+    <ClInclude Include="util\ref_util.h" />
+    <ClInclude Include="util\skip_list.h" />
+    <ClInclude Include="util\string_tool.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="commitlog\commit_log_file.cpp" />
+    <ClCompile Include="commitlog\commit_log_list.cpp" />
+    <ClCompile Include="db\db_impl.cpp" />
+    <ClCompile Include="db\page_pool.cpp" />
+    <ClCompile Include="db\table_set.cpp" />
+    <ClCompile Include="expr\column_item.cpp" />
+    <ClCompile Include="expr\expr_item.cpp" />
+    <ClCompile Include="expr\group_opt.cpp" />
+    <ClCompile Include="expr\insert_sql.cpp" />
+    <ClCompile Include="expr\limit_opt.cpp" />
+    <ClCompile Include="expr\parse.cpp" />
+    <ClCompile Include="expr\pdb_db_int.cpp" />
+    <ClCompile Include="expr\sql_parser.cpp" />
+    <ClCompile Include="expr\tokenize.cpp" />
+    <ClCompile Include="port\mem_map_file.cpp" />
+    <ClCompile Include="port\os_file.cpp" />
+    <ClCompile Include="query\condition_filter.cpp" />
+    <ClCompile Include="query\data_table.cpp" />
+    <ClCompile Include="query\dev_filter.cpp" />
+    <ClCompile Include="query\result_filter.cpp" />
+    <ClCompile Include="query\result_filter_group_all.cpp" />
+    <ClCompile Include="query\result_filter_group_devid.cpp" />
+    <ClCompile Include="query\result_filter_group_tstamp.cpp" />
+    <ClCompile Include="query\result_filter_raw.cpp" />
+    <ClCompile Include="query\result_object.cpp" />
+    <ClCompile Include="query\tstamp_filter.cpp" />
+    <ClCompile Include="server\event_handle.cpp" />
+    <ClCompile Include="server\proto_header.cpp" />
+    <ClCompile Include="server\server_connection.cpp" />
+    <ClCompile Include="server\server_iocp.cpp" />
+    <ClCompile Include="server\server_pdb.cpp" />
+    <ClCompile Include="server\service_win.cpp" />
+    <ClCompile Include="server\sys_config.cpp" />
+    <ClCompile Include="server\table_config.cpp" />
+    <ClCompile Include="server\user_config.cpp" />
+    <ClCompile Include="storage\comp_block_builder.cpp" />
+    <ClCompile Include="storage\comp_data_part.cpp" />
+    <ClCompile Include="storage\comp_part_builder.cpp" />
+    <ClCompile Include="storage\comp_val_builder.cpp" />
+    <ClCompile Include="storage\data_part.cpp" />
+    <ClCompile Include="storage\normal_data_page.cpp" />
+    <ClCompile Include="storage\normal_data_part.cpp" />
+    <ClCompile Include="storage\normal_part_idx.cpp" />
+    <ClCompile Include="table\data_column.cpp" />
+    <ClCompile Include="table\db_obj.cpp" />
+    <ClCompile Include="table\devid_table.cpp" />
+    <ClCompile Include="table\field_info.cpp" />
+    <ClCompile Include="table\pdb_table.cpp" />
+    <ClCompile Include="table\table_info.cpp" />
+    <ClCompile Include="util\arena.cpp" />
+    <ClCompile Include="util\date_time.cpp" />
+    <ClCompile Include="util\dbg.cpp" />
+    <ClCompile Include="util\ker_list.cpp" />
+    <ClCompile Include="util\object_pool.cpp" />
+    <ClCompile Include="util\ref_util.cpp" />
+    <ClCompile Include="util\string_tool.cpp" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>
