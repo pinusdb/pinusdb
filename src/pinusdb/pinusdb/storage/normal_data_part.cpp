@@ -275,7 +275,11 @@ PdbErr_t NormalDataPart::InsertRec(int64_t devId, int64_t tstamp,
 
     PAGEHDR_SET_ONLY_MEM(pPage);
 
-    dirtyList_.push_back(pPage);
+    do {
+      std::unique_lock<std::mutex> dirtyLock(dirtyMutex_);
+      dirtyList_.push_back(pPage);
+    } while (false);
+
     retVal = normalIdx_.AddIdx(devId, bgDayTs_, newPageNo);
     if (retVal != PdbE_OK)
     {
