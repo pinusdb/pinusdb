@@ -28,7 +28,7 @@ real6 -> 倍数1000000， 取值范围[-999,999,999.999999 ~ +999,999,999.999999
 若您需要已编译好的程序，请在 http://www.pinusdb.cn 网站相应的链接下载。
 
 # 运行
-松果时序数据库以windows服务的方式运行，运行前请先配置好服务配置文件config.ini 具体运行配置细节请参考文档： http://www.pinusdb.cn/doc/v1.3/doc_pdb_windows_install.htm
+松果时序数据库以windows服务的方式运行，运行前请先配置好服务配置文件config.ini 具体运行配置细节请参考文档： http://www.pinusdb.cn/doc/v1.3/doc_pdb_windows_install.html
 
 # 二次开发
 提供c/c++ SDK, .Net SDK, jdbc 驱动，未来还会支持restful及更多的二次开发接口，具体使用细节请参考：http://www.pinusdb.cn
