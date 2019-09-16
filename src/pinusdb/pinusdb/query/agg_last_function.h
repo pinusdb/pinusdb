@@ -36,10 +36,6 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    if (!DBVAL_ELE_IS_DATETIME(pVals, PDB_TSTAMP_INDEX)
-      || !DBVAL_ELE_IS_TYPE(pVals, fieldPos_, ValType))
-      return PdbE_INVALID_PARAM;
-
     if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) > lastTStamp_)
     {
       lastTStamp_ = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
@@ -89,12 +85,11 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    if (!DBVAL_ELE_IS_DATETIME(pVals, PDB_TSTAMP_INDEX)
-      || !DBVAL_ELE_IS_TYPE(pVals, fieldPos_, ValType))
-      return PdbE_INVALID_PARAM;
+    do {
+      if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) <= lastTStamp_)
+        break;
 
-    if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) > lastTStamp_)
-    {
+      lastTStamp_ = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
       if (DBVAL_ELE_GET_LEN(pVals, fieldPos_) > 0)
       {
         if (DBVAL_ELE_GET_LEN(pVals, fieldPos_) > bufLen_)
@@ -114,11 +109,8 @@ public:
         DBVAL_SET_STRING(&lastVal_, pBuf_, DBVAL_ELE_GET_LEN(pVals, fieldPos_));
       else if (ValType == PDB_FIELD_TYPE::TYPE_BLOB)
         DBVAL_SET_BLOB(&lastVal_, pBuf_, DBVAL_ELE_GET_LEN(pVals, fieldPos_));
-      else
-        return PdbE_INVALID_PARAM;
 
-      lastTStamp_ = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
-    }
+    } while (false);
 
     return PdbE_OK;
   }

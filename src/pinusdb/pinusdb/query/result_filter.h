@@ -53,7 +53,7 @@ public:
   PdbErr_t BuildFilter(const QueryParam* pQueryParam, const TableInfo* pTabInfo, Arena* pArena);
 
 protected:
-  PdbErr_t AddCountField(const std::string& aliasName);
+  PdbErr_t AddCountField(const std::string& aliasName, size_t fieldPos);
 
   PdbErr_t AddAggField(int32_t opFunc, const std::string& aliasName,
     size_t fieldPos, int32_t fieldType, Arena* pArena);

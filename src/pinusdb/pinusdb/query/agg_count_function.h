@@ -22,8 +22,9 @@
 class CountFunc : public ResultField
 {
 public:
-  CountFunc()
+  CountFunc(size_t fieldPos)
   {
+    this->fieldPos_ = fieldPos;
     this->dataCnt_ = 0;
   }
 
@@ -33,7 +34,11 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    this->dataCnt_++;
+    if (!DBVAL_ELE_IS_NULL(pVals, fieldPos_))
+    {
+      this->dataCnt_++;
+    }
+    
     return PdbE_OK;
   }
 
@@ -45,9 +50,10 @@ public:
 
   virtual ResultField* NewField(int64_t devId, int64_t tstamp)
   {
-    return new CountFunc();
+    return new CountFunc(fieldPos_);
   }
 
 private:
+  size_t fieldPos_;
   int64_t dataCnt_;
 };

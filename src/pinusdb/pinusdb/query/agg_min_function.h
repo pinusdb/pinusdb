@@ -36,8 +36,8 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    if (!DBVAL_ELE_IS_TYPE(pVals, fieldPos_, ValType))
-      return PdbE_INVALID_PARAM;
+    if (DBVAL_ELE_IS_NULL(pVals, fieldPos_))
+      return PdbE_OK;
 
     int64_t curVal = 0;
     switch (ValType)
@@ -73,8 +73,6 @@ public:
       case PDB_VALUE_TYPE::VAL_DATETIME:
         DBVAL_SET_DATETIME(pVal, val_);
         break;
-      default:
-        return PdbE_INVALID_PARAM;
       }
     }
     else
@@ -112,8 +110,8 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    if (!DBVAL_ELE_IS_DOUBLE(pVals, fieldPos_))
-      return PdbE_INVALID_PARAM;
+    if (DBVAL_ELE_IS_NULL(pVals, fieldPos_))
+      return PdbE_OK;
 
     if (!haveVal_ || DBVAL_ELE_GET_DOUBLE(pVals, fieldPos_) < val_)
     {

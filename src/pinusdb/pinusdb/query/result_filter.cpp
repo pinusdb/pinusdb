@@ -124,9 +124,9 @@ PdbErr_t IResultFilter::BuildFilter(const QueryParam* pQueryParam, const TableIn
   return retVal;
 }
 
-PdbErr_t IResultFilter::AddCountField(const std::string& aliasName)
+PdbErr_t IResultFilter::AddCountField(const std::string& aliasName, size_t fieldPos)
 {
-  ResultField* pRetField = new CountFunc();
+  ResultField* pRetField = new CountFunc(fieldPos);
   return AddResultField(pRetField, aliasName);
 }
 
@@ -172,7 +172,7 @@ ResultField* IResultFilter::AddAggBoolField(int32_t opFunc, size_t fieldPos)
   switch (opFunc)
   {
   case TK_COUNT_FUNC:
-    return new CountFunc();
+    return new CountFunc(fieldPos);
   case TK_FIRST_FUNC:
     return new FirstValFunc<PDB_FIELD_TYPE::TYPE_BOOL>(fieldPos);
   case TK_LAST_FUNC:
@@ -188,7 +188,7 @@ ResultField* IResultFilter::AddAggInt64Field(int32_t opFunc, size_t fieldPos)
   case TK_AVG_FUNC:
     return new AvgBigIntFunc(fieldPos);
   case TK_COUNT_FUNC:
-    return new CountFunc();
+    return new CountFunc(fieldPos);
   case TK_LAST_FUNC:
     return new LastValFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
   case TK_MAX_FUNC:
@@ -196,7 +196,7 @@ ResultField* IResultFilter::AddAggInt64Field(int32_t opFunc, size_t fieldPos)
   case TK_MIN_FUNC:
     return new MinNumFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
   case TK_SUM_FUNC:
-    return new SumNumFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
+    return new SumNumFunc(fieldPos);
   case TK_FIRST_FUNC:
     return new FirstValFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
   }
@@ -211,7 +211,7 @@ ResultField* IResultFilter::AddAggDoubleField(int32_t opFunc, size_t fieldPos)
   case TK_AVG_FUNC:
     return new AvgDoubleFunc(fieldPos);
   case TK_COUNT_FUNC:
-    return new CountFunc();
+    return new CountFunc(fieldPos);
   case TK_LAST_FUNC:
     return new LastValFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(fieldPos);
   case TK_MAX_FUNC:
@@ -231,7 +231,7 @@ ResultField* IResultFilter::AddAggDateTimeField(int32_t opFunc, size_t fieldPos)
   switch (opFunc)
   {
   case TK_COUNT_FUNC:
-    return new CountFunc();
+    return new CountFunc(fieldPos);
   case TK_LAST_FUNC:
     return new LastValFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
   case TK_MAX_FUNC:
@@ -249,7 +249,7 @@ ResultField* IResultFilter::AddAggStringField(int32_t opFunc, size_t fieldPos, A
   switch (opFunc)
   {
   case TK_COUNT_FUNC:
-    return new CountFunc();
+    return new CountFunc(fieldPos);
   case TK_LAST_FUNC:
     return new LastBlockFunc<PDB_FIELD_TYPE::TYPE_STRING>(fieldPos, pArena);
   case TK_FIRST_FUNC:
@@ -263,7 +263,7 @@ ResultField* IResultFilter::AddAggBlobField(int32_t opFunc, size_t fieldPos, Are
   switch (opFunc)
   {
   case TK_COUNT_FUNC:
-    return new CountFunc();
+    return new CountFunc(fieldPos);
   case TK_LAST_FUNC:
     return new LastBlockFunc<PDB_FIELD_TYPE::TYPE_BLOB>(fieldPos, pArena);
   case TK_FIRST_FUNC:
@@ -388,7 +388,7 @@ PdbErr_t IResultFilter::BuildGroupResultField(const std::vector<ExprItem*>& colI
 
       if (fieldName.compare("*") == 0 && (*colItem)->GetOp() == TK_COUNT_FUNC)
       {
-        retVal = AddCountField(aliasName);
+        retVal = AddCountField(aliasName, 0);
         if (retVal != PdbE_OK)
           return retVal;
       }

@@ -20,7 +20,6 @@
 #include "query/result_field.h"
 #include "query/result_field.h"
 
-template<int ValType>
 class SumNumFunc : public ResultField
 {
 public:
@@ -37,17 +36,10 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    if (!DBVAL_ELE_IS_TYPE(pVals, fieldPos_, ValType))
-      return PdbE_INVALID_PARAM;
-
-    haveVal_ = true;
-    switch (ValType)
+    if (!DBVAL_ELE_IS_NULL(pVals, fieldPos_))
     {
-    case PDB_VALUE_TYPE::VAL_INT64:
+      haveVal_ = true;
       sumVal_ += DBVAL_ELE_GET_INT64(pVals, fieldPos_);
-      break;
-    default:
-      return PdbE_INVALID_PARAM;
     }
 
     return PdbE_OK;
@@ -65,7 +57,7 @@ public:
 
   virtual ResultField* NewField(int64_t devId, int64_t tstamp)
   {
-    return new SumNumFunc<ValType>(fieldPos_);
+    return new SumNumFunc(fieldPos_);
   }
 
 private:
@@ -94,8 +86,11 @@ public:
     if (!DBVAL_ELE_IS_DOUBLE(pVals, fieldPos_))
       return PdbE_INVALID_PARAM;
 
-    haveVal_ = true;
-    sumVal_ += DBVAL_ELE_GET_DOUBLE(pVals, fieldPos_);
+    if (!DBVAL_ELE_IS_NULL(pVals, fieldPos_))
+    {
+      haveVal_ = true;
+      sumVal_ += DBVAL_ELE_GET_DOUBLE(pVals, fieldPos_);
+    }
 
     return PdbE_OK;
   }

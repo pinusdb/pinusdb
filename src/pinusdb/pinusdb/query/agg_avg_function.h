@@ -35,6 +35,9 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
+    if (DBVAL_ELE_IS_NULL(pVals, fieldPos_))
+      return PdbE_OK;
+
     if (!DBVAL_ELE_IS_INT64(pVals, fieldPos_))
       return PdbE_INVALID_PARAM;
 
@@ -83,6 +86,9 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
+    if (DBVAL_ELE_IS_NULL(pVals, fieldPos_))
+      return PdbE_OK;
+
     if (!DBVAL_ELE_IS_DOUBLE(pVals, fieldPos_))
       return PdbE_INVALID_PARAM;
 
