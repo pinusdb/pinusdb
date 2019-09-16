@@ -402,7 +402,12 @@ public class PDBConnection implements java.sql.Connection {
 
 	@Override
 	public boolean isValid(int timeout) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		try {
+			socket_.sendUrgentData(0xFF);
+		} catch (IOException e) {
+			return false;
+		}
+		return true;
 	}
 
 	@Override
