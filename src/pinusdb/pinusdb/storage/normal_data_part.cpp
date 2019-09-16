@@ -784,6 +784,67 @@ PdbErr_t NormalDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
 
 }
 
+PdbErr_t NormalDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
+  ISnapshotResultFilter* pResult, uint64_t timeOut, bool* pIsAdd)
+{
+  PdbErr_t retVal = PdbE_OK;
+  NormalPageIdx pageIdx;
+  PageDataIter* pDataIter = (PageDataIter*)pQueryParam;
+  size_t fieldCnt = pDataIter->GetFieldCnt();
+  PageRef pageRef;
+  PageHdr* pPage = nullptr;
+  std::mutex* pDevMutex = pGlbMutexManager->GetDevMutex(devId);
+  std::mutex* pPageMutex = nullptr;
+
+  retVal = normalIdx_.GetIndex(devId, MaxMillis, &pageIdx);
+  if (retVal == PdbE_DEV_NOT_FOUND)
+  {
+    if (pIsAdd != nullptr)
+      *pIsAdd = false;
+
+    return PdbE_OK;
+  }
+
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  pPageMutex = pGlbMutexManager->GetPageMutex(pageIdx.pageNo_);
+  do {
+    std::unique_lock<std::mutex> pageLock(*pPageMutex);
+    retVal = GetPage(pageIdx.pageNo_, &pageRef);
+    if (retVal != PdbE_OK)
+      return retVal;
+  } while (false);
+
+  std::unique_lock<std::mutex> devLock(*pDevMutex);
+  std::unique_lock<std::mutex> pageLock(*pPageMutex);
+  retVal = GetPage(pageIdx.pageNo_, &pageRef);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  pPage = pageRef.GetPageHdr();
+  retVal = pDataIter->Load(pPage);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  retVal = pDataIter->SeekToLast();
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  if (pDataIter->Valid())
+  {
+    DBVal* pVals = pDataIter->GetRecord();
+    retVal = pResult->AppendData(pVals, fieldCnt, nullptr);
+    if (retVal != PdbE_OK)
+      return retVal;
+  }
+
+  if (pIsAdd != nullptr)
+    *pIsAdd = true;
+
+  return PdbE_OK;
+}
+
 PdbErr_t NormalDataPart::DumpToCompPartId(int64_t devId, PageDataIter* pDataIter, CompPartBuilder* pPartBuilder)
 {
   PdbErr_t retVal = PdbE_OK;

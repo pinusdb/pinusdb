@@ -577,7 +577,7 @@ int Tokenize::GetToken(const unsigned char* z, size_t maxLen, int* tokenType, bo
     if ((*z & 0x80) == 0 && !isIdChar[*z]) {
       break;
     }
-    for (i = 1; i < maxLen && ((z[i] & 0x80) != 0 || isIdChar[z[i]]); i++) {}
+    for (i = 1; i < maxLen && ((z[i] & 0x80) != 0 || isIdChar[z[i]] || z[i] == '.'); i++) {}
     *tokenType = GetKeywordType((char*)z, i);
     return i;
   }

@@ -443,6 +443,16 @@ PdbErr_t TableSet::ExecuteQuery(DataTable* pResultTable, SQLParser* pParser, int
   {
     retVal = pTab->Query(pResultTable, pQueryParam);
   }
+  else if (StringTool::EndWithNoCase(pQueryParam->srcTab_, SNAPSHOT_NAME, SNAPSHOT_NAME_LEN))
+  {
+    //查询快照
+    std::string tmpTabName = pQueryParam->srcTab_.substr(0, (pQueryParam->srcTab_.length() - SNAPSHOT_NAME_LEN));
+    pTab = GetTable(tmpTabName.c_str(), &tabRef);
+    if (pTab != nullptr)
+      retVal = pTab->QuerySnapshot(pResultTable, pQueryParam);
+    else
+      retVal = PdbE_TABLE_NOT_FOUND;
+  }
   else
   {
     //是否是系统表

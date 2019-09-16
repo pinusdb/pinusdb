@@ -417,6 +417,17 @@ bool StringTool::StartWithNoCase(const char* pStr, const char* pStartPart)
   return false;
 }
 
+bool StringTool::EndWithNoCase(const std::string& str1, const char* pEndPart, size_t endPartLen)
+{
+  if (pEndPart == nullptr || endPartLen == 0)
+    return false;
+
+  if (str1.length() < endPartLen)
+    return false;
+
+  return StringTool::StartWithNoCase((str1.c_str() + str1.length() - endPartLen), pEndPart);
+}
+
 std::string StringTool::ConvertGbkToUtf8(const std::string& strGbk)
 {
   int len = MultiByteToWideChar(CP_ACP, 0, strGbk.c_str(), -1, NULL, 0);

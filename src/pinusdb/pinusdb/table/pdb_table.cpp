@@ -24,6 +24,7 @@
 #include "query/result_filter_group_devid.h"
 #include "query/result_filter_group_tstamp.h"
 #include "query/result_filter_raw.h"
+#include "query/result_filter_snapshot_raw.h"
 #include "query/tstamp_filter.h"
 #include "query/dev_filter.h"
 #include "util/coding.h"
@@ -587,8 +588,6 @@ PdbErr_t PDBTable::Query(DataTable* pResultTable, const QueryParam* pQueryParam)
   uint64_t timeOutTick = GetTickCount64() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
 
   IResultFilter* pResultFilter = nullptr;
-
-  bool groupAll = false; // 将所有数据放在一个 group by 中
   std::list<int64_t> devIdList;
 
   do {
@@ -727,6 +726,73 @@ PdbErr_t PDBTable::Query(DataTable* pResultTable, const QueryParam* pQueryParam)
 
   if (retVal == PdbE_OK)
     retVal = pResultFilter->GetData(pResultTable);
+
+  if (pResultFilter != nullptr)
+    delete pResultFilter;
+
+  return retVal;
+}
+
+PdbErr_t PDBTable::QuerySnapshot(DataTable* pResultTable, const QueryParam* pQueryParam)
+{
+  PdbErr_t retVal = PdbE_OK;
+  const ExprList* pColList = pQueryParam->pSelList_;
+  const ExprItem* pConditionItem = pQueryParam->pWhere_;
+  uint64_t timeOutTick = GetTickCount64() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+
+  if (pQueryParam->pGroup_ != nullptr)
+    return PdbE_SQL_GROUP_ERROR;
+  if (pQueryParam->pOrderBy_ != nullptr)
+    return PdbE_SQL_ERROR;
+
+  ISnapshotResultFilter* pResultFilter = nullptr;
+  std::list<int64_t> devIdList;
+
+  do {
+    if (pQueryParam->IsQueryRaw())
+    {
+      pResultFilter = new ResultFilterSnapshotRaw();
+    }
+    else
+    {
+      pResultFilter = new ResultFilterGroupAll();
+    }
+
+    retVal = pResultFilter->BuildFilter(pQueryParam, &tabInfo_, pResultTable->GetArena());
+    if (retVal != PdbE_OK)
+      break;
+
+    if (!pResultFilter->IsEmptySet())
+    {
+      TStampFilter tstampFilter;
+      DevFilter devFilter;
+      if (!tstampFilter.BuildFilter(pConditionItem))
+      {
+        retVal = PdbE_SQL_CONDITION_EXPR_ERROR;
+        break;
+      }
+
+      retVal = devFilter.BuildFilter(pConditionItem);
+      if (retVal != PdbE_OK)
+        break;
+
+      retVal = devTable_.QueryDevId(&devFilter, devIdList);
+      if (retVal != PdbE_OK)
+        break;
+
+      if (devIdList.empty())
+        break;
+
+      retVal = QuerySnapshot(devIdList, tstampFilter.GetMinTstamp(),
+        pResultFilter, timeOutTick);
+    }
+  } while (false);
+
+  if (retVal == PdbE_OK)
+  {
+    pResultFilter->CleanUpResult();
+    retVal = pResultFilter->GetData(pResultTable);
+  }
 
   if (pResultFilter != nullptr)
     delete pResultFilter;
@@ -1074,6 +1140,49 @@ PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList,
 
   return PdbE_OK;
 }
+
+PdbErr_t PDBTable::QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstamp,
+  ISnapshotResultFilter* pFilter, uint64_t queryTimeOut)
+{
+  PdbErr_t retVal = PdbE_OK;
+  Arena arena;
+  DataPartRef partRef;
+  int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
+  int maxQueryDay = static_cast<int>(MaxMillis / MillisPerDay);
+  int curDay = maxQueryDay;
+
+  size_t fieldCnt = tabInfo_.GetFieldCnt();
+  int* pTypes = (int*)arena.AllocateAligned(sizeof(int) * fieldCnt);
+  INIT_TYPES(pTypes, fieldCnt);
+
+  GetDataPartEqualOrLess(curDay, true, &partRef);
+  DataPart* pDataPart = partRef.GetDataPart();
+  while (pDataPart != nullptr)
+  {
+    curDay = pDataPart->GetPartCode();
+    if (minQueryDay > curDay)
+      break;
+
+    if (devIdList.empty())
+      break;
+
+    if (pFilter->GetIsFullFlag() && *devIdList.begin() > pFilter->GetResultMaxDevId())
+      break;
+
+    retVal = pDataPart->QuerySnapshot(devIdList, pTypes, fieldCnt, pFilter, queryTimeOut);
+    if (retVal == PdbE_RESLT_FULL)
+      return PdbE_OK;
+
+    if (retVal != PdbE_OK)
+      return retVal;
+
+    GetDataPartEqualOrLess(curDay, false, &partRef);
+    pDataPart = partRef.GetDataPart();
+  }
+
+  return PdbE_OK;
+}
+
 
 void PDBTable::GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, DataPartRef* pPartRef)
 {

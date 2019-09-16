@@ -22,6 +22,7 @@
 ResultObject::ResultObject(const std::vector<ResultField*>& fieldVec,
   int64_t devId, int64_t tstamp)
 {
+  devId_ = 0;
   for (auto fieldIter = fieldVec.begin(); fieldIter != fieldVec.end(); fieldIter++)
   {
     fieldVec_.push_back((*fieldIter)->NewField(devId, tstamp));
@@ -39,7 +40,7 @@ ResultObject::~ResultObject()
 PdbErr_t ResultObject::AppendData(const DBVal* pVals, size_t valCnt)
 {
   PdbErr_t retVal = PdbE_OK;
-
+  devId_ = DBVAL_ELE_GET_INT64(pVals, PDB_DEVID_INDEX);
   for (auto fieldIt = fieldVec_.begin(); fieldIt != fieldVec_.end(); fieldIt++)
   {
     retVal = (*fieldIt)->AppendData(pVals, valCnt);

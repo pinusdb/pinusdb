@@ -193,7 +193,9 @@
     <ClInclude Include="query\result_filter_group_devid.h" />
     <ClInclude Include="query\result_filter_group_tstamp.h" />
     <ClInclude Include="query\result_filter_raw.h" />
+    <ClInclude Include="query\result_filter_snapshot_raw.h" />
     <ClInclude Include="query\result_object.h" />
+    <ClInclude Include="query\snapshot_result_filter.h" />
     <ClInclude Include="query\tstamp_filter.h" />
     <ClInclude Include="server\event_handle.h" />
     <ClInclude Include="server\iocp_event.h" />
@@ -261,6 +263,7 @@
     <ClCompile Include="query\result_filter_group_devid.cpp" />
     <ClCompile Include="query\result_filter_group_tstamp.cpp" />
     <ClCompile Include="query\result_filter_raw.cpp" />
+    <ClCompile Include="query\result_filter_snapshot_raw.cpp" />
     <ClCompile Include="query\result_object.cpp" />
     <ClCompile Include="query\tstamp_filter.cpp" />
     <ClCompile Include="server\event_handle.cpp" />

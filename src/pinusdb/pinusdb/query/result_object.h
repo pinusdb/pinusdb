@@ -32,11 +32,12 @@ public:
     int64_t devId, int64_t tstamp);
   virtual ~ResultObject();
 
+  int64_t GetDevId() const { return devId_; }
   PdbErr_t AppendData(const DBVal* pVals, size_t valCnt);
-
   PdbErr_t GetResultObj(DBObj* pObj) const;
 
 private:
+  int64_t devId_;
   std::vector<ResultField*> fieldVec_;
 };
 

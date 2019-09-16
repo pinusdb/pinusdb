@@ -17,9 +17,9 @@
 #pragma once
 
 #include "pdb.h"
-#include "query/result_filter.h"
+#include "query/snapshot_result_filter.h"
 
-class ResultFilterGroupAll : public IResultFilter
+class ResultFilterGroupAll : public ISnapshotResultFilter
 {
 public:
   ResultFilterGroupAll();

@@ -71,6 +71,8 @@
 #define NORMAL_DATA_FILE_EXTEND              ".dat"       // 通用数据文件扩展名
 #define COMPRESS_DATA_FILE_EXTEND            ".cdat"      //
 
+#define SNAPSHOT_NAME                 ".snapshot"
+#define SNAPSHOT_NAME_LEN             (sizeof(SNAPSHOT_NAME) - 1)
 
 #define PDB_USER_ROLE_READONLY_STR    "readOnly"
 #define PDB_USER_ROLE_WRITEONLY_STR   "writeOnly"

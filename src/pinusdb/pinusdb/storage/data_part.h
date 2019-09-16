@@ -20,6 +20,7 @@
 #include "util/arena.h"
 #include "util/ker_list.h"
 #include "query/result_filter.h"
+#include "query/snapshot_result_filter.h"
 #include "storage/normal_part_idx.h"
 #include "storage/normal_data_page.h"
 #include "util/ref_util.h"
@@ -63,6 +64,8 @@ public:
     int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut);
   PdbErr_t QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
     int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut);
+  PdbErr_t QuerySnapshot(std::list<int64_t>& devIdList, 
+    int* pTypes, size_t fieldCnt, ISnapshotResultFilter* pResult, uint64_t timeOut);
 
   virtual PdbErr_t UnMap() { return PdbE_OK; }
 
@@ -86,6 +89,8 @@ protected:
     IResultFilter* pResult, uint64_t timeOut, bool queryFirst, bool* pIsAdd) = 0;
   virtual PdbErr_t QueryDevDesc(int64_t devId, void* pQueryParam,
     IResultFilter* pResult, uint64_t timeOut, bool queryLast, bool* pIsAdd) = 0;
+  virtual PdbErr_t QueryDevSnapshot(int64_t devId, void* pQueryParam,
+    ISnapshotResultFilter* pResult, uint64_t timeOut, bool* pIsAdd) = 0;
 
   virtual void* InitQueryParam(int* pTypes, size_t valCnt, int64_t bgTs, int64_t edTs) = 0;
   virtual void ClearQueryParam(void* pQueryParam) = 0;

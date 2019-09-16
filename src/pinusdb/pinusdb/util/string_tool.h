@@ -36,6 +36,7 @@ public:
 
   static bool StartWith(const char* pStr, const char* pStartPart);
   static bool StartWithNoCase(const char* pStr, const char* pStartPart);
+  static bool EndWithNoCase(const std::string& str1, const char* pEndPart, size_t endPartLen);
 
   static std::string ConvertGbkToUtf8(const std::string& strGbk);
 

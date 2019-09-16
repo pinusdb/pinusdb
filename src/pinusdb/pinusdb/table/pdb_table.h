@@ -47,6 +47,7 @@ public:
   PdbErr_t Insert(IInsertObj* pInsertObj, bool errBreak, std::list<PdbErr_t>& resultList);
   PdbErr_t InsertByDataLog(int64_t devId, int64_t tstamp, const uint8_t* pRecBg, size_t recLen);
   PdbErr_t Query(DataTable* pResultTable, const QueryParam* pQueryParam);
+  PdbErr_t QuerySnapshot(DataTable* pResultTable, const QueryParam* pQueryParam);
 
   size_t GetDevCnt() const { return devTable_.GetDevCnt(); }
   PdbErr_t AddDev(int64_t devId, PdbStr devName, PdbStr expand);
@@ -76,6 +77,8 @@ private:
     int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut);
   PdbErr_t QueryDesc(std::list<int64_t>& devIdList, int64_t minTstamp, 
     int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut);
+  PdbErr_t QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstamp,
+    ISnapshotResultFilter* pFilter, uint64_t queryTimeOut);
 
 private:
   void GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, DataPartRef* pPartRef);

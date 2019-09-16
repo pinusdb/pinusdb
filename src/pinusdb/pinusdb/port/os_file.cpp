@@ -36,7 +36,7 @@ PdbErr_t OSFile::Open(const char* pPath, bool readOnly, bool create, bool noBuf)
 
   DWORD accessFlag = readOnly ? GENERIC_READ : (GENERIC_READ | GENERIC_WRITE);
   DWORD createFlag = create ? CREATE_ALWAYS : OPEN_EXISTING;
-  DWORD dwFlag = noBuf ? FILE_FLAG_NO_BUFFERING : FILE_ATTRIBUTE_NORMAL;
+  DWORD dwFlag = noBuf ? (FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH): FILE_ATTRIBUTE_NORMAL;
 
   handle_ = CreateFile(pPath,
     accessFlag,

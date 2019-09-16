@@ -244,6 +244,62 @@ PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
   return PdbE_OK;
 }
 
+PdbErr_t CompDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
+  ISnapshotResultFilter* pResult, uint64_t timeOut, bool* pIsAdd)
+{
+  PdbErr_t retVal = PdbE_OK;
+  CompDevId compDevId;
+  CompDataIter* pHisIter = (CompDataIter*)pQueryParam;
+  int64_t bgTs = pHisIter->GetBgTs();
+  int64_t edTs = pHisIter->GetEdTs();
+  size_t fieldCnt = pHisIter->GetFieldCnt();
+  size_t rawLen = 0;
+
+  if (pData_ == nullptr)
+  {
+    retVal = InitMemMap();
+    if (retVal != PdbE_OK)
+      return retVal;
+  }
+
+  lastQueryTime_ = GetTickCount64();
+
+  retVal = GetIdx(devId, MaxMillis, &compDevId, nullptr);
+  if (retVal == PdbE_DEV_NOT_FOUND)
+  {
+    if (pIsAdd != nullptr)
+      *pIsAdd = false;
+
+    return PdbE_OK;
+  }
+
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  const CompBlkIdx* pBlkIdx = (const CompBlkIdx*)(pData_ + compDevId.bgPos_);
+  int32_t blkPos = compDevId.blkIdxCnt_ - 1;
+  retVal = pHisIter->Load((pData_ + pBlkIdx[blkPos].blkPos_), pBlkIdx[blkPos].blkLen_);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  retVal = pHisIter->SeekToLast();
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  if (pHisIter->Valid())
+  {
+    DBVal* pVals = pHisIter->GetRecord();
+    retVal = pResult->AppendData(pVals, fieldCnt, nullptr);
+    if (retVal != PdbE_OK)
+      return retVal;
+  }
+
+  if (pIsAdd != nullptr)
+    *pIsAdd = true;
+
+  return PdbE_OK;
+}
+
 PdbErr_t CompDataPart::InitMemMap()
 {
   PdbErr_t retVal = PdbE_OK;

@@ -300,6 +300,12 @@
     <ClInclude Include="util\string_tool.h">
       <Filter>util</Filter>
     </ClInclude>
+    <ClInclude Include="query\result_filter_snapshot_raw.h">
+      <Filter>query</Filter>
+    </ClInclude>
+    <ClInclude Include="query\snapshot_result_filter.h">
+      <Filter>query</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="commitlog\commit_log_file.cpp">
@@ -469,6 +475,9 @@
     </ClCompile>
     <ClCompile Include="util\string_tool.cpp">
       <Filter>util</Filter>
+    </ClCompile>
+    <ClCompile Include="query\result_filter_snapshot_raw.cpp">
+      <Filter>query</Filter>
     </ClCompile>
   </ItemGroup>
 </Project>

@@ -40,6 +40,8 @@ protected:
     IResultFilter* pResult, uint64_t timeOut, bool queryFirst, bool* pIsAdd);
   virtual PdbErr_t QueryDevDesc(int64_t devId, void* pQueryParam,
     IResultFilter* pResult, uint64_t timeOut, bool queryLast, bool* pIsAdd);
+  virtual PdbErr_t QueryDevSnapshot(int64_t devId, void* pQueryParam,
+    ISnapshotResultFilter* pResult, uint64_t timeOut, bool* pIsAdd);
 
   PdbErr_t InitMemMap();
 

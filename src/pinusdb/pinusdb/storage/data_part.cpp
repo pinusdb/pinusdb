@@ -136,3 +136,39 @@ PdbErr_t DataPart::QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_
   return retVal;
 }
 
+PdbErr_t DataPart::QuerySnapshot(std::list<int64_t>& devIdList,
+  int* pTypes, size_t fieldCnt, ISnapshotResultFilter* pResult, uint64_t timeOut)
+{
+  PdbErr_t retVal = PdbE_OK;
+  bool isAdd = false;
+
+  void* pQueryParam = InitQueryParam(pTypes, fieldCnt, MinMillis, MaxMillis);
+  if (pQueryParam == nullptr)
+    return PdbE_NOMEM;
+
+  for (auto devIt = devIdList.begin(); devIt != devIdList.end();)
+  {
+    if (pResult->GetIsFullFlag())
+    {
+      if (*devIt > pResult->GetResultMaxDevId())
+        break;
+    }
+
+    isAdd = false;
+    retVal = QueryDevSnapshot(*devIt, pQueryParam, pResult, timeOut, &isAdd);
+    if (retVal != PdbE_OK)
+      break;
+
+    if (isAdd)
+    {
+      devIt = devIdList.erase(devIt);
+    }
+    else
+    {
+      devIt++;
+    }
+  }
+
+  ClearQueryParam(pQueryParam);
+  return retVal;
+}
