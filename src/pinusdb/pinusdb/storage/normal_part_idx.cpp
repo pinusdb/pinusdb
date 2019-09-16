@@ -284,6 +284,7 @@ PdbErr_t NormalPartIdx::WriteIdx(const std::vector<NormalPageIdx>& idxVec)
   if (retVal != PdbE_OK)
     return retVal;
 
+  idxFile_.Sync();
   curPos_ += idxBufLen;
 
   return retVal;
