@@ -81,7 +81,12 @@ namespace PDB.DotNetSDK
       sock.SendBufferSize = (256 * 1024);
       sock.ReceiveBufferSize = (64 * 1024);
       sock.NoDelay = true;
-      sock.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+
+      byte[] aliveOption = new byte[12];
+      BitConverter.GetBytes(1).CopyTo(aliveOption, 0);      // 开启 keepalive
+      BitConverter.GetBytes(300000).CopyTo(aliveOption, 4); // 经过 300000毫秒（5分钟）开始侦测
+      BitConverter.GetBytes(5000).CopyTo(aliveOption, 8);   // 5000毫秒（5秒）侦测一次
+      sock.Client.IOControl(IOControlCode.KeepAliveValues, aliveOption, null);
 
       try
       {
@@ -105,6 +110,24 @@ namespace PDB.DotNetSDK
         sock.Close();
       }
       sock = null;
+    }
+
+    /// <summary>
+    /// 连接状态
+    /// </summary>
+    /// <returns></returns>
+    public bool IsValid()
+    {
+      try
+      {
+        Request(new byte[0]);
+      }
+      catch
+      {
+        return false;
+      }
+
+      return true;
     }
 
     internal void Request(byte[] buf)
