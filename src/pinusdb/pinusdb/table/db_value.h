@@ -76,6 +76,13 @@ do { \
   (pVal)->val_.doubleVal_ = val; \
 } while(false)
 
+#define DBVAL_SET_DOUBLE_FOR_UINT64(pVal, val)  \
+do { \
+  (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_DOUBLE; \
+  (pVal)->dataLen_ = 8; \
+  (pVal)->val_.u64Val_ = val; \
+} while(false)
+
 #define DBVAL_SET_STRING(pVal, pStr, len) \
 do { \
   (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_STRING; \
@@ -91,6 +98,13 @@ do { \
 } while(false)
 
 ///////////////////////////////////////////////////////////
+
+#define DBVAL_ELE_SET_NULL(pVal, idx)      \
+do { \
+  (pVal)[idx].dataType_ = PDB_VALUE_TYPE::VAL_NULL; \
+  (pVal)[idx].dataLen_ = 0; \
+  (pVal)[idx].val_.int64Val_ = 0; \
+} while(false)
 
 #define DBVAL_ELE_SET_BOOL(pVal, idx, val)   \
 do { \

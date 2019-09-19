@@ -17,14 +17,14 @@
 #include "storage/data_part.h"
 
 PdbErr_t DataPart::QueryAsc(const std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-  int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut)
+  const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
 
   if (bgTs >= edDayTs_ || edTs < bgDayTs_)
     return PdbE_OK;
 
-  void* pQueryParam = InitQueryParam(pTypes, fieldCnt, bgTs, edTs);
+  void* pQueryParam = InitQueryParam(pTabInfo, bgTs, edTs);
   if (pQueryParam == nullptr)
     return PdbE_NOMEM;
 
@@ -43,14 +43,14 @@ PdbErr_t DataPart::QueryAsc(const std::list<int64_t>& devIdList, int64_t bgTs, i
 }
 
 PdbErr_t DataPart::QueryDesc(const std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-  int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut)
+  const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
 
   if (bgTs >= edDayTs_ || edTs < bgDayTs_)
     return PdbE_OK;
 
-  void* pQueryParam = InitQueryParam(pTypes, fieldCnt, bgTs, edTs);
+  void* pQueryParam = InitQueryParam(pTabInfo, bgTs, edTs);
   if (pQueryParam == nullptr)
     return PdbE_NOMEM;
 
@@ -69,7 +69,7 @@ PdbErr_t DataPart::QueryDesc(const std::list<int64_t>& devIdList, int64_t bgTs, 
 }
 
 PdbErr_t DataPart::QueryFirst(std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-  int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut)
+  const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
   bool isAdd = false;
@@ -77,7 +77,7 @@ PdbErr_t DataPart::QueryFirst(std::list<int64_t>& devIdList, int64_t bgTs, int64
   if (bgTs >= edDayTs_ || edTs < bgDayTs_)
     return PdbE_OK;
 
-  void* pQueryParam = InitQueryParam(pTypes, fieldCnt, bgTs, edTs);
+  void* pQueryParam = InitQueryParam(pTabInfo, bgTs, edTs);
   if (pQueryParam == nullptr)
     return PdbE_NOMEM;
 
@@ -103,7 +103,7 @@ PdbErr_t DataPart::QueryFirst(std::list<int64_t>& devIdList, int64_t bgTs, int64
 }
 
 PdbErr_t DataPart::QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-  int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut)
+  const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
   bool isAdd = false;
@@ -111,7 +111,7 @@ PdbErr_t DataPart::QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_
   if (bgTs >= edDayTs_ || edTs < bgDayTs_)
     return PdbE_OK;
 
-  void* pQueryParam = InitQueryParam(pTypes, fieldCnt, bgTs, edTs);
+  void* pQueryParam = InitQueryParam(pTabInfo, bgTs, edTs);
   if (pQueryParam == nullptr)
     return PdbE_NOMEM;
 
@@ -137,12 +137,12 @@ PdbErr_t DataPart::QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_
 }
 
 PdbErr_t DataPart::QuerySnapshot(std::list<int64_t>& devIdList,
-  int* pTypes, size_t fieldCnt, ISnapshotResultFilter* pResult, uint64_t timeOut)
+  const TableInfo* pTabInfo, ISnapshotResultFilter* pResult, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
   bool isAdd = false;
 
-  void* pQueryParam = InitQueryParam(pTypes, fieldCnt, MinMillis, MaxMillis);
+  void* pQueryParam = InitQueryParam(pTabInfo, MinMillis, MaxMillis);
   if (pQueryParam == nullptr)
     return PdbE_NOMEM;
 

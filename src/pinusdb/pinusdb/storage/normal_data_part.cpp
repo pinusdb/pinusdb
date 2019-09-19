@@ -38,6 +38,7 @@ bool DataPageComp(const PageHdr* pA, const PageHdr* pB)
 
 NormalDataPart::NormalDataPart()
 {
+  partMetaCode_ = 0;
   readOnly_ = false;
   pageCodeMask_ = 0;
   nextPageNo_ = 1;
@@ -111,7 +112,7 @@ PdbErr_t NormalDataPart::Create(const char* pIdxPath, const char* pDataPath,
 }
 
 PdbErr_t NormalDataPart::Open(uint8_t tabCode, int32_t partCode,
-  const TableInfo* pTabInfo, const char* pIdxPath, const char* pDataPath)
+  const char* pIdxPath, const char* pDataPath)
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
@@ -138,14 +139,7 @@ PdbErr_t NormalDataPart::Open(uint8_t tabCode, int32_t partCode,
     return PdbE_PAGE_ERROR;
   }
 
-  //判断数据文件表结构是否和指定的表结构一致
-  if (pDataMeta->fieldCnt_ != pTabInfo->GetFieldCnt())
-  {
-    LOG_ERROR("failed to open data file ({}), field list mismatch", pDataPath);
-    return PdbE_PAGE_ERROR;
-  }
-
-  int fieldType = 0;
+  uint64_t metaCode64 = 0;
   FieldInfo finfo;
   for (size_t i = 0; i < pDataMeta->fieldCnt_; i++)
   {
@@ -157,21 +151,13 @@ PdbErr_t NormalDataPart::Open(uint8_t tabCode, int32_t partCode,
       return retVal;
     }
 
-    pTabInfo->GetFieldInfo(i, &fieldType);
-    if (finfo.GetFieldType() != fieldType)
-    {
-      LOG_ERROR("failed to open data file ({}), field list mismatch", pDataPath);
-      return PdbE_PAGE_ERROR;
-    }
-
-    if (!StringTool::ComparyNoCase(finfo.GetFieldName(), pTabInfo->GetFieldName(i)))
-    {
-      LOG_ERROR("failed to open data file ({}), field list mismatch", pDataPath);
-      return PdbE_PAGE_ERROR;
-    }
-
     fieldVec_.push_back(finfo);
+
+    metaCode64 = StringTool::CRC64NoCase(pDataMeta->fieldRec_[i].fieldName_,
+      strlen(pDataMeta->fieldRec_[i].fieldName_), 0, metaCode64);
+    metaCode64 = StringTool::CRC64(&(pDataMeta->fieldRec_[i].fieldType_), sizeof(int), 0, metaCode64);
   }
+  partMetaCode_ = CRC64_TO_CRC32(metaCode64);
 
   retVal = normalIdx_.Open(pIdxPath, false);
   if (retVal != PdbE_OK)
@@ -252,12 +238,15 @@ PdbErr_t NormalDataPart::RecoverDW(const char* pPageBuf)
   return PdbE_OK;
 }
 
-PdbErr_t NormalDataPart::InsertRec(int64_t devId, int64_t tstamp,
+PdbErr_t NormalDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp,
   bool replace, const uint8_t* pRec, size_t recLen)
 {
   PdbErr_t retVal = PdbE_OK;
   if (readOnly_)
     return PdbE_FILE_READONLY;
+
+  if (metaCode != partMetaCode_)
+    return PdbE_TABLE_FIELD_MISMATCH;
 
   std::mutex* pDevMutex = pGlbMutexManager->GetDevMutex(devId);
   NormalPageIdx pageIdx;
@@ -1057,13 +1046,41 @@ PdbErr_t NormalDataPart::WritePages(const std::vector<PageHdr*>& hdrVec, OSFile*
   return PdbE_OK;
 }
 
-void* NormalDataPart::InitQueryParam(int* pTypes, size_t fieldCnt, int64_t bgTs, int64_t edTs)
+void* NormalDataPart::InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, int64_t edTs)
 {
+  PdbErr_t retVal = PdbE_OK;
+  int32_t queryType = 0;
+  size_t queryPos = 0;
+  std::vector<int> fieldPosVec;
+  fieldPosVec.resize(fieldVec_.size());
   PageDataIter* pDataIter = new (std::nothrow) PageDataIter();
   if (pDataIter == nullptr)
     return nullptr;
 
-  if (pDataIter->Init(pTypes, fieldCnt, bgTs, edTs) != PdbE_OK)
+  for (size_t idx = 0; idx < fieldPosVec.size(); idx++)
+  {
+    fieldPosVec[idx] = -1;
+  }
+
+  for (size_t idx = 0; idx < fieldVec_.size(); idx++)
+  {
+    retVal = pQueryInfo->GetFieldInfo(fieldVec_[idx].GetFieldNameCrc(), &queryPos, &queryType);
+    if (retVal == PdbE_OK)
+    {
+      int32_t tmpType = fieldVec_[idx].GetFieldType();
+      if (PDB_TYPE_IS_REAL(tmpType))
+        tmpType = PDB_FIELD_TYPE::TYPE_DOUBLE;
+      
+      if (PDB_TYPE_IS_REAL(queryType))
+        queryType = PDB_FIELD_TYPE::TYPE_DOUBLE;
+
+      if (tmpType == queryType)
+        fieldPosVec[idx] = static_cast<int>(queryPos);
+    }
+  }
+
+  retVal = pDataIter->Init(fieldVec_, fieldPosVec.data(), pQueryInfo->GetFieldCnt(), bgTs, edTs);
+  if (retVal != PdbE_OK)
   {
     delete pDataIter;
     return nullptr;
@@ -1082,7 +1099,8 @@ NormalDataPart::PageDataIter::PageDataIter()
 {
   fieldCnt_ = 0;
   pTypes_ = nullptr;
-  pVals_ = nullptr;
+  pFieldPos_ = nullptr;
+  pQueryVals_ = nullptr;
   bgTs_ = 0;
   edTs_ = 0;
   pHdr_ = nullptr;
@@ -1094,16 +1112,28 @@ NormalDataPart::PageDataIter::~PageDataIter()
 {
 }
 
-PdbErr_t NormalDataPart::PageDataIter::Init(int* pTypes, size_t fieldCnt, int64_t bgTs, int64_t edTs)
+PdbErr_t NormalDataPart::PageDataIter::Init(const std::vector<FieldInfo>& fieldVec,
+  int* pFieldPos, size_t queryFieldCnt, int64_t bgTs, int64_t edTs)
 {
-  fieldCnt_ = fieldCnt;
+  fieldCnt_ = fieldVec.size();
   pTypes_ = (int*)arena_.AllocateAligned((sizeof(int) * fieldCnt_));
-  pVals_ = (DBVal*)arena_.AllocateAligned((sizeof(DBVal) * fieldCnt_));
+  pFieldPos_ = (int*)arena_.AllocateAligned((sizeof(int) * fieldCnt_));
+  pQueryVals_ = (DBVal*)arena_.AllocateAligned((sizeof(DBVal) * queryFieldCnt));
 
-  if (pTypes_ == nullptr || pVals_ == nullptr)
+  if (pTypes_ == nullptr || pFieldPos_ == nullptr || pQueryVals_ == nullptr)
     return PdbE_NOMEM;
 
-  memcpy(pTypes_, pTypes, (sizeof(int) * fieldCnt));
+  for (size_t idx = 0; idx < queryFieldCnt; idx++)
+  {
+    DBVAL_ELE_SET_NULL(pQueryVals_, idx);
+  }
+
+  for (size_t idx = 0; idx < fieldCnt_; idx++)
+  {
+    pTypes_[idx] = fieldVec[idx].GetFieldType();
+    pFieldPos_[idx] = pFieldPos[idx];
+  }
+
   bgTs_ = bgTs;
   edTs_ = edTs;
   pHdr_ = nullptr;
@@ -1113,25 +1143,26 @@ PdbErr_t NormalDataPart::PageDataIter::Init(int* pTypes, size_t fieldCnt, int64_
   return PdbE_OK;
 }
 
-PdbErr_t NormalDataPart::PageDataIter::InitForDump(const std::vector<FieldInfo>& fieldVec_)
+PdbErr_t NormalDataPart::PageDataIter::InitForDump(const std::vector<FieldInfo>& fieldVec)
 {
-  fieldCnt_ = fieldVec_.size();
+  fieldCnt_ = fieldVec.size();
   pTypes_ = (int*)arena_.AllocateAligned((sizeof(int) * fieldCnt_));
-  pVals_ = (DBVal*)arena_.AllocateAligned((sizeof(DBVal) * fieldCnt_));
+  pFieldPos_ = (int*)arena_.AllocateAligned((sizeof(int) * fieldCnt_));
+  pQueryVals_ = (DBVal*)arena_.AllocateAligned((sizeof(DBVal) * fieldCnt_));
 
-  if (pTypes_ == nullptr || pVals_ == nullptr)
+  if (pTypes_ == nullptr || pFieldPos_ == nullptr || pQueryVals_ == nullptr)
     return PdbE_NOMEM;
 
   for (size_t idx = 0; idx < fieldCnt_; idx++)
   {
-    pTypes_[idx] = fieldVec_[idx].GetFieldType();
-    if (pTypes_[idx] == PDB_FIELD_TYPE::TYPE_REAL2
-      || pTypes_[idx] == PDB_FIELD_TYPE::TYPE_REAL3
-      || pTypes_[idx] == PDB_FIELD_TYPE::TYPE_REAL4
-      || pTypes_[idx] == PDB_FIELD_TYPE::TYPE_REAL6)
+    DBVAL_ELE_SET_NULL(pQueryVals_, idx);
+    pTypes_[idx] = fieldVec[idx].GetFieldType();
+    if (PDB_TYPE_IS_REAL(pTypes_[idx]))
     {
       pTypes_[idx] = PDB_FIELD_TYPE::TYPE_INT64;
     }
+
+    pFieldPos_[idx] = static_cast<int>(idx);
   }
 
   bgTs_ = MinMillis;
@@ -1224,6 +1255,7 @@ DBVal* NormalDataPart::PageDataIter::GetRecord()
   const PdbByte* pRecBg = nullptr;
   const PdbByte* pRecLimit = nullptr;
   const PdbByte* pRecVal = nullptr;
+  DBVal tmpVal;
   int64_t tstamp = 0;
   uint64_t u64val = 0;
   double realVal = 0;
@@ -1240,61 +1272,66 @@ DBVal* NormalDataPart::PageDataIter::GetRecord()
   pRecVal = Coding::VarintDecode64(pRecVal, pRecLimit, &u64val);
   tstamp = u64val;
 
-  DBVAL_ELE_SET_INT64(pVals_, PDB_DEVID_INDEX, devId_);
-  DBVAL_ELE_SET_DATETIME(pVals_, PDB_TSTAMP_INDEX, tstamp);
+  DBVAL_ELE_SET_INT64(pQueryVals_, PDB_DEVID_INDEX, devId_);
+  DBVAL_ELE_SET_DATETIME(pQueryVals_, PDB_TSTAMP_INDEX, tstamp);
   for (size_t idx = (PDB_TSTAMP_INDEX + 1); idx < fieldCnt_; idx++)
   {
     switch (pTypes_[idx])
     {
     case PDB_FIELD_TYPE::TYPE_BOOL:
-      DBVAL_ELE_SET_BOOL(pVals_, idx, (*pRecVal == PDB_BOOL_TRUE));
+      DBVAL_SET_BOOL(&tmpVal, (*pRecVal == PDB_BOOL_TRUE));
       pRecVal++;
       break;
     case PDB_FIELD_TYPE::TYPE_INT64:
       pRecVal = Coding::VarintDecode64(pRecVal, pRecLimit, &u64val);
-      DBVAL_ELE_SET_INT64(pVals_, idx, Coding::ZigzagDecode64(u64val));
+      DBVAL_SET_INT64(&tmpVal, Coding::ZigzagDecode64(u64val));
       break;
     case PDB_FIELD_TYPE::TYPE_DATETIME:
       pRecVal = Coding::VarintDecode64(pRecVal, pRecLimit, &u64val);
-      DBVAL_ELE_SET_DATETIME(pVals_, idx, u64val);
+      DBVAL_SET_DATETIME(&tmpVal, u64val);
       break;
     case PDB_FIELD_TYPE::TYPE_DOUBLE:
       u64val = Coding::FixedDecode64(pRecVal);
-      DBVAL_ELE_SET_DOUBLE_FOR_UINT64(pVals_, idx, u64val);
+      DBVAL_SET_DOUBLE_FOR_UINT64(&tmpVal, u64val);
       pRecVal += 8;
       break;
     case PDB_FIELD_TYPE::TYPE_STRING:
       pRecVal = Coding::VarintDecode32(pRecVal, pRecLimit, &valLen);
-      DBVAL_ELE_SET_STRING(pVals_, idx, pRecVal, valLen);
+      DBVAL_SET_STRING(&tmpVal, pRecVal, valLen);
       pRecVal += valLen;
       break;
     case PDB_FIELD_TYPE::TYPE_BLOB:
       pRecVal = Coding::VarintDecode32(pRecVal, pRecLimit, &valLen);
-      DBVAL_ELE_SET_BLOB(pVals_, idx, pRecVal, valLen);
+      DBVAL_SET_BLOB(&tmpVal, pRecVal, valLen);
       pRecVal += valLen;
       break;
     case PDB_FIELD_TYPE::TYPE_REAL2:
       pRecVal = Coding::VarintDecode64(pRecVal, pRecLimit, &u64val);
       realVal = static_cast<double>(Coding::ZigzagDecode64(u64val));
-      DBVAL_ELE_SET_DOUBLE(pVals_, idx, (realVal / DBVAL_REAL2_MULTIPLE));
+      DBVAL_SET_DOUBLE(&tmpVal, (realVal / DBVAL_REAL2_MULTIPLE));
       break;
     case PDB_FIELD_TYPE::TYPE_REAL3:
       pRecVal = Coding::VarintDecode64(pRecVal, pRecLimit, &u64val);
       realVal = static_cast<double>(Coding::ZigzagDecode64(u64val));
-      DBVAL_ELE_SET_DOUBLE(pVals_, idx, (realVal / DBVAL_REAL3_MULTIPLE));
+      DBVAL_SET_DOUBLE(&tmpVal, (realVal / DBVAL_REAL3_MULTIPLE));
       break;
     case PDB_FIELD_TYPE::TYPE_REAL4:
       pRecVal = Coding::VarintDecode64(pRecVal, pRecLimit, &u64val);
       realVal = static_cast<double>(Coding::ZigzagDecode64(u64val));
-      DBVAL_ELE_SET_DOUBLE(pVals_, idx, (realVal / DBVAL_REAL4_MULTIPLE));
+      DBVAL_SET_DOUBLE(&tmpVal, (realVal / DBVAL_REAL4_MULTIPLE));
       break;
     case PDB_FIELD_TYPE::TYPE_REAL6:
       pRecVal = Coding::VarintDecode64(pRecVal, pRecLimit, &u64val);
       realVal = static_cast<double>(Coding::ZigzagDecode64(u64val));
-      DBVAL_ELE_SET_DOUBLE(pVals_, idx, (realVal / DBVAL_REAL6_MULTIPLE));
+      DBVAL_SET_DOUBLE(&tmpVal, (realVal / DBVAL_REAL6_MULTIPLE));
       break;
+    }
+
+    if (pFieldPos_[idx] > PDB_TSTAMP_INDEX)
+    {
+      pQueryVals_[pFieldPos_[idx]] = tmpVal;
     }
   }
 
-  return pVals_;
+  return pQueryVals_;
 }

@@ -34,7 +34,7 @@ public:
   void SetSyncPos(uint64_t syncPos);
   void SetRepPos(uint64_t repPos);
 
-  PdbErr_t GetRedoData(uint64_t *pTabCrc, uint32_t *pFieldCrc,
+  PdbErr_t GetRedoData(uint64_t *pTabCrc, uint32_t *pMetaCode,
     size_t* pRecCnt, size_t* pDataLen, uint8_t* pBuf);
 
   void Shutdown();

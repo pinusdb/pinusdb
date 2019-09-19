@@ -21,6 +21,7 @@
 
 TableInfo::TableInfo()
 {
+  metaCode64_ = 0;
 }
 
 TableInfo::~TableInfo()
@@ -38,16 +39,17 @@ PdbErr_t TableInfo::ValidTableName(const char* pTabName, size_t nameLen)
   return PdbE_OK;
 }
 
-PdbErr_t TableInfo::SetTableName(const char* pTabName, size_t nameLen)
+PdbErr_t TableInfo::SetTableName(const char* pTabName)
 {
   PdbErr_t retVal = PdbE_OK;
-  retVal = ValidTableName(pTabName, nameLen);
+  retVal = ValidTableName(pTabName, strlen(pTabName));
   if (retVal != PdbE_OK)
     return retVal;
 
-  this->tabName_ = std::string(pTabName, nameLen);
+  this->tabName_ = std::string(pTabName);
   return PdbE_OK;
 }
+
 const char* TableInfo::GetTableName() const
 {
   return this->tabName_.c_str();
@@ -73,24 +75,12 @@ PdbErr_t TableInfo::AddField(const char* pFieldName, int32_t fieldType, bool isK
 
   fieldMap_.insert(std::pair<uint64_t, size_t>(nameCrc, fieldVec_.size()));
   fieldVec_.push_back(finfo);
+
+  metaCode64_ = StringTool::CRC64NoCase(pFieldName, strlen(pFieldName), 0, metaCode64_);
+  metaCode64_ = StringTool::CRC64(&fieldType, sizeof(fieldType), 0, metaCode64_);
   return PdbE_OK;
 }
 
-PdbErr_t TableInfo::ValidInfo() const
-{
-  PdbErr_t retVal = PdbE_OK;
-
-  retVal = ValidTableName(tabName_.c_str(), tabName_.size());
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  if (fieldVec_.size() == 0)
-  {
-    return PdbE_TABLE_FIELD_TOO_LESS;
-  }
-
-  return PdbE_OK;
-}
 
 //一个存储数据的表
 PdbErr_t TableInfo::ValidStorageTable() const
@@ -186,17 +176,7 @@ size_t TableInfo::GetFieldCnt() const
   return fieldVec_.size();
 }
 
-uint32_t TableInfo::GetFieldCrc() const
+uint32_t TableInfo::GetMetaCode() const
 {
-  uint64_t tmpCrc = 0;
-  int32_t fieldType = 0;
-
-  for (auto fieldIt = fieldVec_.begin(); fieldIt != fieldVec_.end(); fieldIt++)
-  {
-    tmpCrc = StringTool::CRC64NoCase(fieldIt->GetFieldName());
-    fieldType = fieldIt->GetFieldType();
-    tmpCrc = StringTool::CRC64(&fieldType, sizeof(fieldType), 0, tmpCrc);
-  }
-
-  return CRC64_TO_CRC32(tmpCrc);
+  return CRC64_TO_CRC32(metaCode64_);
 }

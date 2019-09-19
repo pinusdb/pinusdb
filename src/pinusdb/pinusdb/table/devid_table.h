@@ -38,6 +38,7 @@ public:
 
   PdbErr_t Open(const char* pPath, const char* pTabName, TableInfo* pTabInfo);
   PdbErr_t Close();
+  PdbErr_t Alter(const TableInfo* pTabInfo);
 
   size_t GetDevCnt() const;
   PdbErr_t DevExist(int64_t devId);

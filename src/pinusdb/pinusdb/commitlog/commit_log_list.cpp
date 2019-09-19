@@ -70,7 +70,7 @@ bool CommitLogList::Init(const char* pLogPath, bool enableRep)
   return true;
 }
 
-PdbErr_t CommitLogList::AppendData(uint64_t tabCrc, uint32_t fieldCrc,
+PdbErr_t CommitLogList::AppendData(uint64_t tabCrc, uint32_t metaCode,
   bool isRep, const CommitLogBlock* pLogBlock)
 {
   PdbErr_t retVal = PdbE_OK;
@@ -93,7 +93,7 @@ PdbErr_t CommitLogList::AppendData(uint64_t tabCrc, uint32_t fieldCrc,
   }
 
   logHdr.tabCrc_ = tabCrc;
-  logHdr.fieldCrc_ = fieldCrc;
+  logHdr.metaCode_ = metaCode;
   logHdr.recCnt_ = static_cast<int32_t>(recList.size());
   logHdr.dataLen_ = dataLen;
   logHdr.dataCrc_ = CRC64_TO_CRC32(dataCrc);
@@ -152,13 +152,13 @@ void CommitLogList::SetRepPos(uint64_t repPos)
   AppendSyncInfo();
 }
 
-PdbErr_t CommitLogList::GetRedoData(uint64_t *pTabCrc, uint32_t *pFieldCrc,
+PdbErr_t CommitLogList::GetRedoData(uint64_t *pTabCrc, uint32_t *pMetaCode,
   size_t* pRecCnt, size_t* pDataLen, uint8_t* pBuf)
 {
   PdbErr_t retVal = PdbE_OK;
   LogBlkHdr logHdr;
 
-  if (pTabCrc == nullptr || pFieldCrc == nullptr 
+  if (pTabCrc == nullptr || pMetaCode == nullptr
     || pRecCnt == nullptr || pDataLen == nullptr || pBuf == nullptr)
     return PdbE_INVALID_PARAM;
 
@@ -261,7 +261,7 @@ PdbErr_t CommitLogList::GetRedoData(uint64_t *pTabCrc, uint32_t *pFieldCrc,
       redoPos_ += logHdr.dataLen_;
 
       *pTabCrc = logHdr.tabCrc_;
-      *pFieldCrc = logHdr.fieldCrc_;
+      *pMetaCode = logHdr.metaCode_;
       *pRecCnt = logHdr.recCnt_;
       *pDataLen = logHdr.dataLen_;
       return PdbE_OK;

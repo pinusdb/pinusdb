@@ -68,6 +68,7 @@ protected:
   PdbErr_t _ChangePwd(const ChangePwdParam* pChangePwdParam);
   PdbErr_t _ChangeRole(const ChangeRoleParam* pChangeRoleParam);
   PdbErr_t _DropUser(const DropUserParam* pDropUserParam);
+  PdbErr_t _AlterTable(const CreateTableParam* pCreateTableParam);
 
   PdbErr_t AllocRecvBuf(size_t bufLen);
   void FreeRecvBuf();

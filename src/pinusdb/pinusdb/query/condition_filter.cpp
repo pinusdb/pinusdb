@@ -69,11 +69,6 @@ PdbErr_t ConditionFilter::RunCondition(
   return PdbE_OK;
 }
 
-bool ConditionFilter::IsNullCondition() const
-{
-  return this->conditionVec_.size() == 0;
-}
-
 PdbErr_t ConditionFilter::_BuildCondition(const ExprItem* pExpr, const TableInfo* pTabInfo)
 {
   if (pTabInfo == nullptr)
@@ -132,6 +127,14 @@ PdbErr_t ConditionFilter::_BuildCondition(const ExprItem* pExpr, const TableInfo
         return PdbE_SQL_CONDITION_EXPR_ERROR;
 
       pConditionItem = new EqBoolCondition(fieldPos, (op == TK_ISTRUE));
+    }
+    else if (op == TK_ISNOTNULL)
+    {
+      pConditionItem = new IsNotNullCondition(fieldPos);
+    }
+    else if (op == TK_ISNULL)
+    {
+      pConditionItem = new IsNullCondition(fieldPos);
     }
     else
     {

@@ -38,12 +38,12 @@ public:
   static PdbErr_t Create(const char* pIdxPath, const char* pDataPath,
     const TableInfo* pTabInfo, int32_t partCode);
 
-  PdbErr_t Open(uint8_t tabCode, int32_t partCode, const TableInfo* pTabInfo,
+  PdbErr_t Open(uint8_t tabCode, int32_t partCode,
     const char* pIdxPath, const char* pDataPath);
 
   virtual void Close();
   virtual PdbErr_t RecoverDW(const char* pPageBuf);
-  virtual PdbErr_t InsertRec(int64_t devId, int64_t tstamp,
+  virtual PdbErr_t InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp,
     bool replace, const uint8_t* pRec, size_t recLen);
 
   virtual PdbErr_t DumpToCompPart(const char* pDataPath);
@@ -66,7 +66,7 @@ protected:
   PdbErr_t AllocPage(PageRef* pPageRef);
   PdbErr_t WritePages(const std::vector<PageHdr*>& hdrVec, OSFile* pDwFile);
 
-  virtual void* InitQueryParam(int* pTypes, size_t fieldCnt, int64_t bgTs, int64_t edTs);
+  virtual void* InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, int64_t edTs);
   virtual void ClearQueryParam(void* pQueryParam);
 
   class PageDataIter
@@ -75,8 +75,9 @@ protected:
     PageDataIter();
     ~PageDataIter();
 
-    PdbErr_t Init(int* pTypes, size_t fieldCnt, int64_t bgTs, int64_t edTs);
-    PdbErr_t InitForDump(const std::vector<FieldInfo>& fieldVec_);
+    PdbErr_t Init(const std::vector<FieldInfo>& fieldVec,
+      int* pFieldPos, size_t queryFieldCnt, int64_t bgTs, int64_t edTs);
+    PdbErr_t InitForDump(const std::vector<FieldInfo>& fieldVec);
     PdbErr_t Load(PageHdr* pHdr);
     bool Valid() const;
     PdbErr_t SeekTo(int64_t tstamp);
@@ -94,7 +95,8 @@ protected:
     Arena arena_;
     size_t fieldCnt_;
     int* pTypes_;
-    DBVal* pVals_;
+    int* pFieldPos_;
+    DBVal* pQueryVals_;
     int64_t bgTs_;
     int64_t edTs_;
 
@@ -111,6 +113,7 @@ private:
   std::mutex dirtyMutex_;
   std::list<PageHdr*> dirtyList_;
   std::vector<FieldInfo> fieldVec_;
+  uint32_t partMetaCode_;
   bool readOnly_;
 
   OSFile dataFile_;

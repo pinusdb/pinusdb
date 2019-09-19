@@ -73,38 +73,38 @@ TableSet::TableSet()
     freeCodeList_.push_back(tabCode);
   }
 
-  sysDevInfo_.SetTableName(SYSTAB_SYSDEV_NAME, strlen(SYSTAB_SYSDEV_NAME));
+  sysDevInfo_.SetTableName(SYSTAB_SYSDEV_NAME);
   sysDevInfo_.AddField(SYSCOL_SYSDEV_TABNAME, PDB_FIELD_TYPE::TYPE_STRING, true);
   sysDevInfo_.AddField(SYSCOL_SYSDEV_DEVID, PDB_FIELD_TYPE::TYPE_INT64, true);
   sysDevInfo_.AddField(SYSCOL_SYSDEV_DEVNAME, PDB_FIELD_TYPE::TYPE_STRING);
   sysDevInfo_.AddField(SYSCOL_SYSDEV_EXPAND, PDB_FIELD_TYPE::TYPE_STRING);
 
-  sysUserInfo_.SetTableName(SYSTAB_SYSUSER_NAME, strlen(SYSTAB_SYSUSER_NAME));
+  sysUserInfo_.SetTableName(SYSTAB_SYSUSER_NAME);
   sysUserInfo_.AddField(SYSCOL_SYSUSER_USERNAME, PDB_FIELD_TYPE::TYPE_STRING, true);
   sysUserInfo_.AddField(SYSCOL_SYSUSER_ROLE, PDB_FIELD_TYPE::TYPE_STRING);
 
-  sysTableInfo_.SetTableName(SYSTAB_SYSTABLE_NAME, strlen(SYSTAB_SYSTABLE_NAME));
+  sysTableInfo_.SetTableName(SYSTAB_SYSTABLE_NAME);
   sysTableInfo_.AddField(SYSCOL_SYSTABLE_TABNAME, PDB_FIELD_TYPE::TYPE_STRING, true);
 
-  sysDataFileInfo_.SetTableName(SYSTAB_SYSDATAFILE_NAME, strlen(SYSTAB_SYSDATAFILE_NAME));
+  sysDataFileInfo_.SetTableName(SYSTAB_SYSDATAFILE_NAME);
   sysDataFileInfo_.AddField(SYSCOL_SYSDATAFILE_TABNAME, PDB_FIELD_TYPE::TYPE_STRING, true);
   sysDataFileInfo_.AddField(SYSCOL_SYSDATAFILE_FILEDATE, PDB_FIELD_TYPE::TYPE_STRING, true);
   sysDataFileInfo_.AddField(SYSCOL_SYSDATAFILE_PARTTYPE, PDB_FIELD_TYPE::TYPE_STRING);
 
-  sysColumnInfo_.SetTableName(SYSTAB_SYSCOLUMN_NAME, strlen(SYSTAB_SYSCOLUMN_NAME));
+  sysColumnInfo_.SetTableName(SYSTAB_SYSCOLUMN_NAME);
   sysColumnInfo_.AddField(SYSCOL_SYSCOLUMN_TABNAME, PDB_FIELD_TYPE::TYPE_STRING, true);
   sysColumnInfo_.AddField(SYSCOL_SYSCOLUMN_COLUMNNAME, PDB_FIELD_TYPE::TYPE_STRING, true);
   sysColumnInfo_.AddField(SYSCOL_SYSCOLUMN_DATATYPE, PDB_FIELD_TYPE::TYPE_STRING);
   sysColumnInfo_.AddField(SYSCOL_SYSCOLUMN_ISKEY, PDB_FIELD_TYPE::TYPE_BOOL);
 
-  sysConnInfo_.SetTableName(SYSTAB_CONNECTION_NAME, strlen(SYSTAB_CONNECTION_NAME));
+  sysConnInfo_.SetTableName(SYSTAB_CONNECTION_NAME);
   sysConnInfo_.AddField(SYSCOL_CONNECTION_HOSTNAME, PDB_FIELD_TYPE::TYPE_STRING, true);
   sysConnInfo_.AddField(SYSCOL_CONNECTION_PORTNAME, PDB_FIELD_TYPE::TYPE_INT64, true);
   sysConnInfo_.AddField(SYSCOL_CONNECTION_USERNAME, PDB_FIELD_TYPE::TYPE_STRING);
   sysConnInfo_.AddField(SYSCOL_CONNECTION_ROLENAME, PDB_FIELD_TYPE::TYPE_STRING);
   sysConnInfo_.AddField(SYSCOL_CONNECTION_CONNTIMENAME, PDB_FIELD_TYPE::TYPE_DATETIME);
 
-  sysConfigInfo_.SetTableName(SYSTAB_SYSCFG_NAME, strlen(SYSTAB_SYSCFG_NAME));
+  sysConfigInfo_.SetTableName(SYSTAB_SYSCFG_NAME);
   sysConfigInfo_.AddField(SYSCOL_SYSCFG_NAME, PDB_FIELD_TYPE::TYPE_STRING, true);
   sysConfigInfo_.AddField(SYSCOL_SYSCFG_VALUE, PDB_FIELD_TYPE::TYPE_STRING);
 
@@ -141,7 +141,7 @@ PdbErr_t TableSet::CreateTable(const CreateTableParam* pTableParam)
 
   std::unique_lock<std::mutex> tabLock(tabMutex_);
 
-  retVal = tabInfo.SetTableName(pTableParam->tabName_.c_str(), pTableParam->tabName_.size());
+  retVal = tabInfo.SetTableName(pTableParam->tabName_.c_str());
   if (retVal != PdbE_OK)
     return retVal;
 
@@ -212,6 +212,24 @@ PdbErr_t TableSet::CreateTable(const CreateTableParam* pTableParam)
   return PdbE_OK;
 }
 
+PdbErr_t TableSet::AlterTable(const CreateTableParam* pTableParam)
+{
+  PdbErr_t retVal = PdbE_OK;
+  RefUtil tabRef;
+
+  if (pTableParam == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  std::unique_lock<std::mutex> tabLock(tabMutex_);
+  PDBTable* pTab = GetTable(pTableParam->tabName_.c_str(), &tabRef);
+  if (pTab == nullptr)
+  {
+    return PdbE_TABLE_NOT_FOUND;
+  }
+
+  return pTab->AlterTable(pTableParam->pColList_->GetColumnList());
+}
+
 PdbErr_t TableSet::OpenTable(const char* pTabName)
 {
   //OpenTable 只有两中情形下会调用
@@ -278,7 +296,7 @@ PdbErr_t TableSet::OpenTable(const char* pTabName)
 PdbErr_t TableSet::OpenDataPart(const char* pTabName, int partCode, bool isNormalPart)
 {
   PdbErr_t retVal = PdbE_OK;
-  TableRef tabRef;
+  RefUtil tabRef;
   uint64_t tabNameCrc = StringTool::CRC64NoCase(pTabName);
 
   PDBTable* pTable = GetTable(tabNameCrc, &tabRef);
@@ -293,7 +311,7 @@ PdbErr_t TableSet::OpenDataPart(const char* pTabName, int partCode, bool isNorma
 PdbErr_t TableSet::RecoverDW(const char* pTabName)
 {
   PdbErr_t retVal = PdbE_OK;
-  TableRef tabRef;
+  RefUtil tabRef;
   uint64_t tabNameCrc = StringTool::CRC64NoCase(pTabName);
 
   PDBTable* pTable = GetTable(tabNameCrc, &tabRef);
@@ -391,7 +409,7 @@ PdbErr_t TableSet::DetachTable(const char* pTabName)
 
 PdbErr_t TableSet::AttachFile(const char* pTabName, const char* pPartStr, int fileType)
 {
-  TableRef tabRef;
+  RefUtil tabRef;
   std::unique_lock<std::mutex> tabLock(tabMutex_);
   PDBTable* pTab = GetTable(pTabName, &tabRef);
   if (pTab == nullptr)
@@ -402,7 +420,7 @@ PdbErr_t TableSet::AttachFile(const char* pTabName, const char* pPartStr, int fi
 
 PdbErr_t TableSet::DetachFile(const char* pTabName, int partCode)
 {
-  TableRef tabRef;
+  RefUtil tabRef;
   std::unique_lock<std::mutex> tabLock(tabMutex_);
   PDBTable* pTab = GetTable(pTabName, &tabRef);
   if (pTab == nullptr)
@@ -413,7 +431,7 @@ PdbErr_t TableSet::DetachFile(const char* pTabName, int partCode)
 
 PdbErr_t TableSet::DropFile(const char* pTabName, int partCode)
 {
-  TableRef tabRef;
+  RefUtil tabRef;
   std::unique_lock<std::mutex> tabLock(tabMutex_);
   PDBTable* pTab = GetTable(pTabName, &tabRef);
   if (pTab == nullptr)
@@ -425,7 +443,7 @@ PdbErr_t TableSet::DropFile(const char* pTabName, int partCode)
 PdbErr_t TableSet::ExecuteQuery(DataTable* pResultTable, SQLParser* pParser, int32_t userRole)
 {
   PdbErr_t retVal = PdbE_OK;
-  TableRef tabRef;
+  RefUtil tabRef;
 
   if (pResultTable == nullptr || pParser == nullptr)
     return PdbE_INVALID_PARAM;
@@ -479,7 +497,7 @@ PdbErr_t TableSet::DeleteDev(const DeleteParam* pDeleteParam)
     return retVal;
   }
 
-  TableRef tabRef;
+  RefUtil tabRef;
   std::list<uint64_t> tabCrcList;
   std::unique_lock<std::mutex> devLock(devMutex_);
 
@@ -498,13 +516,13 @@ PdbErr_t TableSet::DeleteDev(const DeleteParam* pDeleteParam)
   return retVal;
 }
 
-PDBTable* TableSet::GetTable(const char* pTabName, TableRef* pTabRef)
+PDBTable* TableSet::GetTable(const char* pTabName, RefUtil* pTabRef)
 {
   uint64_t tabCrc = StringTool::CRC64NoCase(pTabName);
   return GetTable(tabCrc, pTabRef);
 }
 
-PDBTable* TableSet::GetTable(uint64_t tabNameCrc, TableRef* pTabRef)
+PDBTable* TableSet::GetTable(uint64_t tabNameCrc, RefUtil* pTabRef)
 {
   std::unique_lock<std::mutex> tabMapLock(tabMapMutex_);
   auto tabIt = tabMap_.find(tabNameCrc);
@@ -521,7 +539,7 @@ PDBTable* TableSet::GetTable(uint64_t tabNameCrc, TableRef* pTabRef)
 
 PdbErr_t TableSet::Insert(IInsertObj* pInsertObj, bool errBreak, std::list<PdbErr_t>& resultList)
 {
-  TableRef tabRef;
+  RefUtil tabRef;
   std::string tabName = pInsertObj->GetTableName();
   PDBTable* pTable = GetTable(tabName.c_str(), &tabRef);
   if (pTable != nullptr)
@@ -575,7 +593,8 @@ PdbErr_t QueryTableColumn(IResultFilter* pFilter, const TableInfo* pTabInfo)
 PdbErr_t TableSet::QueryColumn(IResultFilter* pFilter)
 {
   PdbErr_t retVal = PdbE_OK;
-  TableRef tabRef;
+  RefUtil tabRef;
+  RefUtil tabInfoRef;
   std::list<uint64_t> tabCrcList;
 
   retVal = QueryTableColumn(pFilter, &sysConfigInfo_);
@@ -633,7 +652,7 @@ PdbErr_t TableSet::QueryColumn(IResultFilter* pFilter)
     PDBTable* pTab = GetTable(*crcIter, &tabRef);
     if (pTab != nullptr)
     {
-      const TableInfo* pTabInfo = pTab->GetTableInfo();
+      const TableInfo* pTabInfo = pTab->GetTableInfo(&tabInfoRef);
       retVal = QueryTableColumn(pFilter, pTabInfo);
       if (retVal != PdbE_OK)
         return retVal;
@@ -650,7 +669,7 @@ PdbErr_t TableSet::QueryDev(IResultFilter* pFilter)
 {
   PdbErr_t retVal = PdbE_OK;
 
-  TableRef tabRef;
+  RefUtil tabRef;
   std::list<uint64_t> tabCrcList;
 
   GetAllTable(tabCrcList);
@@ -674,7 +693,7 @@ PdbErr_t TableSet::QueryDev(IResultFilter* pFilter)
 
 PdbErr_t TableSet::SyncDirtyPages(bool syncAll)
 {
-  TableRef tabRef;
+  RefUtil tabRef;
   std::list<uint64_t> tabCrcList;
   uint32_t fileCode = 0;
   int64_t filePos = 0;
@@ -701,7 +720,7 @@ PdbErr_t TableSet::SyncDirtyPages(bool syncAll)
 
 PdbErr_t TableSet::CloseAllTable()
 {
-  TableRef tabRef;
+  RefUtil tabRef;
   std::list<uint64_t> tabCrcList;
 
   GetAllTable(tabCrcList);
@@ -720,7 +739,7 @@ PdbErr_t TableSet::CloseAllTable()
 
 void TableSet::DumpToCompress()
 {
-  TableRef tabRef;
+  RefUtil tabRef;
   std::list<uint64_t> tabCrcList;
 
   GetAllTable(tabCrcList);
@@ -741,7 +760,7 @@ void TableSet::DumpToCompress()
 
 void TableSet::UnMapCompressData()
 {
-  TableRef tabRef;
+  RefUtil tabRef;
   std::list<uint64_t> tabCrcList;
 
   GetAllTable(tabCrcList);
@@ -762,7 +781,7 @@ size_t TableSet::GetDirtyPagePercent()
   size_t poolPageCnt = pGlbPagePool->GetPoolPageCnt();
   size_t dirtyPageCnt = 0;
 
-  TableRef tabRef;
+  RefUtil tabRef;
   std::list<uint64_t> tabCrcList;
   GetAllTable(tabCrcList);
   for (auto crcIter = tabCrcList.begin(); crcIter != tabCrcList.end(); crcIter++)
@@ -789,7 +808,7 @@ PdbErr_t TableSet::InsertDev(IInsertObj* pInsertObj,
   const int devFieldCnt = 4;
   PdbErr_t retVal = PdbE_OK;
   bool includeErr = false;
-  TableRef tabRef;
+  RefUtil tabRef;
   PDBTable* pTable = nullptr;
   std::list<uint64_t> tabCrcList;
 

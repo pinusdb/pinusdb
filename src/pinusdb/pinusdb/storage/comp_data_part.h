@@ -25,12 +25,11 @@ public:
   CompDataPart();
   virtual ~CompDataPart();
 
-  PdbErr_t Open(int32_t partCode, const TableInfo* pTabInfo,
-    const char* pDataPath);
+  PdbErr_t Open(int32_t partCode, const char* pDataPath);
 
   virtual void Close();
   virtual PdbErr_t RecoverDW(const char* pPageBuf);
-  virtual PdbErr_t InsertRec(int64_t devId, int64_t tstamp,
+  virtual PdbErr_t InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp,
     bool replace, const uint8_t* pRec, size_t recLen);
 
   virtual PdbErr_t UnMap();
@@ -47,7 +46,7 @@ protected:
 
   PdbErr_t GetIdx(int64_t devId, int64_t ts, CompDevId* pCompDevId, int* pCurIdx);
 
-  virtual void* InitQueryParam(int* pTypes, size_t valCnt, int64_t bgTs, int64_t edTs);
+  virtual void* InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, int64_t edTs);
   virtual void ClearQueryParam(void* pQueryParam);
 
   class CompDataIter
@@ -56,7 +55,8 @@ protected:
     CompDataIter();
     ~CompDataIter();
 
-    PdbErr_t Init(int* pTypes, size_t fieldCnt, int64_t bgTs, int64_t edTs);
+    PdbErr_t Init(const std::vector<FieldInfo>& fieldVec,
+      int* pFieldPos, size_t queryFieldCnt, int64_t bgTs, int64_t edTs);
     PdbErr_t Load(const uint8_t* pBuf, size_t bufLen);
     bool Valid() const;
     PdbErr_t SeekTo(int64_t tstamp);
@@ -70,20 +70,22 @@ protected:
     int64_t GetEdTs() const { return edTs_; }
     DBVal* GetRecord();
 
-    PdbErr_t SetDevIdVals(int64_t devId);
-    PdbErr_t DecodeTstampVals(const uint8_t* pBuf, const uint8_t* pLimit);
-    PdbErr_t DecodeBoolVals(int fieldIdx, const uint8_t* pBuf, const uint8_t* pLimit);
-    PdbErr_t DecodeBigIntVals(int fieldIdx, const uint8_t* pBuf, const uint8_t* pLimit);
-    PdbErr_t DecodeDateTimeVals(int fieldIdx, const uint8_t* pBuf, const uint8_t* pLimit);
-    PdbErr_t DecodeDoubleVals(int fieldIdx, const uint8_t* pBuf, const uint8_t* pLimit);
-    PdbErr_t DecodeStringVals(int fieldIdx, const uint8_t* pBuf, const uint8_t* pLimit);
-    PdbErr_t DecodeBlobVals(int fieldIdx, const uint8_t* pBuf, const uint8_t* pLimit);
-    PdbErr_t DecodeRealVals(int fieldIdx, const uint8_t* pBuf, const uint8_t* pLimit, double multiple);
+    PdbErr_t DecodeTstampVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit);
+    PdbErr_t DecodeBoolVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit);
+    PdbErr_t DecodeBigIntVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit);
+    PdbErr_t DecodeDateTimeVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit);
+    PdbErr_t DecodeDoubleVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit);
+    PdbErr_t DecodeStringVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit);
+    PdbErr_t DecodeBlobVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit);
+    PdbErr_t DecodeRealVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit, double multiple);
 
   private:
     Arena arena_;
+    size_t mateCnt_;  //匹配上的字段数量
     size_t fieldCnt_;
     int* pTypes_;
+    int* pFieldPos_;
+    DBVal* pQueryVals_;
     uint8_t* pRawBuf_;
     int64_t bgTs_;
     int64_t edTs_;
@@ -100,6 +102,7 @@ private:
   MemMapFile dataMemMap_;
   const uint8_t* pData_;
   const CompDevId* pDevId_;
+  std::vector<FieldInfo> fieldVec_;
   int32_t devCnt_;
 };
 

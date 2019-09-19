@@ -46,49 +46,27 @@ void PageRef::Attach(PageHdr* pPage)
 
 //////////////////////////////////////////////////////////////
 
-TableRef::TableRef()
+RefUtil::RefUtil()
 {
-  this->pTab_ = nullptr;
+  this->pObj_ = nullptr;
 }
 
-TableRef::~TableRef()
+RefUtil::~RefUtil()
 {
-  if (this->pTab_ != nullptr)
-    pTab_->MinusRef();
+  if (this->pObj_ != nullptr)
+    this->pObj_->MinusRef();
 }
 
-void TableRef::Attach(PDBTable* pTab)
+void RefUtil::Attach(RefObj* pObj)
 {
-  if (this->pTab_ != nullptr)
+  if (this->pObj_ != nullptr)
   {
-    pTab_->MinusRef();
+    pObj_->MinusRef();
   }
 
-  this->pTab_ = pTab;
-  if (this->pTab_ != nullptr)
+  this->pObj_ = pObj;
+  if (this->pObj_ != nullptr)
   {
-    this->pTab_->AddRef();
+    this->pObj_->AddRef();
   }
 }
-
-DataPartRef::DataPartRef()
-{
-  this->pPart_ = nullptr;
-}
-
-DataPartRef::~DataPartRef()
-{
-  if (this->pPart_ != nullptr)
-    this->pPart_->MinusRef();
-}
-
-void DataPartRef::Attach(DataPart* pPart)
-{
-  if (this->pPart_ != nullptr)
-    this->pPart_->MinusRef();
-
-  this->pPart_ = pPart;
-  if (this->pPart_ != nullptr)
-    this->pPart_->AddRef();
-}
-

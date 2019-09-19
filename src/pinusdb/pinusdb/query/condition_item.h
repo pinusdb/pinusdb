@@ -458,3 +458,41 @@ private:
   const char* pStrVal_;
   size_t strLen_;
 };
+
+class IsNotNullCondition : public ConditionItem
+{
+public:
+  IsNotNullCondition(size_t fieldPos)
+  {
+    fieldPos_ = fieldPos;
+  }
+
+  virtual ~IsNotNullCondition() {}
+
+  virtual bool GetLogic(const DBVal* pVals, size_t valCnt) const
+  {
+    return (!DBVAL_ELE_IS_NULL(pVals, fieldPos_));
+  }
+
+private:
+  size_t fieldPos_;
+};
+
+class IsNullCondition : public ConditionItem
+{
+public:
+  IsNullCondition(size_t fieldPos)
+  {
+    fieldPos_ = fieldPos;
+  }
+
+  virtual ~IsNullCondition() {}
+
+  virtual bool GetLogic(const DBVal* pVals, size_t valCnt) const
+  {
+    return DBVAL_ELE_IS_NULL(pVals, fieldPos_);
+  }
+
+private:
+  size_t fieldPos_;
+};

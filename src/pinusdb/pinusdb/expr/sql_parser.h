@@ -224,6 +224,7 @@ public:
   void SetInsert(Token* pTabToken, ExprList* pColList, ExprList* pValList);
   void SetDelete(Token* pTabToken, ExprItem* pWhere);
   void SetCreateTable(Token* pTabName, ColumnList* pColList);
+  void SetAlterTable(Token* pTabName, ColumnList* pColList);
   void SetDropTable(Token* pTabName);
   void SetAddUser(Token* pNameToken, Token* pPwdToken);
   void SetChangePwd(Token* pNameToken, Token* pPwdToken);
@@ -274,6 +275,7 @@ public:
     CT_ChangePwd = 12,       // 修改密码
     CT_ChangeRole = 13,      // 修改权限
     CT_DropUser = 14,        // 删除用户
+    CT_AlterTable = 15,      // 修改表结构
   };
 
 private:

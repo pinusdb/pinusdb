@@ -32,8 +32,6 @@ public:
   PdbErr_t BuildCondition(const ExprItem* pExpr, const TableInfo* pTabInfo);
   PdbErr_t RunCondition(const DBVal* pVals, size_t valCnt, bool& resultVal) const;
 
-  bool IsNullCondition() const;
-
 private:
   PdbErr_t _BuildCondition(const ExprItem* pExpr, const TableInfo* pTabInfo);
 

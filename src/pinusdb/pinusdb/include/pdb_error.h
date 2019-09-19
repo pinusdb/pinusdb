@@ -63,6 +63,7 @@
 #define PdbE_TABLE_EXIST                    50307           // 表已存在
 #define PdbE_DATA_FILE_IN_ACTIVE            50308           // 活跃的数据文件不能删除或分离
 #define PdbE_DATA_FILE_NOT_FOUND            50309           // 数据文件不存在
+#define PdbE_TABLE_FIELD_MISMATCH           50310           // 表字段不匹配
 
 //网络及任务相关
 #define PdbE_NET_ERROR                      50400           // 网络错误

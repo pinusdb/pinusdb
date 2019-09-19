@@ -32,46 +32,6 @@
 #include "storage/normal_data_part.h"
 #include "storage/comp_data_part.h"
 
-#define INIT_TYPES(pTypes, fieldCnt) do { \
-  for (int i = 0; i < fieldCnt; i++) \
-  { \
-    tabInfo_.GetFieldInfo(i, (pTypes + i)); \
-  } \
-} while(false)
-
-#define INIT_TYPES_AND_VALS(pTypes, pVals, valCnt) do { \
-  for (int i = 0; i < valCnt; i++)                  \
-  {                                                 \
-    tabInfo_.GetFieldInfo(i, (pTypes + i));         \
-    switch (pTypes[i])                              \
-    {                                               \
-    case PDB_FIELD_TYPE::TYPE_BOOL:                 \
-      DBVAL_ELE_SET_BOOL(pVals, i, false);          \
-      break;                                        \
-    case PDB_FIELD_TYPE::TYPE_INT64:                \
-    case PDB_FIELD_TYPE::TYPE_REAL2:                \
-    case PDB_FIELD_TYPE::TYPE_REAL3:                \
-    case PDB_FIELD_TYPE::TYPE_REAL4:                \
-    case PDB_FIELD_TYPE::TYPE_REAL6:                \
-      DBVAL_ELE_SET_INT64(pVals, i, 0);             \
-      break;                                        \
-    case PDB_FIELD_TYPE::TYPE_DATETIME:             \
-      DBVAL_ELE_SET_DATETIME(pVals, i, 0);          \
-      break;                                        \
-    case PDB_FIELD_TYPE::TYPE_DOUBLE:               \
-      DBVAL_ELE_SET_DOUBLE(pVals, i, 0);            \
-      break;                                        \
-    case PDB_FIELD_TYPE::TYPE_STRING:               \
-      DBVAL_ELE_SET_STRING(pVals, i, nullptr, 0);   \
-      break;                                        \
-    case PDB_FIELD_TYPE::TYPE_BLOB:                 \
-      DBVAL_ELE_SET_BLOB(pVals, i, nullptr, 0);     \
-      break;                                        \
-    }                                               \
-  }                                                 \
-} while(false)
-
-
 bool PartComp(const DataPart* pA, const DataPart* pB)
 {
   return pA->GetPartCode() < pB->GetPartCode();
@@ -79,16 +39,74 @@ bool PartComp(const DataPart* pA, const DataPart* pB)
 
 PDBTable::PDBTable()
 {
-  refCnt_.store(-1);
   dumpPartCode_.store(-1);
+  pTabInfo_ = nullptr;
   tabCode_ = 0;
   tabCrc_ = 0;
-  fieldCrc_ = 0;
 }
 
 PDBTable::~PDBTable()
 {
   Close();
+}
+
+TableInfo* PDBTable::GetTableInfo(RefUtil* pRefUtil)
+{
+  if (pRefUtil == nullptr)
+    return nullptr;
+
+  pRefUtil->Attach(pTabInfo_);
+  return pRefUtil->GetObj<TableInfo>();
+}
+
+PdbErr_t PDBTable::AlterTable(const std::vector<ColumnItem*>& colItemVec)
+{
+  PdbErr_t retVal = PdbE_OK;
+  TableInfo* pTabInfo = new TableInfo();
+
+  do {
+    retVal = pTabInfo->SetTableName(tabName_.c_str());
+    if (retVal != PdbE_OK)
+      break;
+
+    for (auto colIt = colItemVec.begin(); colIt != colItemVec.end(); colIt++)
+    {
+      retVal = pTabInfo->AddField((*colIt)->GetName(), (*colIt)->GetType());
+      if (retVal != PdbE_OK)
+      {
+        break;
+      }
+    }
+
+    if (retVal != PdbE_OK)
+      break;
+
+    retVal = pTabInfo->ValidStorageTable();
+    if (retVal != PdbE_OK)
+      break;
+
+    retVal = devTable_.Alter(pTabInfo);
+    if (retVal != PdbE_OK)
+      break;
+
+    TableInfo* pOldInfo = pTabInfo_;
+    pTabInfo_ = pTabInfo;
+
+    while (pOldInfo->GetRefCnt() > 0)
+    {
+      std::this_thread::sleep_for(std::chrono::milliseconds(15));
+    }
+
+    delete pOldInfo;
+
+  } while (false);
+
+  if (retVal != PdbE_OK)
+  {
+    delete pTabInfo;
+  }
+
+  return retVal;
 }
 
 PdbErr_t PDBTable::OpenTable(uint32_t tabCode, const char* pTabName)
@@ -100,13 +118,13 @@ PdbErr_t PDBTable::OpenTable(uint32_t tabCode, const char* pTabName)
 
   devPath_ = pGlbSysCfg->GetTablePath() + "/" + tabName_ + ".dev";
   dwPath_ = pGlbSysCfg->GetNormalDataPath() + "/sys_dw/" + tabName_ + ".dw";
-  retVal = devTable_.Open(devPath_.c_str(), pTabName, &tabInfo_);
+  pTabInfo_ = new TableInfo();
+  retVal = devTable_.Open(devPath_.c_str(), pTabName, pTabInfo_);
   if (retVal != PdbE_OK)
   {
     LOG_ERROR("failed to open table({}), ret:{}", pTabName, retVal);
     return retVal;
   }
-  fieldCrc_ = tabInfo_.GetFieldCrc();
 
   return PdbE_OK;
 }
@@ -127,6 +145,9 @@ PdbErr_t PDBTable::Close()
     delete *partIt;
   }
 
+  if (pTabInfo_ == nullptr)
+    delete pTabInfo_;
+
   partVec_.clear();
   return PdbE_OK;
 }
@@ -134,7 +155,7 @@ PdbErr_t PDBTable::Close()
 PdbErr_t PDBTable::RecoverDW()
 {
   PdbErr_t retVal = PdbE_OK;
-  DataPartRef partRef;
+  RefUtil partRef;
   char* pPageBuf = nullptr;
   Arena arena;
 
@@ -204,7 +225,7 @@ PdbErr_t PDBTable::RecoverDW()
 PdbErr_t PDBTable::OpenDataPart(int32_t partCode, bool isNormalPart)
 {
   PdbErr_t retVal = PdbE_OK;
-  DataPartRef partRef;
+  RefUtil partRef;
   std::string partDateStr;
   std::string partIdxPath;
   std::string partDataPath;
@@ -231,7 +252,7 @@ PdbErr_t PDBTable::OpenDataPart(int32_t partCode, bool isNormalPart)
       }
 
       pDataPart = pNormalDataPart;
-      retVal = pNormalDataPart->Open(tabCode_, partCode, &tabInfo_, partIdxPath.c_str(), partDataPath.c_str());
+      retVal = pNormalDataPart->Open(tabCode_, partCode, partIdxPath.c_str(), partDataPath.c_str());
     }
     else
     {
@@ -243,7 +264,7 @@ PdbErr_t PDBTable::OpenDataPart(int32_t partCode, bool isNormalPart)
       }
 
       pDataPart = pCompDataPart;
-      retVal = pCompDataPart->Open(partCode, &tabInfo_, partDataPath.c_str());
+      retVal = pCompDataPart->Open(partCode, partDataPath.c_str());
     }
 
     if (retVal != PdbE_OK)
@@ -421,14 +442,17 @@ PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
 {
   PdbErr_t retVal = PdbE_OK;
   bool includeErr = false;
-  DataPartRef partRef;
+  RefUtil partRef;
+  RefUtil tabInfoRef;
   Arena arena;
   CommitLogBlock logBlock;
-  retVal = pInsertObj->InitTableInfo(&tabInfo_);
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
+  retVal = pInsertObj->InitTableInfo(pTabInfo);
   if (retVal != PdbE_OK)
     return retVal;
 
-  size_t fieldCnt = tabInfo_.GetFieldCnt();
+  uint32_t tabMetaCode = pTabInfo->GetMetaCode();
+  size_t fieldCnt = pTabInfo->GetFieldCnt();
   DBVal* pVals = (DBVal*)arena.AllocateAligned(sizeof(DBVal) * fieldCnt);
   int* pTypes = (int*)arena.AllocateAligned(sizeof(int) * fieldCnt);
   uint8_t* pRecBuf = (uint8_t*)arena.AllocateAligned(PDB_MAX_REC_LEN);
@@ -438,7 +462,24 @@ PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
     return PdbE_NOMEM;
   }
 
-  INIT_TYPES_AND_VALS(pTypes, pVals, fieldCnt);
+  //将所有字段设置为默认值
+  for (int i = 0; i < fieldCnt; i++)
+  {
+    pTabInfo->GetFieldInfo(i, (pTypes + i));
+    switch (pTypes[i])
+    {
+    case PDB_FIELD_TYPE::TYPE_BOOL: DBVAL_ELE_SET_BOOL(pVals, i, false); break;
+    case PDB_FIELD_TYPE::TYPE_INT64:
+    case PDB_FIELD_TYPE::TYPE_REAL2:
+    case PDB_FIELD_TYPE::TYPE_REAL3:
+    case PDB_FIELD_TYPE::TYPE_REAL4:
+    case PDB_FIELD_TYPE::TYPE_REAL6: DBVAL_ELE_SET_INT64(pVals, i, 0); break;
+    case PDB_FIELD_TYPE::TYPE_DATETIME: DBVAL_ELE_SET_DATETIME(pVals, i, 0); break;
+    case PDB_FIELD_TYPE::TYPE_DOUBLE: DBVAL_ELE_SET_DOUBLE(pVals, i, 0); break;
+    case PDB_FIELD_TYPE::TYPE_STRING: DBVAL_ELE_SET_STRING(pVals, i, nullptr, 0); break;
+    case PDB_FIELD_TYPE::TYPE_BLOB: DBVAL_ELE_SET_BLOB(pVals, i, nullptr, 0); break;
+    }
+  }
 
   int32_t invalidDays = pGlbSysCfg->GetInsertValidDay();
   int64_t invalidTstampBg = (DateTime::NowDayCode() - invalidDays) * MillisPerDay;
@@ -540,10 +581,10 @@ PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
       }
 
       curPartDay = curRecDay;
-      pDataPart = partRef.GetDataPart();
+      pDataPart = partRef.GetObj<DataPart>();
     }
 
-    retVal = pDataPart->InsertRec(devId, tstamp, true, (const uint8_t*)pRecBg, recLen);
+    retVal = pDataPart->InsertRec(tabMetaCode, devId, tstamp, true, (const uint8_t*)pRecBg, recLen);
     if (retVal != PdbE_OK)
     {
       LOG_DEBUG("failed to insert record {}", retVal);
@@ -554,7 +595,7 @@ PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
     logBlock.AppendRec(pRecBuf, (pValBuf - pRecBuf));
   }
 
-  pGlbCommitLog->AppendData(tabCrc_, fieldCrc_, false, &logBlock);
+  pGlbCommitLog->AppendData(tabCrc_, pTabInfo->GetMetaCode(), false, &logBlock);
 
   if (errBreak)
     return retVal;
@@ -566,14 +607,14 @@ PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
 }
 
 
-PdbErr_t PDBTable::InsertByDataLog(int64_t devId, int64_t tstamp,
-  const uint8_t* pRecBg, size_t recLen)
+PdbErr_t PDBTable::InsertByDataLog(uint32_t metaCode, int64_t devId, 
+  int64_t tstamp, const uint8_t* pRecBg, size_t recLen)
 {
-  DataPartRef partRef;
+  RefUtil partRef;
   int32_t recDay = static_cast<int32_t>(tstamp / MillisPerDay);
   DataPart* pDataPart = GetDataPart(recDay, &partRef);
   if (pDataPart != nullptr)
-    return pDataPart->InsertRec(devId, tstamp, true, pRecBg, recLen);
+    return pDataPart->InsertRec(metaCode, devId, tstamp, true, pRecBg, recLen);
   
   return PdbE_OK;
 }
@@ -581,11 +622,13 @@ PdbErr_t PDBTable::InsertByDataLog(int64_t devId, int64_t tstamp,
 PdbErr_t PDBTable::Query(DataTable* pResultTable, const QueryParam* pQueryParam)
 {
   PdbErr_t retVal = PdbE_OK;
+  RefUtil tabInfoRef;
   const ExprList* pColList = pQueryParam->pSelList_;
   const ExprItem* pConditionItem = pQueryParam->pWhere_;
   const GroupOpt* pGroup = pQueryParam->pGroup_;
   const OrderByOpt* pOrderBy = pQueryParam->pOrderBy_;
   uint64_t timeOutTick = GetTickCount64() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   IResultFilter* pResultFilter = nullptr;
   std::list<int64_t> devIdList;
@@ -642,7 +685,7 @@ PdbErr_t PDBTable::Query(DataTable* pResultTable, const QueryParam* pQueryParam)
       }
     }
 
-    retVal = pResultFilter->BuildFilter(pQueryParam, &tabInfo_, pResultTable->GetArena());
+    retVal = pResultFilter->BuildFilter(pQueryParam, pTabInfo, pResultTable->GetArena());
     if (retVal != PdbE_OK)
       break;
 
@@ -736,9 +779,11 @@ PdbErr_t PDBTable::Query(DataTable* pResultTable, const QueryParam* pQueryParam)
 PdbErr_t PDBTable::QuerySnapshot(DataTable* pResultTable, const QueryParam* pQueryParam)
 {
   PdbErr_t retVal = PdbE_OK;
+  RefUtil tabInfoRef;
   const ExprList* pColList = pQueryParam->pSelList_;
   const ExprItem* pConditionItem = pQueryParam->pWhere_;
   uint64_t timeOutTick = GetTickCount64() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   if (pQueryParam->pGroup_ != nullptr)
     return PdbE_SQL_GROUP_ERROR;
@@ -758,7 +803,7 @@ PdbErr_t PDBTable::QuerySnapshot(DataTable* pResultTable, const QueryParam* pQue
       pResultFilter = new ResultFilterGroupAll();
     }
 
-    retVal = pResultFilter->BuildFilter(pQueryParam, &tabInfo_, pResultTable->GetArena());
+    retVal = pResultFilter->BuildFilter(pQueryParam, pTabInfo, pResultTable->GetArena());
     if (retVal != PdbE_OK)
       break;
 
@@ -824,7 +869,7 @@ PdbErr_t PDBTable::QueryDev(IResultFilter* pFilter)
 PdbErr_t PDBTable::DumpPartToComp()
 {
   PdbErr_t retVal = PdbE_OK;
-  DataPartRef partRef;
+  RefUtil partRef;
   DataPart* pDataPart = nullptr;
   int32_t invalidDays = pGlbSysCfg->GetInsertValidDay();
   int32_t partCode = DateTime::NowDayCode() - invalidDays;
@@ -836,7 +881,7 @@ PdbErr_t PDBTable::DumpPartToComp()
   while (!glbCancelCompTask)
   {
     GetDataPartEqualOrLess(partCode, false, &partRef);
-    pDataPart = partRef.GetDataPart();
+    pDataPart = partRef.GetObj<DataPart>();
     if (pDataPart == nullptr)
       break;
 
@@ -878,7 +923,7 @@ PdbErr_t PDBTable::DumpPartToComp()
         }
 
         CompDataPart* pCompDataPart = new CompDataPart();
-        retVal = pCompDataPart->Open(partCode, &tabInfo_, compDataPath.c_str());
+        retVal = pCompDataPart->Open(partCode, compDataPath.c_str());
         if (retVal != PdbE_OK)
         {
           delete pCompDataPart;
@@ -927,7 +972,7 @@ PdbErr_t PDBTable::UnMapCompressData()
 //同步脏数据页
 PdbErr_t PDBTable::SyncDirtyPages(bool syncAll)
 {
-  DataPartRef partRef;
+  RefUtil partRef;
   DataPart* pDataPart = nullptr;
   int curPartCode = 0;
   PdbErr_t retVal = PdbE_OK;
@@ -938,7 +983,7 @@ PdbErr_t PDBTable::SyncDirtyPages(bool syncAll)
   std::unique_lock<std::mutex> syncLock(syncMutex_);
 
   GetDataPartEqualOrGreat(0, true, &partRef);
-  pDataPart = partRef.GetDataPart();
+  pDataPart = partRef.GetObj<DataPart>();
   while (pDataPart != nullptr)
   {
     curPartCode = pDataPart->GetPartCode();
@@ -952,7 +997,7 @@ PdbErr_t PDBTable::SyncDirtyPages(bool syncAll)
     }
 
     GetDataPartEqualOrGreat(curPartCode, false, &partRef);
-    pDataPart = partRef.GetDataPart();
+    pDataPart = partRef.GetObj<DataPart>();
   }
 
   return PdbE_OK;
@@ -960,7 +1005,7 @@ PdbErr_t PDBTable::SyncDirtyPages(bool syncAll)
 
 size_t PDBTable::GetDirtyPageCnt()
 {
-  DataPartRef partRef;
+  RefUtil partRef;
   DataPart* pDataPart = nullptr;
   size_t dirtyPageCnt = 0;
 
@@ -968,14 +1013,14 @@ size_t PDBTable::GetDirtyPageCnt()
   int32_t curPartCode = DateTime::NowDayCode() - invalidDays;
 
   GetDataPartEqualOrGreat(curPartCode, true, &partRef);
-  pDataPart = partRef.GetDataPart();
+  pDataPart = partRef.GetObj<DataPart>();
   while (pDataPart != nullptr)
   {
     dirtyPageCnt += pDataPart->GetDirtyPageCnt();
 
     curPartCode = pDataPart->GetPartCode();
     GetDataPartEqualOrGreat(curPartCode, false, &partRef);
-    pDataPart = partRef.GetDataPart();
+    pDataPart = partRef.GetObj<DataPart>();
   }
 
   return dirtyPageCnt;
@@ -986,25 +1031,22 @@ PdbErr_t PDBTable::QueryLast(std::list<int64_t>& devIdList,
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
-  DataPartRef partRef;
+  RefUtil partRef;
+  RefUtil tabInfoRef;
   int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
   int maxQueryDay = static_cast<int>(maxTstamp / MillisPerDay);
   int curDay = maxQueryDay;
-
-  size_t fieldCnt = tabInfo_.GetFieldCnt();
-  int* pTypes = (int*)arena.AllocateAligned(sizeof(int) * fieldCnt);
-  INIT_TYPES(pTypes, fieldCnt);
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   GetDataPartEqualOrLess(curDay, true, &partRef);
-  DataPart* pDataPart = partRef.GetDataPart();
+  DataPart* pDataPart = partRef.GetObj<DataPart>();
   while (pDataPart != nullptr)
   {
     curDay = pDataPart->GetPartCode();
     if (minQueryDay > curDay)
       break;
 
-    retVal = pDataPart->QueryLast(devIdList, minTstamp, maxTstamp,
-      pTypes, fieldCnt, pFilter, queryTimeOut);
+    retVal = pDataPart->QueryLast(devIdList, minTstamp, maxTstamp, pTabInfo, pFilter, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
@@ -1015,7 +1057,7 @@ PdbErr_t PDBTable::QueryLast(std::list<int64_t>& devIdList,
       break;
 
     GetDataPartEqualOrLess(curDay, false, &partRef);
-    pDataPart = partRef.GetDataPart();
+    pDataPart = partRef.GetObj<DataPart>();
   }
 
   return PdbE_OK;
@@ -1026,25 +1068,22 @@ PdbErr_t PDBTable::QueryFirst(std::list<int64_t>& devIdList,
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
-  DataPartRef partRef;
+  RefUtil partRef;
+  RefUtil tabInfoRef;
   int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
   int maxQueryDay = static_cast<int>(maxTstamp / MillisPerDay);
   int curDay = minQueryDay;
-
-  size_t fieldCnt = tabInfo_.GetFieldCnt();
-  int* pTypes = (int*)arena.AllocateAligned(sizeof(int) * fieldCnt);
-  INIT_TYPES(pTypes, fieldCnt);
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   GetDataPartEqualOrGreat(curDay, true, &partRef);
-  DataPart* pDataPart = partRef.GetDataPart();
+  DataPart* pDataPart = partRef.GetObj<DataPart>();
   while (pDataPart != nullptr)
   {
     curDay = pDataPart->GetPartCode();
     if (maxQueryDay < curDay)
       break;
 
-    retVal = pDataPart->QueryFirst(devIdList, minTstamp, maxTstamp,
-      pTypes, fieldCnt, pFilter, queryTimeOut);
+    retVal = pDataPart->QueryFirst(devIdList, minTstamp, maxTstamp, pTabInfo, pFilter, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
@@ -1055,7 +1094,7 @@ PdbErr_t PDBTable::QueryFirst(std::list<int64_t>& devIdList,
       break;
 
     GetDataPartEqualOrGreat(curDay, false, &partRef);
-    pDataPart = partRef.GetDataPart();
+    pDataPart = partRef.GetObj<DataPart>();
   }
 
   return PdbE_OK;
@@ -1066,17 +1105,15 @@ PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList,
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
-  DataPartRef partRef;
+  RefUtil partRef;
+  RefUtil tabInfoRef;
   int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
   int maxQueryDay = static_cast<int>(maxTstamp / MillisPerDay);
   int curDay = minQueryDay;
-
-  size_t fieldCnt = tabInfo_.GetFieldCnt();
-  int* pTypes = (int*)arena.AllocateAligned(sizeof(int) * fieldCnt);
-  INIT_TYPES(pTypes, fieldCnt);
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   GetDataPartEqualOrGreat(curDay, true, &partRef);
-  DataPart* pDataPart = partRef.GetDataPart();
+  DataPart* pDataPart = partRef.GetObj<DataPart>();
   while (pDataPart != nullptr)
   {
     curDay = pDataPart->GetPartCode();
@@ -1084,7 +1121,7 @@ PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList,
       break;
 
     retVal = pDataPart->QueryAsc(devIdList, minTstamp, maxTstamp,
-      pTypes, fieldCnt, pFilter, queryTimeOut);
+      pTabInfo, pFilter, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
@@ -1095,7 +1132,7 @@ PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList,
       return PdbE_OK;
 
     GetDataPartEqualOrGreat(curDay, false, &partRef);
-    pDataPart = partRef.GetDataPart();
+    pDataPart = partRef.GetObj<DataPart>();
   }
 
   return PdbE_OK;
@@ -1106,25 +1143,22 @@ PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList,
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
-  DataPartRef partRef;
+  RefUtil partRef;
+  RefUtil tabInfoRef;
   int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
   int maxQueryDay = static_cast<int>(maxTstamp / MillisPerDay);
   int curDay = maxQueryDay;
-
-  size_t fieldCnt = tabInfo_.GetFieldCnt();
-  int* pTypes = (int*)arena.AllocateAligned(sizeof(int) * fieldCnt);
-  INIT_TYPES(pTypes, fieldCnt);
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   GetDataPartEqualOrLess(curDay, true, &partRef);
-  DataPart* pDataPart = partRef.GetDataPart();
+  DataPart* pDataPart = partRef.GetObj<DataPart>();
   while (pDataPart != nullptr)
   {
     curDay = pDataPart->GetPartCode();
     if (minQueryDay > curDay)
       break;
 
-    retVal = pDataPart->QueryDesc(devIdList, minTstamp, maxTstamp,
-      pTypes, fieldCnt, pFilter, queryTimeOut);
+    retVal = pDataPart->QueryDesc(devIdList, minTstamp, maxTstamp, pTabInfo, pFilter, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
@@ -1135,7 +1169,7 @@ PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList,
       return PdbE_OK;
 
     GetDataPartEqualOrLess(curDay, false, &partRef);
-    pDataPart = partRef.GetDataPart();
+    pDataPart = partRef.GetObj<DataPart>();
   }
 
   return PdbE_OK;
@@ -1146,17 +1180,15 @@ PdbErr_t PDBTable::QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstam
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
-  DataPartRef partRef;
+  RefUtil partRef;
+  RefUtil tabInfoRef;
   int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
   int maxQueryDay = static_cast<int>(MaxMillis / MillisPerDay);
   int curDay = maxQueryDay;
-
-  size_t fieldCnt = tabInfo_.GetFieldCnt();
-  int* pTypes = (int*)arena.AllocateAligned(sizeof(int) * fieldCnt);
-  INIT_TYPES(pTypes, fieldCnt);
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   GetDataPartEqualOrLess(curDay, true, &partRef);
-  DataPart* pDataPart = partRef.GetDataPart();
+  DataPart* pDataPart = partRef.GetObj<DataPart>();
   while (pDataPart != nullptr)
   {
     curDay = pDataPart->GetPartCode();
@@ -1169,7 +1201,7 @@ PdbErr_t PDBTable::QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstam
     if (pFilter->GetIsFullFlag() && *devIdList.begin() > pFilter->GetResultMaxDevId())
       break;
 
-    retVal = pDataPart->QuerySnapshot(devIdList, pTypes, fieldCnt, pFilter, queryTimeOut);
+    retVal = pDataPart->QuerySnapshot(devIdList, pTabInfo, pFilter, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
@@ -1177,14 +1209,14 @@ PdbErr_t PDBTable::QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstam
       return retVal;
 
     GetDataPartEqualOrLess(curDay, false, &partRef);
-    pDataPart = partRef.GetDataPart();
+    pDataPart = partRef.GetObj<DataPart>();
   }
 
   return PdbE_OK;
 }
 
 
-void PDBTable::GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, DataPartRef* pPartRef)
+void PDBTable::GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, RefUtil* pPartRef)
 {
   std::unique_lock<std::mutex> partLock(partMutex_);
   pPartRef->Attach(nullptr);
@@ -1213,7 +1245,7 @@ void PDBTable::GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, Data
   }
 }
 
-void PDBTable::GetDataPartEqualOrLess(int32_t partCode, bool includeEqual, DataPartRef* pPartRef)
+void PDBTable::GetDataPartEqualOrLess(int32_t partCode, bool includeEqual, RefUtil* pPartRef)
 {
   std::unique_lock<std::mutex> partLock(partMutex_);
   pPartRef->Attach(nullptr);
@@ -1242,7 +1274,7 @@ void PDBTable::GetDataPartEqualOrLess(int32_t partCode, bool includeEqual, DataP
   }
 }
 
-DataPart* PDBTable::GetDataPart(int32_t partCode, DataPartRef* pPartRef)
+DataPart* PDBTable::GetDataPart(int32_t partCode, RefUtil* pPartRef)
 {
   std::unique_lock<std::mutex> partLock(partMutex_);
   pPartRef->Attach(nullptr);
@@ -1285,10 +1317,12 @@ int PDBTable::_GetDataPartPos(int32_t partCode)
   return idx;
 }
 
-PdbErr_t PDBTable::GetOrCreateNormalPart(int32_t partCode, DataPartRef* pPartRef)
+PdbErr_t PDBTable::GetOrCreateNormalPart(int32_t partCode, RefUtil* pPartRef)
 {
   PdbErr_t retVal = PdbE_OK;
+  RefUtil tabInfoRef;
   NormalDataPart* pDataPart = nullptr;
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
   std::string partDateStr;
   std::string partIdxPath;
   std::string partDataPath;
@@ -1316,7 +1350,7 @@ PdbErr_t PDBTable::GetOrCreateNormalPart(int32_t partCode, DataPartRef* pPartRef
   }
 
   do {
-    retVal = NormalDataPart::Create(partIdxPath.c_str(), partDataPath.c_str(), &tabInfo_, partCode);
+    retVal = NormalDataPart::Create(partIdxPath.c_str(), partDataPath.c_str(), pTabInfo, partCode);
     if (retVal != PdbE_OK)
       break;
 
@@ -1327,7 +1361,7 @@ PdbErr_t PDBTable::GetOrCreateNormalPart(int32_t partCode, DataPartRef* pPartRef
       break;
     }
 
-    retVal = pDataPart->Open(tabCode_, partCode, &tabInfo_, partIdxPath.c_str(), partDataPath.c_str());
+    retVal = pDataPart->Open(tabCode_, partCode, partIdxPath.c_str(), partDataPath.c_str());
     if (retVal != PdbE_OK)
       break;
 

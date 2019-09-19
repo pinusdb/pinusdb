@@ -114,6 +114,14 @@ void pdbCreateTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList)
   }
 }
 
+void pdbAlterTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList)
+{
+  if (pParse != nullptr)
+  {
+    pParse->SetAlterTable(pTabName, pColList);
+  }
+}
+
 void pdbAddUser(SQLParser* pParse, Token* pNameToken, Token* pPwdToken)
 {
   if (pParse != nullptr)

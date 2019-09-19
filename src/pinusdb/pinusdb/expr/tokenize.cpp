@@ -157,6 +157,7 @@ static Keyword aKeywordTable[] = {
 
   { "DELETE",            TK_DELETE},
   { "TOP",               TK_TOP},
+  { "ALTER",             TK_ALTER},
 };
 
 std::unordered_map<uint64_t, int> Tokenize::keywordMap_;

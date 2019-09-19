@@ -153,7 +153,7 @@ PdbErr_t DevIDTable::Open(const char* pPath, const char* pTabName, TableInfo* pT
   }
 
   //1.2 ÉèÖÃ±íÃû
-  retVal = pTabInfo->SetTableName(pTabName, strlen(pTabName));
+  retVal = pTabInfo->SetTableName(pTabName);
   if (retVal != PdbE_OK)
   {
     LOG_ERROR("device file ({}), invalid table name ({}), ret:{}", pPath, pTabName, retVal);
@@ -214,6 +214,37 @@ PdbErr_t DevIDTable::Close()
 {
   std::unique_lock<std::mutex> fileLock(fileMutex_);
   _UnMapFile();
+  return PdbE_OK;
+}
+
+PdbErr_t DevIDTable::Alter(const TableInfo* pTabInfo)
+{
+  Arena arena;
+  char* pTmpMeta = arena.Allocate(sizeof(DevMetaFormat));
+  DevMetaFormat* pMeta = (DevMetaFormat*)pTmpMeta;
+
+  memset(pTmpMeta, 0, sizeof(DevMetaFormat));
+  strncpy(pMeta->headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN);
+  pMeta->fieldCnt_ = static_cast<int32_t>(pTabInfo->GetFieldCnt());
+
+  int32_t fieldType = 0;
+  const char* pFieldName = nullptr;
+
+  for (uint32_t i = 0; i < pMeta->fieldCnt_; i++)
+  {
+    pTabInfo->GetFieldInfo(i, &fieldType);
+    pFieldName = pTabInfo->GetFieldName(i);
+
+    strncpy(pMeta->fieldRec_[i].fieldName_, pFieldName, PDB_FILED_NAME_LEN);
+    pMeta->fieldRec_[i].fieldType_ = fieldType;
+  }
+
+  pMeta->crc_ = StringTool::CRC32(pTmpMeta, (sizeof(DevMetaFormat) - 4));
+
+  std::unique_lock<std::mutex> fileLock(fileMutex_);
+  memcpy(pBase_, pTmpMeta, sizeof(DevMetaFormat));
+  FlushViewOfFile(pBase_, sizeof(DevMetaFormat));
+
   return PdbE_OK;
 }
 

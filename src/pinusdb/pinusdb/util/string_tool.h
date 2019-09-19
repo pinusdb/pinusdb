@@ -49,6 +49,7 @@ public:
 
   static uint64_t CRC64NoCase(const char* pStr);
   static uint64_t CRC64NoCase(const char* pStr, size_t len);
+  static uint64_t CRC64NoCase(const char* pStr, size_t len, size_t offset, uint64_t crc);
   
   static uint32_t CRC32(const char* pStr);
   static uint32_t CRC32(const void* pData, size_t len);

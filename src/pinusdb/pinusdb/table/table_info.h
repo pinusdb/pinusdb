@@ -22,10 +22,9 @@
 #include "table/data_column.h"
 #include "table/field_info.h"
 #include "internal.h"
+#include "util/ref_util.h"
 
-/////////////////////////////////////////////////
-
-class TableInfo
+class TableInfo : public RefObj
 {
 public:
   TableInfo();
@@ -33,13 +32,11 @@ public:
 
   static PdbErr_t ValidTableName(const char* pTabName, size_t nameLen);
 
-  PdbErr_t SetTableName(const char* pTabName, size_t nameLen);
+  PdbErr_t SetTableName(const char* pTabName);
   const char* GetTableName() const;
 
   PdbErr_t AddField(const char* pFieldName, int32_t fieldType);
   PdbErr_t AddField(const char* pFieldName, int32_t fieldType, bool isKey);
-
-  PdbErr_t ValidInfo() const;
 
   //一个存储数据的表
   PdbErr_t ValidStorageTable() const;
@@ -51,13 +48,12 @@ public:
   const char* GetFieldName(size_t fieldPos) const;
 
   size_t GetFieldCnt() const;
-  uint32_t GetFieldCrc() const;
+  uint32_t GetMetaCode() const;
 
 private:
   std::string tabName_;
-
+  uint64_t metaCode64_;
   std::vector<FieldInfo> fieldVec_;
   std::unordered_map<uint64_t, size_t> fieldMap_;
-
 };
 

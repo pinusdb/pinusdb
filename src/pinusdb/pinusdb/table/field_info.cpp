@@ -40,15 +40,17 @@ PdbErr_t FieldInfo::ValidFieldName(const char* pName, size_t nameLen)
 
 FieldInfo::FieldInfo(const FieldInfo& cpy)
 {
-  this->fieldType_ = cpy.fieldType_;
-  this->fieldName_ = cpy.fieldName_;
   this->isKey_ = cpy.isKey_;
+  this->fieldType_ = cpy.fieldType_;
+  this->fieldNameCrc_ = cpy.fieldNameCrc_;
+  this->fieldName_ = cpy.fieldName_;
 }
 void FieldInfo::operator=(const FieldInfo& cpy)
 {
-  this->fieldType_ = cpy.fieldType_;
-  this->fieldName_ = cpy.fieldName_;
   this->isKey_ = cpy.isKey_;
+  this->fieldType_ = cpy.fieldType_;
+  this->fieldNameCrc_ = cpy.fieldNameCrc_;
+  this->fieldName_ = cpy.fieldName_;
 }
 
 PdbErr_t FieldInfo::SetFieldInfo(const char* pName, int32_t fieldType, bool isKey)
@@ -64,5 +66,6 @@ PdbErr_t FieldInfo::SetFieldInfo(const char* pName, int32_t fieldType, bool isKe
   this->isKey_ = isKey;
   this->fieldType_ = fieldType;
   this->fieldName_ = pName;
+  this->fieldNameCrc_ = StringTool::CRC64NoCase(pName);
   return PdbE_OK;
 }

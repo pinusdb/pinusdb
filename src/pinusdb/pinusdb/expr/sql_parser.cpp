@@ -79,6 +79,14 @@ void SQLParser::SetCreateTable(Token* pTabName, ColumnList* pColList)
   this->createTableParam_.pColList_ = pColList;
 }
 
+void SQLParser::SetAlterTable(Token* pTabName, ColumnList* pColList)
+{
+  cmdType_ = CmdType::CT_AlterTable;
+
+  this->createTableParam_.tabName_ = std::string(pTabName->str_, pTabName->len_);
+  this->createTableParam_.pColList_ = pColList;
+}
+
 void SQLParser::SetDropTable(Token* pTabName)
 {
   cmdType_ = CmdType::CT_DropTable;

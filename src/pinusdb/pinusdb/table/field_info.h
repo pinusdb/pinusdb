@@ -35,9 +35,11 @@ public:
   const char* GetFieldName() const { return fieldName_.c_str(); }
   int32_t GetFieldType() const { return fieldType_; }
   bool GetFieldIsKey() const { return isKey_; }
+  uint64_t GetFieldNameCrc() const { return fieldNameCrc_; }
 
 private:
   bool isKey_;
   int32_t fieldType_;
+  uint64_t fieldNameCrc_;
   std::string fieldName_;
 };

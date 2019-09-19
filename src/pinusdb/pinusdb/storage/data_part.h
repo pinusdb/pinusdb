@@ -39,7 +39,7 @@ typedef struct _DataFileMeta
   uint32_t crc_;
 }DataFileMeta;
 
-class DataPart
+class DataPart : public RefObj
 {
 public:
   DataPart()
@@ -53,19 +53,19 @@ public:
 
   virtual void Close() = 0;
   virtual PdbErr_t RecoverDW(const char* pPageBuf) = 0;
-  virtual PdbErr_t InsertRec(int64_t devId, int64_t tstamp, 
+  virtual PdbErr_t InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp, 
     bool replace, const uint8_t* pRec, size_t recLen) = 0;
 
   PdbErr_t QueryAsc(const std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-    int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut);
+    const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut);
   PdbErr_t QueryDesc(const std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-    int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut);
+    const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut);
   PdbErr_t QueryFirst(std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-    int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut);
+    const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut);
   PdbErr_t QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-    int* pTypes, size_t fieldCnt, IResultFilter* pResult, uint64_t timeOut);
+    const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut);
   PdbErr_t QuerySnapshot(std::list<int64_t>& devIdList, 
-    int* pTypes, size_t fieldCnt, ISnapshotResultFilter* pResult, uint64_t timeOut);
+    const TableInfo* pTabInfo, ISnapshotResultFilter* pResult, uint64_t timeOut);
 
   virtual PdbErr_t UnMap() { return PdbE_OK; }
 
@@ -77,9 +77,6 @@ public:
   virtual PdbErr_t AbandonDirtyPages() { return PdbE_OK; }
   virtual size_t GetDirtyPageCnt() { return 0; }
 
-  void AddRef() { refCnt_.fetch_add(1); }
-  void MinusRef() { refCnt_.fetch_sub(1); }
-  unsigned int GetRefCnt() { return refCnt_; }
   int32_t GetPartCode() const { return static_cast<int32_t>(bgDayTs_ / MillisPerDay); }
   std::string GetIdxPath() const { return idxPath_; }
   std::string GetDataPath() const { return dataPath_; }
@@ -92,12 +89,10 @@ protected:
   virtual PdbErr_t QueryDevSnapshot(int64_t devId, void* pQueryParam,
     ISnapshotResultFilter* pResult, uint64_t timeOut, bool* pIsAdd) = 0;
 
-  virtual void* InitQueryParam(int* pTypes, size_t valCnt, int64_t bgTs, int64_t edTs) = 0;
+  virtual void* InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, int64_t edTs) = 0;
   virtual void ClearQueryParam(void* pQueryParam) = 0;
 
 protected:
-  std::atomic_int refCnt_;
-  
   std::string idxPath_;
   std::string dataPath_;
 

@@ -19,9 +19,11 @@
 #include "pdb.h"
 #include "storage/page_hdr.h"
 #include <stdint.h>
+#include <atomic>
 
 class PDBTable;
 class DataPart;
+class TableInfo;
 
 class PageRef
 {
@@ -36,27 +38,34 @@ private:
   PageHdr* pPageHdr_;
 };
 
-class TableRef
+class RefObj
 {
 public:
-  TableRef();
-  ~TableRef();
+  RefObj() { refCnt_ = 0; }
+  virtual ~RefObj() {}
 
-  void Attach(PDBTable* pTab);
-
-private:
-  PDBTable* pTab_;
+  void AddRef() { refCnt_.fetch_add(1); }
+  void MinusRef() { refCnt_.fetch_sub(1); }
+  unsigned int GetRefCnt() { return refCnt_; }
+  
+protected:
+  std::atomic_int refCnt_;
 };
 
-class DataPartRef
+class RefUtil
 {
 public:
-  DataPartRef();
-  ~DataPartRef();
+  RefUtil();
+  ~RefUtil();
 
-  void Attach(DataPart* pPart);
-  DataPart* GetDataPart() { return pPart_; }
+  void Attach(RefObj* pObj);
+
+  template<typename T>
+  T* GetObj()
+  {
+    return dynamic_cast<T*>(pObj_);
+  }
 
 private:
-  DataPart* pPart_;
+  RefObj* pObj_;
 };

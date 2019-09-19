@@ -34,6 +34,7 @@ public:
 
   void Stop();
   PdbErr_t CreateTable(const CreateTableParam* pTableParam);
+  PdbErr_t AlterTable(const CreateTableParam* pTableParam);
   PdbErr_t OpenTable(const char* pTabName);
   PdbErr_t OpenDataPart(const char* pTabName, int partCode, bool isNormalPart);
   PdbErr_t RecoverDW(const char* pTabName);
@@ -46,8 +47,8 @@ public:
   PdbErr_t ExecuteQuery(DataTable* pResultTable, SQLParser* pParser, int32_t userRole);
 
   PdbErr_t DeleteDev(const DeleteParam* pDeleteParam);
-  PDBTable* GetTable(const char* pTabName, TableRef* pTabRef);
-  PDBTable* GetTable(uint64_t tabNameCrc, TableRef* pTabRef);
+  PDBTable* GetTable(const char* pTabName, RefUtil* pTabRef);
+  PDBTable* GetTable(uint64_t tabNameCrc, RefUtil* pTabRef);
 
   PdbErr_t Insert(IInsertObj* pInsertObj, bool errBreak, std::list<PdbErr_t>& resultList);
 

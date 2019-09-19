@@ -244,14 +244,14 @@ void DBImpl::_CompressTask()
 PdbErr_t DBImpl::RecoverDataLog()
 {
   PdbErr_t retVal = PdbE_OK;
-  uint32_t fieldCrc = 0;
+  uint32_t metaCode = 0;
   uint64_t tabCrc = 0;
   int64_t devId = 0;
   uint64_t recTstamp = 0;
   size_t recCnt = 0;
   size_t dataLen = 0;
   size_t recLen = 0;
-  TableRef tabRef;
+  RefUtil tabRef;
   Arena arena;
   PDBTable* pTab = nullptr;
   uint8_t* pBuf = (uint8_t*)arena.Allocate(PDB_MB_BYTES(8));
@@ -260,7 +260,7 @@ PdbErr_t DBImpl::RecoverDataLog()
 
   while (true)
   {
-    retVal = pGlbCommitLog->GetRedoData(&tabCrc, &fieldCrc, &recCnt, &dataLen, pBuf);
+    retVal = pGlbCommitLog->GetRedoData(&tabCrc, &metaCode, &recCnt, &dataLen, pBuf);
     if (retVal == PdbE_END_OF_DATALOG)
       return PdbE_OK;
 
@@ -277,12 +277,6 @@ PdbErr_t DBImpl::RecoverDataLog()
       continue;
     }
 
-    if (pTab->GetFieldCrc() != fieldCrc)
-    {
-      LOG_INFO("failed to recover datalog, table ({}) column info mistake, skip ({}) record data", tabCrc, recCnt);
-      continue;
-    }
-
     pRec = pBuf;
     pBufLimit = pBuf + dataLen;
     for (size_t i = 0; i < recCnt; i++)
@@ -292,8 +286,8 @@ PdbErr_t DBImpl::RecoverDataLog()
       recLen = Coding::FixedDecode16(pRec);
       Coding::VarintDecode64((pRec + sizeof(uint16_t)), pBufLimit, &recTstamp);
       
-      retVal = pTab->InsertByDataLog(devId, (int64_t)recTstamp, pRec, recLen);
-      if (retVal != PdbE_OK)
+      retVal = pTab->InsertByDataLog(metaCode, devId, (int64_t)recTstamp, pRec, recLen);
+      if (retVal != PdbE_OK && retVal != PdbE_TABLE_FIELD_MISMATCH)
       {
         LOG_ERROR("failed to recover datalog, insert record error, err:{}", retVal);
         return retVal;

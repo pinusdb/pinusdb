@@ -504,31 +504,23 @@ uint64_t StringTool::CRC64(const void* pData, size_t len, size_t offset, uint64_
 
 uint64_t StringTool::CRC64NoCase(const char* pStr)
 {
-  const uint8_t* pTmp = (const uint8_t*)pStr;
-  uint64_t crc = 0;
-  uint8_t byteCode = 0;
-
-  while (*pTmp != '\0')
-  {
-    byteCode = upper_to_lower_char[(uint8_t)(*pTmp)];
-    crc = crc64_tab[(uint8_t)(crc ^ byteCode)] ^ (crc >> 8);
-
-    pTmp++;
-  }
-
-  return crc;
+  return CRC64NoCase(pStr, strlen(pStr), 0, 0);
 }
 
 uint64_t StringTool::CRC64NoCase(const char* pStr, size_t len)
 {
-  const uint8_t* pTmp = (const uint8_t*)pStr;
+  return CRC64NoCase(pStr, len, 0, 0);
+}
+
+uint64_t StringTool::CRC64NoCase(const char* pStr, size_t len, size_t offset, uint64_t crc)
+{
+  const uint8_t* pTmp = (const uint8_t*)pStr + offset;
   const uint8_t* pLimit = pTmp + len;
-  uint64_t crc = 0;
   uint8_t byteCode = 0;
 
   while (pTmp < pLimit)
   {
-    byteCode = upper_to_lower_char[(uint8_t)(*pTmp++)];
+    byteCode = upper_to_lower_char[*pTmp++];
     crc = crc64_tab[(uint8_t)(crc ^ byteCode)] ^ (crc >> 8);
   }
 

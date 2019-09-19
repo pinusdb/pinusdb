@@ -889,6 +889,9 @@ PdbErr_t EventHandle::ExecNonQuery()
     case SQLParser::CmdType::CT_DropUser:
       retVal = _DropUser(sqlParser.GetDropUserParam());
       break;
+    case SQLParser::CmdType::CT_AlterTable:
+      retVal = _AlterTable(sqlParser.GetCreateTableParam());
+      break;
     default:
     {
       retVal = PdbE_SQL_ERROR;
@@ -1185,6 +1188,27 @@ PdbErr_t EventHandle::_DropUser(const DropUserParam* pDropUserParam)
   {
     LOG_INFO("user ({}) drop user ({}) failed, err: {}", userName_.c_str(),
       pDropUserParam->userName_.c_str(), retVal);
+  }
+
+  return retVal;
+}
+
+PdbErr_t EventHandle::_AlterTable(const CreateTableParam* pCreateTableParam)
+{
+  PdbErr_t retVal = PdbE_OK;
+  if (userRole_ != PDB_ROLE::ROLE_ADMIN)
+    return PdbE_OPERATION_DENIED;
+
+  retVal = pGlbTableSet->AlterTable(pCreateTableParam);
+  if (retVal != PdbE_OK)
+  {
+    LOG_INFO("user ({}) alter table ({}) failed, err: {}",
+      userName_.c_str(), pCreateTableParam->tabName_.c_str(), retVal);
+  }
+  else
+  {
+    LOG_INFO("user ({}) alter table ({}) successful",
+      userName_.c_str(), pCreateTableParam->tabName_.c_str());
   }
 
   return retVal;

@@ -42,7 +42,7 @@ typedef struct _LogFileHdr {
 
 typedef struct _LogBlkHdr {
   uint64_t tabCrc_;          // 表
-  uint32_t fieldCrc_;        // 字段
+  uint32_t metaCode_;         // 字段校验
   int32_t  recCnt_;          // 记录条数
   int32_t  dataLen_;         // 数据长度
   uint32_t dataCrc_;         // 数据校验

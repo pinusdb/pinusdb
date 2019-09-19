@@ -12,6 +12,7 @@
 void pdbSetError(SQLParser* pParse, const char* pErrMsg);
 void pdbSelect(SQLParser* pParse, ExprList* pSelList, Token* pSrcTab, ExprItem* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit);
 void pdbCreateTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList);
+void pdbAlterTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList);
 
 void pdbDelete(SQLParser* pParse, Token* pTabName, ExprItem* pWhere);
 void pdbAttachTable(SQLParser* pParse, Token* pTabName);
@@ -39,7 +40,7 @@ void pdbDropUser(SQLParser* pParse, Token* pNameToken);
 }
 %name pdbParse
 
-%nonassoc  ILLEGAL SPACE COMMENT FUNCTION INSERT INTO VALUES IS NOT NULL DELETE TOP TRUE FALSE IN TINYINT SMALLINT INT ISTRUE ISFALSE FLOAT.
+%nonassoc  ILLEGAL SPACE COMMENT FUNCTION INSERT INTO VALUES DELETE TOP TRUE FALSE IN TINYINT SMALLINT INT ISTRUE ISFALSE FLOAT ISNULL ISNOTNULL.
 
 //////////////////// The Add User ///////////////////////////////////
 
@@ -96,6 +97,10 @@ cmd ::= DROP DATAFILE STRING(D) FROM ID(T) SEMI. {
 
 cmd ::= CREATE TABLE ID(X) LP cre_columnlist(Y) RP SEMI. {
   pdbCreateTable(pParse, &X, Y);
+}
+
+cmd ::= ALTER TABLE ID(X) LP cre_columnlist(Y) RP SEMI. {
+  pdbAlterTable(pParse, &X, Y);
 }
 
 %type cre_columnlist             { ColumnList* }
@@ -246,7 +251,8 @@ condi_expr(A) ::= ID(X) EQ TRUE.         { A = ExprItem::MakeExpr(TK_ISTRUE, Exp
 condi_expr(A) ::= ID(X) EQ FALSE.        { A = ExprItem::MakeExpr(TK_ISFALSE, ExprItem::MakeExpr(TK_ID, nullptr, nullptr, &X), nullptr, nullptr); }
 condi_expr(A) ::= ID(X) NE TRUE.         { A = ExprItem::MakeExpr(TK_ISFALSE, ExprItem::MakeExpr(TK_ID, nullptr, nullptr, &X), nullptr, nullptr); }
 condi_expr(A) ::= ID(X) NE FALSE.        { A = ExprItem::MakeExpr(TK_ISTRUE, ExprItem::MakeExpr(TK_ID, nullptr, nullptr, &X), nullptr, nullptr); }
-
+condi_expr(A) ::= ID(X) IS NOT NULL.     { A = ExprItem::MakeExpr(TK_ISNOTNULL, ExprItem::MakeExpr(TK_ID, nullptr, nullptr, &X), nullptr, nullptr); }
+condi_expr(A) ::= ID(X) IS NULL.         { A = ExprItem::MakeExpr(TK_ISNULL, ExprItem::MakeExpr(TK_ID, nullptr, nullptr, &X), nullptr, nullptr); }
 
 condi_expr(A) ::= condi_expr(X) AND condi_expr(Y).  { A = ExprItem::MakeExpr(TK_AND, X, Y, nullptr); }
 
