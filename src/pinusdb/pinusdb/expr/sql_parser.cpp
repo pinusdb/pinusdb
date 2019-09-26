@@ -51,16 +51,13 @@ void SQLParser::SetQuery(ExprList* pSelList, Token* pSrcTab, ExprItem* pWhere,
 }
 
 
-void SQLParser::SetInsert(Token* pTabToken, 
-  ExprList* pColList, ExprList* pValList)
+void SQLParser::SetInsert(Token* pTabName, ExprList* pColList, RecordList* pRecList)
 {
   cmdType_ = CmdType::CT_Insert;
 
-  this->insertParam_.tabName_ = std::string(pTabToken->str_, pTabToken->len_);
-
+  this->insertParam_.tabName_ = std::string(pTabName->str_, pTabName->len_);
   this->insertParam_.pColList_ = pColList;
-  this->insertParam_.pValList_ = pValList;
-
+  this->insertParam_.pValRecList_ = pRecList;
 }
 
 void SQLParser::SetDelete(Token* pTabToken, ExprItem* pWhere)

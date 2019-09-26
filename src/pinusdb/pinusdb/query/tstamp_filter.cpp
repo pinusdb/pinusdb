@@ -70,7 +70,7 @@ bool TStampFilter::_BuildFilter(const ExprItem* pExpr)
       return false;
 
     if (pLeftExpr->GetOp() != TK_ID)
-      return false;
+      return true;
 
     const std::string& fieldName = pLeftExpr->GetValueStr();
 
@@ -85,20 +85,26 @@ bool TStampFilter::_BuildFilter(const ExprItem* pExpr)
         return true;
 
       int64_t timeStamp = 0;
+      DBVal tmpVal;
 
       if (pRightExpr == nullptr)
         return false;
 
-      const std::string rightValStr = pRightExpr->GetValueStr();
-      if (pRightExpr->GetOp() == TK_INTEGER)
+      if (!pRightExpr->GetDBVal(&tmpVal))
+        return false;
+
+      if (DBVAL_IS_INT64(&tmpVal))
       {
-        if (!StringTool::StrToInt64(rightValStr.c_str(), rightValStr.size(), &timeStamp))
-          return false;
+        timeStamp = DBVAL_GET_INT64(&tmpVal);
       }
-      else if (pRightExpr->GetOp() == TK_STRING)
+      else if (DBVAL_IS_DATETIME(&tmpVal))
+      {
+        timeStamp = DBVAL_GET_DATETIME(&tmpVal);
+      }
+      else if (DBVAL_IS_STRING(&tmpVal))
       {
         DateTime dt;
-        if (!dt.Parse(rightValStr.c_str(), rightValStr.size()))
+        if (!dt.Parse((const char*)tmpVal.val_.pData_, tmpVal.dataLen_))
           return false;
 
         timeStamp = dt.TotalMilliseconds();

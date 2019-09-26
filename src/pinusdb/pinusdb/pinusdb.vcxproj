@@ -164,6 +164,7 @@
     <ClInclude Include="expr\orderby_opt.h" />
     <ClInclude Include="expr\parse.h" />
     <ClInclude Include="expr\pdb_db_int.h" />
+    <ClInclude Include="expr\record_list.h" />
     <ClInclude Include="expr\sql_parser.h" />
     <ClInclude Include="expr\tokenize.h" />
     <ClInclude Include="include\global_variable.h" />

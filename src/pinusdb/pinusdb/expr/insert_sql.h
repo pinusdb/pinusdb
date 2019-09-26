@@ -20,71 +20,36 @@
 #include "table/db_value.h"
 #include "table/table_info.h"
 
-typedef struct _SqlToken
-{
-  int32_t type_;
-  int32_t len_;
-  const char* str_;
-}SqlToken;
-
-class IInsertObj
-{
-public:
-  IInsertObj() {}
-  virtual ~IInsertObj() {}
-
-  virtual bool IsEnd() const = 0;
-  virtual PdbErr_t ParseMeta() = 0;
-  virtual std::string GetTableName() const = 0;
-  virtual PdbErr_t InitTableInfo(const TableInfo* pTabInfo) = 0;
-  virtual PdbErr_t GetNextRec(int* pTypes, DBVal* pVals, size_t valCnt) = 0;
-};
-
-class InsertSql : public IInsertObj
+class InsertSql
 {
 public:
   InsertSql();
-  virtual ~InsertSql();
+  ~InsertSql();
 
-  PdbErr_t AddToken(int32_t type, int32_t len, const char* pStr);
-  
-  virtual bool IsEnd() const { return curIter_ == tokenList_.end(); }
-  virtual PdbErr_t ParseMeta();
-  virtual std::string GetTableName() const { return tabName_; }
-  virtual PdbErr_t InitTableInfo(const TableInfo* pTabInfo);
-  virtual PdbErr_t GetNextRec(int* pTypes, DBVal* pVals, size_t valCnt);
+  void SetTableName(const char* pName, size_t len);
+  void SetTableName(const std::string& tabName);
+  void SetFieldCnt(size_t fieldCnt) { fieldCnt_ = fieldCnt; }
+  void SetRecCnt(size_t recCnt) { recCnt_ = recCnt; }
+  void AppendFieldName(const char* pName, size_t len);
+  void AppendFieldName(const std::string& fieldName);
+  PdbErr_t AppendVal(const DBVal* pVal);
+  bool Valid() const;
 
-private:
-  std::string tabName_;
-  std::vector<std::string> colNameVec_;
-  std::vector<size_t> posVec_;
+  const std::string& GetTableName() const;
+  PdbErr_t InitTableInfo(const TableInfo* pTabInfo);
 
-  std::list<SqlToken> tokenList_;
-  std::list<SqlToken>::iterator curIter_;
-};
-
-class InsertTable : public IInsertObj
-{
-public:
-  InsertTable(size_t fieldCnt, size_t recCnt);
-  virtual ~InsertTable();
-
-  PdbErr_t AddVal(const DBVal* pVal);
-
-  virtual bool IsEnd() const { return valIter_ == valList_.end(); }
-  virtual PdbErr_t ParseMeta();
-  virtual std::string GetTableName() const { return tabName_; }
-  virtual PdbErr_t InitTableInfo(const TableInfo* pTabInfo);
-  virtual PdbErr_t GetNextRec(int* pTypes, DBVal* pVals, size_t valCnt);
+  bool IsEnd() const;
+  PdbErr_t GetNextRec(DBVal* pVals, size_t valCnt);
 
 private:
   size_t fieldCnt_;
   size_t recCnt_;
+
   std::string tabName_;
   std::vector<std::string> colNameVec_;
   std::vector<size_t> posVec_;
+  std::vector<int32_t> typeVec_;
 
   std::list<DBVal> valList_;
   std::list<DBVal>::const_iterator valIter_;
-
 };

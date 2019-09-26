@@ -45,7 +45,7 @@ public:
   PdbErr_t AttachPart(const char* pPartDate, int fileType);
   PdbErr_t DropTable();
 
-  PdbErr_t Insert(IInsertObj* pInsertObj, bool errBreak, std::list<PdbErr_t>& resultList);
+  PdbErr_t Insert(InsertSql* pInsertSql, bool errBreak, std::list<PdbErr_t>& resultList);
   PdbErr_t InsertByDataLog(uint32_t metaCode, int64_t devId, int64_t tstamp, const uint8_t* pRecBg, size_t recLen);
   PdbErr_t Query(DataTable* pResultTable, const QueryParam* pQueryParam);
   PdbErr_t QuerySnapshot(DataTable* pResultTable, const QueryParam* pQueryParam);

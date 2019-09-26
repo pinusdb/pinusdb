@@ -49,22 +49,23 @@ public:
   size_t GetQueryOffset() const { return queryOffset_; }
   size_t GetQueryRecord() const { return queryRecord_; }
 
-  bool IsEmptySet() const { return isEmptySet_; }
+  bool IsEmptySet() const { return (isEmptySet_ || condiFilter_.AlwaysFalse()); }
   PdbErr_t BuildFilter(const QueryParam* pQueryParam, const TableInfo* pTabInfo, Arena* pArena);
 
 protected:
   PdbErr_t AddCountField(const std::string& aliasName, size_t fieldPos);
 
-  PdbErr_t AddAggField(int32_t opFunc, const std::string& aliasName,
+  PdbErr_t AddAggField(int funcId, const std::string& aliasName,
     size_t fieldPos, int32_t fieldType, Arena* pArena);
 
-  ResultField* AddAggBoolField(int32_t opFunc, size_t fieldPos);
-  ResultField* AddAggInt64Field(int32_t opFunc, size_t fieldPos);
-  ResultField* AddAggDoubleField(int32_t opFunc, size_t fieldPos);
-  ResultField* AddAggDateTimeField(int32_t opFunc, size_t fieldPos);
-  ResultField* AddAggStringField(int32_t opFunc, size_t fieldPos, Arena* pArena);
-  ResultField* AddAggBlobField(int32_t opFunc, size_t fieldPos, Arena* pArena);
+  ResultField* AddAggBoolField(int funcId, size_t fieldPos);
+  ResultField* AddAggInt64Field(int funcId, size_t fieldPos);
+  ResultField* AddAggDoubleField(int funcId, size_t fieldPos);
+  ResultField* AddAggDateTimeField(int funcId, size_t fieldPos);
+  ResultField* AddAggStringField(int funcId, size_t fieldPos, Arena* pArena);
+  ResultField* AddAggBlobField(int funcId, size_t fieldPos, Arena* pArena);
 
+  int GetFuncIdByName(const std::string& funcName);
 
   ///////////////////////////////////////////////////////////////////////////
 

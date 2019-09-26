@@ -43,7 +43,8 @@ protected:
   PdbErr_t DecodeHead();
 
   PdbErr_t DecodeSqlPacket(const char** ppSql, size_t* pSqlLen);
-  PdbErr_t DecodeInsertTable(InsertTable* pInsertTab);
+  PdbErr_t DecodeInsertTable(InsertSql* pInsertSql);
+  PdbErr_t DecodeInsertSql(InsertSql* pInsertSql, Arena* pArena);
 
   PdbErr_t EncodeQueryPacket(PdbErr_t retVal, DataTable* pTable);
   PdbErr_t EncodeInsertPacket(PdbErr_t retVal, int32_t successCnt);
@@ -52,7 +53,7 @@ protected:
   PdbErr_t ExecLogin();
 
   PdbErr_t ExecQuery(DataTable* pResultTable);
-  PdbErr_t ExecInsert(int32_t* pSuccessCnt);
+  PdbErr_t ExecInsertSql(int32_t* pSuccessCnt);
   PdbErr_t ExecInsertTable(std::list<PdbErr_t>& resultList);
   PdbErr_t ExecNonQuery();
 

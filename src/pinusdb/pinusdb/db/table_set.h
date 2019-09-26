@@ -50,7 +50,7 @@ public:
   PDBTable* GetTable(const char* pTabName, RefUtil* pTabRef);
   PDBTable* GetTable(uint64_t tabNameCrc, RefUtil* pTabRef);
 
-  PdbErr_t Insert(IInsertObj* pInsertObj, bool errBreak, std::list<PdbErr_t>& resultList);
+  PdbErr_t Insert(InsertSql* pInsertSql, bool errBreak, std::list<PdbErr_t>& resultList);
 
   PdbErr_t QueryColumn(IResultFilter* pFilter);
   PdbErr_t QueryDev(IResultFilter* pFilter);
@@ -64,7 +64,7 @@ public:
   size_t GetDirtyPagePercent();
 
 private:
-  PdbErr_t InsertDev(IInsertObj* pInsertObj,
+  PdbErr_t InsertDev(InsertSql* pInsertSql,
     bool errBreak, std::list<PdbErr_t>& resultList);
 
   PdbErr_t QuerySysTable(const QueryParam* pQueryParam, int32_t userRole, DataTable* pResultTable);

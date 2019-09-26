@@ -16,6 +16,8 @@
 
 #include "expr/parse.h"
 #include "expr/expr_item.h"
+#include "util/string_tool.h"
+#include "util/date_time.h"
 
 ExprItem::ExprItem()
 {
@@ -24,6 +26,8 @@ ExprItem::ExprItem()
   pRight_ = nullptr;
   pParentExpr_ = nullptr;
   pExprList_ = nullptr;
+  tkVal_.str_ = nullptr;
+  tkVal_.len_ = 0;
 }
 ExprItem::~ExprItem()
 {
@@ -37,26 +41,246 @@ ExprItem::~ExprItem()
     delete pExprList_;
 }
 
-void ExprItem::SetExprList(ExprList* pExprList)
-{
-  pExprList_ = pExprList;
-}
-
 const std::string& ExprItem::GetAliasName() const
 {
   return this->aliasName_;
 }
-void ExprItem::SetAliasName(Token* pToken)
+
+std::string ExprItem::GetValueStr() const
 {
-  if (pToken != nullptr && pToken->str_ != nullptr && pToken->len_ > 0)
-    this->aliasName_ = std::string(pToken->str_, pToken->len_);
-  else
-    this->aliasName_ = "";
+  return std::string(tkVal_.str_, tkVal_.len_);
 }
 
-const std::string& ExprItem::GetValueStr() const
+bool ExprItem::GetTimeVal(int64_t* pVal) const
 {
-  return this->valueStr_;
+  int64_t tmpVal = 0;
+  if (op_ != TK_TIMEVAL)
+    return false;
+
+  if (pExprList_ == nullptr)
+    return false;
+
+  const std::vector<ExprItem*>& argItemVec = pExprList_->GetExprList();
+  if (argItemVec.size() != 2)
+    return false;
+
+  if (argItemVec[0]->op_ != TK_INTEGER && argItemVec[0]->op_ != TK_UINTEGER)
+    return false;
+
+  if (!StringTool::StrToInt64(argItemVec[0]->tkVal_.str_, argItemVec[0]->tkVal_.len_, &tmpVal))
+    return false;
+
+  if (argItemVec[0]->op_ == TK_UINTEGER)
+    tmpVal *= -1;
+
+  if (argItemVec[1]->op_ != TK_ID)
+    return false;
+
+  if (argItemVec[1]->tkVal_.len_ != 1)
+    return false;
+
+  switch (argItemVec[1]->tkVal_.str_[0])
+  {
+  case 's':
+  case 'S':
+    tmpVal *= MillisPerSecond;
+    break;
+  case 'm':
+  case 'M':
+    tmpVal *= MillisPerMinute;
+    break;
+  case 'h':
+  case 'H':
+    tmpVal *= MillisPerHour;
+    break;
+  case 'd':
+  case 'D':
+    tmpVal *= MillisPerDay;
+    break;
+  default:
+    return false;
+  }
+
+  if (pVal != nullptr)
+    *pVal = tmpVal;
+
+  return true;
+}
+
+bool ExprItem::GetNowFuncVal(int64_t* pVal) const
+{
+  // now(-5h, 'hour')    s,m,h,d  ,  s/second, m/minute, h/hour, d/day
+  int64_t tmpVal = DateTime::NowMilliseconds();
+  if (op_ != TK_FUNCTION)
+    return false;
+
+  if (!StringTool::ComparyNoCase(funcName_, PDB_SQL_FUNC_NOW_NAME, PDB_SQL_FUNC_NOW_NAME_LEN))
+    return false;
+
+  do {
+    if (pExprList_ == nullptr)
+      break;
+
+    const std::vector<ExprItem*>& argVec = pExprList_->GetExprList();
+    if (argVec.size() == 0)
+      break;
+
+    if (argVec.size() > 2)
+      return false;
+
+    if (argVec.size() == 2)
+    {
+      //处理第二个参数
+      if (argVec[1]->op_ != TK_ID && argVec[1]->op_ != TK_STRING)
+        return false;
+
+      int64_t alignMilli = 0;
+      std::string tValStr(argVec[1]->tkVal_.str_, argVec[1]->tkVal_.len_);
+      if (StringTool::ComparyNoCase(tValStr, "s", (sizeof("s") - 1))
+        || StringTool::ComparyNoCase(tValStr, "second", (sizeof("second") - 1)))
+      {
+        alignMilli = MillisPerSecond;
+      }
+      else if (StringTool::ComparyNoCase(tValStr, "m", (sizeof("m") - 1))
+        || StringTool::ComparyNoCase(tValStr, "minute", (sizeof("minute") - 1)))
+      {
+        alignMilli = MillisPerMinute;
+      }
+      else if (StringTool::ComparyNoCase(tValStr, "h", (sizeof("h") - 1))
+        || StringTool::ComparyNoCase(tValStr, "hour", (sizeof("hour") - 1)))
+      {
+        alignMilli = MillisPerHour;
+      }
+      else if (StringTool::ComparyNoCase(tValStr, "d", (sizeof("d") - 1))
+        || StringTool::ComparyNoCase(tValStr, "day", (sizeof("day") - 1)))
+      {
+        alignMilli = MillisPerDay;
+      }
+      else
+      {
+        return false;
+      }
+    
+      tmpVal -= (tmpVal % alignMilli);
+    }
+
+    int64_t timeOffset = 0;
+    if (!argVec[0]->GetTimeVal(&timeOffset))
+      return false;
+
+    tmpVal += timeOffset;
+
+  } while (false);
+
+  if (pVal != nullptr)
+    *pVal = tmpVal;
+
+  return true;
+}
+
+bool ExprItem::GetIntVal(int64_t* pVal) const
+{
+  int64_t tmpVal = 0;
+  if (op_ != TK_INTEGER && op_ != TK_UINTEGER)
+    return false;
+
+  if (!StringTool::StrToInt64(tkVal_.str_, tkVal_.len_, &tmpVal))
+    return false;
+
+  if (op_ == TK_UINTEGER)
+    tmpVal *= -1;
+
+  if (pVal != nullptr)
+    *pVal = tmpVal;
+
+  return true;
+}
+
+bool ExprItem::GetDoubleVal(double* pVal) const
+{
+  double tmpVal = 0;
+  if (op_ != TK_DOUBLE && op_ != TK_UDOUBLE)
+    return false;
+
+  if (!StringTool::StrToDouble(tkVal_.str_, tkVal_.len_, &tmpVal))
+    return false;
+
+  if (op_ == TK_UDOUBLE)
+    tmpVal *= -1;
+
+  if (pVal != nullptr)
+    *pVal = tmpVal;
+
+  return true;
+}
+
+bool ExprItem::GetDBVal(DBVal* pVal) const
+{
+  int64_t i64Val = 0;
+  double dVal = 0;
+  DBVal tmpVal;
+
+  switch (op_)
+  {
+  case TK_TRUE:
+  {
+    DBVAL_SET_BOOL(&tmpVal, true);
+    break;
+  }
+  case TK_FALSE:
+  {
+    DBVAL_SET_BOOL(&tmpVal, false);
+    break;
+  }
+  case TK_INTEGER:
+  case TK_UINTEGER:
+  {  
+    if (!GetIntVal(&i64Val))
+      return false;
+    
+    DBVAL_SET_INT64(&tmpVal, i64Val);
+    break;
+  }
+  case TK_DOUBLE:
+  case TK_UDOUBLE:
+  {
+    if (!GetDoubleVal(&dVal))
+      return false;
+
+    DBVAL_SET_DOUBLE(&tmpVal, dVal);
+    break;
+  }
+  case TK_STRING:
+  { 
+    DBVAL_SET_STRING(&tmpVal, tkVal_.str_, tkVal_.len_);
+    break;
+  }
+  case TK_BLOB:
+  {
+    DBVAL_SET_BLOB(&tmpVal, tkVal_.str_, tkVal_.len_);
+    break;
+  }
+  case TK_FUNCTION:
+  {
+    if (!GetNowFuncVal(&i64Val))
+      return false;
+
+    DBVAL_SET_DATETIME(&tmpVal, i64Val);
+    break;
+  }
+  default:
+    return false;
+  }
+
+  if (pVal != nullptr)
+    *pVal = tmpVal;
+
+  return true;
+}
+
+const std::string& ExprItem::GetFuncName() const
+{
+  return this->funcName_;
 }
 
 int ExprItem::GetOp() const
@@ -80,44 +304,110 @@ const ExprList* ExprItem::GetExprList() const
   return pExprList_;
 }
 
-ExprItem* ExprItem::MakeExpr(int op, ExprItem* pLeft, ExprItem* pRight, Token* pValStr)
+ExprItem* ExprItem::MakeCondition(int op, Token* pID, ExprItem* pRight)
+{
+  ExprItem* pNew = new ExprItem();
+  pNew->op_ = op;
+  pNew->pLeft_ = new ExprItem();
+  pNew->pLeft_->op_ = TK_ID;
+  pNew->pLeft_->tkVal_ = *pID;
+
+  pNew->pRight_ = pRight;
+  pNew->pLeft_->pParentExpr_ = pNew;
+  if (pRight != nullptr)
+    pRight->pParentExpr_ = pNew;
+
+  return pNew;
+}
+
+ExprItem* ExprItem::MakeCondition(int op, ExprItem* pLeft, ExprItem* pRight)
 {
   ExprItem* pNew = new ExprItem();
   pNew->op_ = op;
   pNew->pLeft_ = pLeft;
   pNew->pRight_ = pRight;
+
   if (pLeft != nullptr)
-  {
     pLeft->pParentExpr_ = pNew;
-  }
   if (pRight != nullptr)
-  {
     pRight->pParentExpr_ = pNew;
+
+  return pNew;
+}
+
+ExprItem* ExprItem::MakeFunction(int op, Token* pFuncName, ExprList* pArgs, Token* pAsName)
+{
+  ExprItem* pNew = new ExprItem();
+  pNew->op_ = op;
+  pNew->pExprList_ = pArgs;
+
+  if (pFuncName != nullptr)
+    pNew->funcName_ = std::string(pFuncName->str_, pFuncName->len_);
+  else
+    pNew->funcName_ = "";
+
+  if (pAsName != nullptr)
+    pNew->aliasName_ = std::string(pAsName->str_, pAsName->len_);
+  else
+    pNew->aliasName_ = "";
+
+  return pNew;
+}
+
+ExprItem* ExprItem::MakeTimeVal(bool nonnegative, Token* pVal, Token* pUnit)
+{
+  ExprItem* pNew = new ExprItem();
+  pNew->op_ = TK_TIMEVAL;
+  pNew->pExprList_ = new ExprList();
+
+  if (pVal != nullptr)
+  {
+    ExprItem* pValItem = new ExprItem();
+    pValItem->op_ = nonnegative ? TK_INTEGER : TK_UINTEGER;
+    pValItem->tkVal_ = *pVal;
+
+    pNew->pExprList_->AddExprItem(pValItem);
   }
 
-  if (pValStr != nullptr)
+  if (pUnit != nullptr)
   {
-    pNew->valueStr_ = std::string(pValStr->str_, pValStr->len_);
-  }
-  else
-  {
-    pNew->valueStr_ = "";
+    ExprItem* pUnitItem = new ExprItem();
+    pUnitItem->op_ = TK_ID;
+    pUnitItem->tkVal_ = *pUnit;
+
+    pNew->pExprList_->AddExprItem(pUnitItem);
   }
 
   return pNew;
 }
 
-ExprItem* ExprItem::MakeFunction(int op, Token* pArgField, Token* pAsName)
+ExprItem* ExprItem::MakeValue(int op, Token* pVal)
 {
   ExprItem* pNew = new ExprItem();
   pNew->op_ = op;
-  pNew->pExprList_ = new ExprList();
-  pNew->pExprList_->AddExprItem(ExprItem::MakeExpr(TK_ID, nullptr, nullptr, pArgField));
 
-  if (pAsName != nullptr && pAsName->str_ != nullptr && pAsName->len_ > 0)
+  if (pVal != nullptr)
+  {
+    pNew->tkVal_ = *pVal;
+  }
+
+  return pNew;
+}
+
+ExprItem* ExprItem::MakeValue(int op, Token* pVal, Token* pAsName)
+{
+  ExprItem* pNew = new ExprItem();
+  pNew->op_ = op;
+
+  if (pVal != nullptr)
+  {
+    pNew->tkVal_ = *pVal;
+  }
+
+  if (pAsName != nullptr)
+  {
     pNew->aliasName_ = std::string(pAsName->str_, pAsName->len_);
-  else
-    pNew->aliasName_ = "";
+  }
 
   return pNew;
 }
@@ -129,7 +419,6 @@ void ExprItem::FreeExprItem(ExprItem* pExprItem)
     delete pExprItem;
   }
 }
-
 
 ExprList::ExprList()
 {

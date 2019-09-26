@@ -21,11 +21,13 @@
 #include <string>
 #include <vector>
 
+class ExprItem;
+
 class GroupOpt
 {
 public:
   GroupOpt(Token* pToken1);
-  GroupOpt(Token* pToken1, Token* pToken2, Token* pToken3);
+  GroupOpt(Token* pToken1, ExprItem* pTimeVal);
   ~GroupOpt();
 
   bool Valid() const;
@@ -35,7 +37,7 @@ public:
   PdbErr_t GetTStampStep(int64_t& timeStampStep) const;
 
   static GroupOpt* MakeGroupOpt(Token* pToken1);
-  static GroupOpt* MakeGroupOpt(Token* pToken1, Token* pToken2, Token* pToken3);
+  static GroupOpt* MakeGroupOpt(Token* pToken1, ExprItem* pTimeVal);
   static void FreeGroupOpt(GroupOpt* pGroupOpt);
 
 private:

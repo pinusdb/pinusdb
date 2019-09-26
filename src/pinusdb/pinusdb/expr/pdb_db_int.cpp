@@ -24,6 +24,7 @@
 #include "expr/group_opt.h"
 #include "expr/orderby_opt.h"
 #include "expr/limit_opt.h"
+#include "expr/record_list.h"
 
 void pdbSetError(SQLParser* pParse, const char* pErrMsg)
 {
@@ -98,14 +99,6 @@ void pdbSelect(SQLParser* pParse, ExprList* pSelList, Token* pSrcTab,
   }
 }
 
-void pdbInsert(SQLParser* pParse, Token* pTabToken, ExprList* pColList, ExprList* pValList)
-{
-  if (pParse != nullptr)
-  {
-    pParse->SetInsert(pTabToken, pColList, pValList);
-  }
-}
-
 void pdbCreateTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList)
 {
   if (pParse != nullptr)
@@ -151,5 +144,13 @@ void pdbDropUser(SQLParser* pParse, Token* pNameToken)
   if (pParse != nullptr)
   {
     pParse->SetDropUser(pNameToken);
+  }
+}
+
+void pdbInsert(SQLParser* pParse, Token* pTabName, ExprList* pColList, RecordList* pRecList)
+{
+  if (pParse != nullptr)
+  {
+    pParse->SetInsert(pTabName, pColList, pRecList);
   }
 }

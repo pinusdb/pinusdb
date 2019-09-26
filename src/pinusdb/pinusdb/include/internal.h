@@ -122,3 +122,38 @@ typedef struct _FieldInfoFormat
   char padding_[12];
 }FieldInfoFormat;
 
+#define PDB_SQL_FUNC_COUNT_NAME          "COUNT"
+#define PDB_SQL_FUNC_COUNT_NAME_LEN      (sizeof(PDB_SQL_FUNC_COUNT_NAME) - 1)
+
+#define PDB_SQL_FUNC_FIRST_NAME          "FIRST"
+#define PDB_SQL_FUNC_FIRST_NAME_LEN      (sizeof(PDB_SQL_FUNC_FIRST_NAME) - 1)
+
+#define PDB_SQL_FUNC_LAST_NAME           "LAST"
+#define PDB_SQL_FUNC_LAST_NAME_LEN       (sizeof(PDB_SQL_FUNC_LAST_NAME) - 1)
+
+#define PDB_SQL_FUNC_AVG_NAME            "AVG"
+#define PDB_SQL_FUNC_AVG_NAME_LEN        (sizeof(PDB_SQL_FUNC_AVG_NAME) - 1)
+
+#define PDB_SQL_FUNC_MIN_NAME            "MIN"
+#define PDB_SQL_FUNC_MIN_NAME_LEN        (sizeof(PDB_SQL_FUNC_MIN_NAME) - 1)
+
+#define PDB_SQL_FUNC_MAX_NAME            "MAX"
+#define PDB_SQL_FUNC_MAX_NAME_LEN        (sizeof(PDB_SQL_FUNC_MAX_NAME) - 1)
+
+#define PDB_SQL_FUNC_SUM_NAME            "SUM"
+#define PDB_SQL_FUNC_SUM_NAME_LEN        (sizeof(PDB_SQL_FUNC_SUM_NAME) - 1)
+
+#define PDB_SQL_FUNC_NOW_NAME            "NOW"
+#define PDB_SQL_FUNC_NOW_NAME_LEN        (sizeof(PDB_SQL_FUNC_NOW_NAME) - 1)
+
+enum PDB_SQL_FUNC{
+  FUNC_COUNT = 1,
+  FUNC_FIRST = 2,
+  FUNC_LAST = 3,
+  FUNC_AVG = 4,
+  FUNC_MIN = 5,
+  FUNC_MAX = 6,
+  FUNC_SUM = 7,
+
+  FUNC_NOW = 8,
+};

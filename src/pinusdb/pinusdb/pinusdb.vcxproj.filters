@@ -306,6 +306,9 @@
     <ClInclude Include="query\snapshot_result_filter.h">
       <Filter>query</Filter>
     </ClInclude>
+    <ClInclude Include="expr\record_list.h">
+      <Filter>expr</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="commitlog\commit_log_file.cpp">

@@ -130,7 +130,7 @@ PdbErr_t IResultFilter::AddCountField(const std::string& aliasName, size_t field
   return AddResultField(pRetField, aliasName);
 }
 
-PdbErr_t IResultFilter::AddAggField(int32_t opFunc, const std::string& aliasName,
+PdbErr_t IResultFilter::AddAggField(int funcId, const std::string& aliasName, 
   size_t fieldPos, int32_t fieldType, Arena* pArena)
 {
   ResultField* pRetField = nullptr;
@@ -138,26 +138,26 @@ PdbErr_t IResultFilter::AddAggField(int32_t opFunc, const std::string& aliasName
   switch (fieldType)
   {
   case PDB_FIELD_TYPE::TYPE_BOOL:
-    pRetField = AddAggBoolField(opFunc, fieldPos);
+    pRetField = AddAggBoolField(funcId, fieldPos);
     break;
   case PDB_FIELD_TYPE::TYPE_INT64:
-    pRetField = AddAggInt64Field(opFunc, fieldPos);
+    pRetField = AddAggInt64Field(funcId, fieldPos);
     break;
   case PDB_FIELD_TYPE::TYPE_DOUBLE:
   case PDB_FIELD_TYPE::TYPE_REAL2:
   case PDB_FIELD_TYPE::TYPE_REAL3:
   case PDB_FIELD_TYPE::TYPE_REAL4:
   case PDB_FIELD_TYPE::TYPE_REAL6:
-    pRetField = AddAggDoubleField(opFunc, fieldPos);
+    pRetField = AddAggDoubleField(funcId, fieldPos);
     break;
   case PDB_FIELD_TYPE::TYPE_STRING:
-    pRetField = AddAggStringField(opFunc, fieldPos, pArena);
+    pRetField = AddAggStringField(funcId, fieldPos, pArena);
     break;
   case PDB_FIELD_TYPE::TYPE_BLOB:
-    pRetField = AddAggBlobField(opFunc, fieldPos, pArena);
+    pRetField = AddAggBlobField(funcId, fieldPos, pArena);
     break;
   case PDB_FIELD_TYPE::TYPE_DATETIME:
-    pRetField = AddAggDateTimeField(opFunc, fieldPos);
+    pRetField = AddAggDateTimeField(funcId, fieldPos);
     break;
   }
 
@@ -167,110 +167,130 @@ PdbErr_t IResultFilter::AddAggField(int32_t opFunc, const std::string& aliasName
   return AddResultField(pRetField, aliasName);
 }
 
-ResultField* IResultFilter::AddAggBoolField(int32_t opFunc, size_t fieldPos)
+ResultField* IResultFilter::AddAggBoolField(int funcId, size_t fieldPos)
 {
-  switch (opFunc)
+  switch (funcId)
   {
-  case TK_COUNT_FUNC:
+  case PDB_SQL_FUNC::FUNC_COUNT:
     return new CountFunc(fieldPos);
-  case TK_FIRST_FUNC:
+  case PDB_SQL_FUNC::FUNC_FIRST:
     return new FirstValFunc<PDB_FIELD_TYPE::TYPE_BOOL>(fieldPos);
-  case TK_LAST_FUNC:
+  case PDB_SQL_FUNC::FUNC_LAST:
     return new LastValFunc<PDB_FIELD_TYPE::TYPE_BOOL>(fieldPos);
   }
 
   return nullptr;
 }
-ResultField* IResultFilter::AddAggInt64Field(int32_t opFunc, size_t fieldPos)
+ResultField* IResultFilter::AddAggInt64Field(int funcId, size_t fieldPos)
 {
-  switch (opFunc)
+  switch (funcId)
   {
-  case TK_AVG_FUNC:
-    return new AvgBigIntFunc(fieldPos);
-  case TK_COUNT_FUNC:
+  case PDB_SQL_FUNC::FUNC_COUNT:
     return new CountFunc(fieldPos);
-  case TK_LAST_FUNC:
-    return new LastValFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
-  case TK_MAX_FUNC:
-    return new MaxNumFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
-  case TK_MIN_FUNC:
-    return new MinNumFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
-  case TK_SUM_FUNC:
-    return new SumNumFunc(fieldPos);
-  case TK_FIRST_FUNC:
+  case PDB_SQL_FUNC::FUNC_FIRST:
     return new FirstValFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_LAST:
+    return new LastValFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_AVG:
+    return new AvgBigIntFunc(fieldPos);
+  case PDB_SQL_FUNC::FUNC_MIN:
+    return new MinNumFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_MAX:
+    return new MaxNumFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_SUM:
+    return new SumNumFunc(fieldPos);
   }
 
   return nullptr;
 }
 
-ResultField* IResultFilter::AddAggDoubleField(int32_t opFunc, size_t fieldPos)
+ResultField* IResultFilter::AddAggDoubleField(int funcId, size_t fieldPos)
 {
-  switch (opFunc)
+  switch (funcId)
   {
-  case TK_AVG_FUNC:
-    return new AvgDoubleFunc(fieldPos);
-  case TK_COUNT_FUNC:
+  case PDB_SQL_FUNC::FUNC_COUNT:
     return new CountFunc(fieldPos);
-  case TK_LAST_FUNC:
-    return new LastValFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(fieldPos);
-  case TK_MAX_FUNC:
-    return new MaxDoubleFunc(fieldPos);
-  case TK_MIN_FUNC:
-    return new MinDoubleFunc(fieldPos);
-  case TK_SUM_FUNC:
-    return new SumDoubleFunc(fieldPos);
-  case TK_FIRST_FUNC:
+  case PDB_SQL_FUNC::FUNC_FIRST:
     return new FirstValFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_LAST:
+    return new LastValFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_AVG:
+    return new AvgDoubleFunc(fieldPos);
+  case PDB_SQL_FUNC::FUNC_MIN:
+    return new MinDoubleFunc(fieldPos);
+  case PDB_SQL_FUNC::FUNC_MAX:
+    return new MaxDoubleFunc(fieldPos);
+  case PDB_SQL_FUNC::FUNC_SUM:
+    return new SumDoubleFunc(fieldPos);
   }
 
   return nullptr;
 }
-ResultField* IResultFilter::AddAggDateTimeField(int32_t opFunc, size_t fieldPos)
+ResultField* IResultFilter::AddAggDateTimeField(int funcId, size_t fieldPos)
 {
-  switch (opFunc)
+  switch (funcId)
   {
-  case TK_COUNT_FUNC:
+  case PDB_SQL_FUNC::FUNC_COUNT:
     return new CountFunc(fieldPos);
-  case TK_LAST_FUNC:
-    return new LastValFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
-  case TK_MAX_FUNC:
-    return new MaxNumFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
-  case TK_MIN_FUNC:
-    return new MinNumFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
-  case TK_FIRST_FUNC:
+  case PDB_SQL_FUNC::FUNC_FIRST:
     return new FirstValFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_LAST:
+    return new LastValFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_MIN:
+    return new MinNumFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
+  case PDB_SQL_FUNC::FUNC_MAX:
+    return new MaxNumFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
   }
 
   return nullptr;
 }
-ResultField* IResultFilter::AddAggStringField(int32_t opFunc, size_t fieldPos, Arena* pArena)
+ResultField* IResultFilter::AddAggStringField(int funcId, size_t fieldPos, Arena* pArena)
 {
-  switch (opFunc)
+  switch (funcId)
   {
-  case TK_COUNT_FUNC:
+  case PDB_SQL_FUNC::FUNC_COUNT:
     return new CountFunc(fieldPos);
-  case TK_LAST_FUNC:
-    return new LastBlockFunc<PDB_FIELD_TYPE::TYPE_STRING>(fieldPos, pArena);
-  case TK_FIRST_FUNC:
+  case PDB_SQL_FUNC::FUNC_FIRST:
     return new FirstBlockFunc<PDB_FIELD_TYPE::TYPE_STRING>(fieldPos, pArena);
+  case PDB_SQL_FUNC::FUNC_LAST:
+    return new LastBlockFunc<PDB_FIELD_TYPE::TYPE_STRING>(fieldPos, pArena);
   }
 
   return nullptr;
 }
-ResultField* IResultFilter::AddAggBlobField(int32_t opFunc, size_t fieldPos, Arena* pArena)
+ResultField* IResultFilter::AddAggBlobField(int funcId, size_t fieldPos, Arena* pArena)
 {
-  switch (opFunc)
+  switch (funcId)
   {
-  case TK_COUNT_FUNC:
+  case PDB_SQL_FUNC::FUNC_COUNT:
     return new CountFunc(fieldPos);
-  case TK_LAST_FUNC:
-    return new LastBlockFunc<PDB_FIELD_TYPE::TYPE_BLOB>(fieldPos, pArena);
-  case TK_FIRST_FUNC:
+  case PDB_SQL_FUNC::FUNC_FIRST:
     return new FirstBlockFunc<PDB_FIELD_TYPE::TYPE_BLOB>(fieldPos, pArena);
+  case PDB_SQL_FUNC::FUNC_LAST:
+    return new LastBlockFunc<PDB_FIELD_TYPE::TYPE_BLOB>(fieldPos, pArena);
   }
 
   return nullptr;
+}
+
+int IResultFilter::GetFuncIdByName(const std::string& funcName)
+{
+  if (StringTool::ComparyNoCase(funcName, PDB_SQL_FUNC_COUNT_NAME, PDB_SQL_FUNC_COUNT_NAME_LEN))
+    return PDB_SQL_FUNC::FUNC_COUNT;
+  else if (StringTool::ComparyNoCase(funcName, PDB_SQL_FUNC_FIRST_NAME, PDB_SQL_FUNC_FIRST_NAME_LEN))
+    return PDB_SQL_FUNC::FUNC_FIRST;
+  else if (StringTool::ComparyNoCase(funcName, PDB_SQL_FUNC_LAST_NAME, PDB_SQL_FUNC_LAST_NAME_LEN))
+    return PDB_SQL_FUNC::FUNC_LAST;
+  else if (StringTool::ComparyNoCase(funcName, PDB_SQL_FUNC_AVG_NAME, PDB_SQL_FUNC_AVG_NAME_LEN))
+    return PDB_SQL_FUNC::FUNC_AVG;
+  else if (StringTool::ComparyNoCase(funcName, PDB_SQL_FUNC_MIN_NAME, PDB_SQL_FUNC_MIN_NAME_LEN))
+    return PDB_SQL_FUNC::FUNC_MIN;
+  else if (StringTool::ComparyNoCase(funcName, PDB_SQL_FUNC_MAX_NAME, PDB_SQL_FUNC_MAX_NAME_LEN))
+    return PDB_SQL_FUNC::FUNC_MAX;
+  else if (StringTool::ComparyNoCase(funcName, PDB_SQL_FUNC_SUM_NAME, PDB_SQL_FUNC_SUM_NAME_LEN))
+    return PDB_SQL_FUNC::FUNC_SUM;
+
+  return -1;
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////
@@ -369,10 +389,13 @@ PdbErr_t IResultFilter::BuildGroupResultField(const std::vector<ExprItem*>& colI
         return PdbE_SQL_RESULT_ERROR;
       }
     }
-    else
+    else if ((*colItem)->GetOp() == TK_FUNCTION)
     {
       //¾ÛºÏº¯Êý
-      const std::string aliasName = (*colItem)->GetAliasName();
+      const std::string& funcName = (*colItem)->GetFuncName();
+      int funcId = GetFuncIdByName(funcName);
+
+      const std::string& aliasName = (*colItem)->GetAliasName();
       if (aliasName.size() == 0)
         return PdbE_SQL_LOST_ALIAS;
 
@@ -386,7 +409,7 @@ PdbErr_t IResultFilter::BuildGroupResultField(const std::vector<ExprItem*>& colI
 
       const std::string& fieldName = argList[0]->GetValueStr();
 
-      if (fieldName.compare("*") == 0 && (*colItem)->GetOp() == TK_COUNT_FUNC)
+      if (fieldName.compare("*") == 0  && funcId == PDB_SQL_FUNC::FUNC_COUNT )
       {
         retVal = AddCountField(aliasName, 0);
         if (retVal != PdbE_OK)
@@ -411,10 +434,14 @@ PdbErr_t IResultFilter::BuildGroupResultField(const std::vector<ExprItem*>& colI
             return PdbE_SQL_RESULT_ERROR;
         }
 
-        retVal = AddAggField((*colItem)->GetOp(), aliasName, fieldPos, fieldType, pArena);
+        retVal = AddAggField(funcId, aliasName, fieldPos, fieldType, pArena);
         if (retVal != PdbE_OK)
           return retVal;
       }
+    }
+    else
+    {
+      return PdbE_SQL_ERROR;
     }
   }
 

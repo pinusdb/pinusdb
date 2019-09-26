@@ -17,6 +17,7 @@
 #pragma once
 
 #include "expr/pdb_db_int.h"
+#include "table/db_value.h"
 #include <string>
 #include <vector>
 
@@ -29,11 +30,16 @@ public:
   ExprItem();
   ~ExprItem();
 
-  void SetExprList(ExprList* pExprList);
   const std::string& GetAliasName() const;
-  void SetAliasName(Token* pToken);
+  std::string GetValueStr() const;
+  
+  bool GetTimeVal(int64_t* pVal) const;
+  bool GetNowFuncVal(int64_t* pVal) const;
+  bool GetIntVal(int64_t* pVal) const;
+  bool GetDoubleVal(double* pVal) const;
+  bool GetDBVal(DBVal* pVal) const;
 
-  const std::string& GetValueStr() const;
+  const std::string& GetFuncName() const;
 
   int GetOp() const;
   const ExprItem* GetLeftExpr() const;
@@ -41,8 +47,12 @@ public:
   const ExprItem* GetParentExpr() const;
   const ExprList* GetExprList() const;
 
-  static ExprItem* MakeExpr(int op, ExprItem* pLeft, ExprItem* pRight, Token* pValStr);
-  static ExprItem* MakeFunction(int op, Token* pFieldName, Token* pAsName);
+  static ExprItem* MakeCondition(int op, Token* pID, ExprItem* pRight);
+  static ExprItem* MakeCondition(int op, ExprItem* pLeft, ExprItem* pRight);
+  static ExprItem* MakeFunction(int op, Token* pFuncName, ExprList* pArgs, Token* pAsName);
+  static ExprItem* MakeTimeVal(bool nonnegative, Token* pVal, Token* pUnit);
+  static ExprItem* MakeValue(int op, Token* pVal);
+  static ExprItem* MakeValue(int op, Token* pVal, Token* pAsName);
   static void FreeExprItem(ExprItem* pExprItem);
 
 private:
@@ -52,9 +62,9 @@ private:
   ExprItem* pParentExpr_;  // Parent
   ExprList* pExprList_;    // A list of expressions used as function arguments
                            // or in "<expr> IN (<expr-list>)"
+  std::string funcName_;
   std::string aliasName_;
-  std::string valueStr_;
-  //Token token_;
+  Token tkVal_;
 };
 
 class ExprList

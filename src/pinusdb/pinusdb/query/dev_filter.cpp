@@ -108,7 +108,7 @@ PdbErr_t DevFilter::_BuildFilter(const ExprItem* pExpr)
       return PdbE_SQL_CONDITION_EXPR_ERROR;
 
     if (pLeftExpr->GetOp() != TK_ID)
-      return PdbE_SQL_CONDITION_EXPR_ERROR;
+      return PdbE_OK;
 
     const std::string& fieldName = pLeftExpr->GetValueStr();
 

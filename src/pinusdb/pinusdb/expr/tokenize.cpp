@@ -103,37 +103,30 @@ static const uint8_t char2blob[] = {
 };
 
 static Keyword aKeywordTable[] = {
-  { "AND",               TK_AND, },
-  { "AS",                TK_AS, },
-  { "DROP",              TK_DROP, },
-  { "FROM",              TK_FROM, },
-  { "INSERT",            TK_INSERT, },
-  { "INTO",              TK_INTO, },
-  { "IS",                TK_IS, },
-  { "NOT",               TK_NOT, },
-  { "NULL",              TK_NULL, },
-  { "SELECT",            TK_SELECT, },
-  { "TABLE",             TK_TABLE, },
-  { "VALUES",            TK_VALUES, },
-  { "WHERE",             TK_WHERE, },
-  { "CREATE",            TK_CREATE, },
-  { "GROUP",             TK_GROUP, },
-  { "BY",                TK_BY, },
-  { "LIKE",              TK_LIKE, },
-  { "ADD",               TK_ADD,},
-  { "USER",              TK_USER,},
-  { "IDENTIFIED",        TK_IDENTIFIED,},
-  { "ROLE",              TK_ROLE,},
-  { "SET",               TK_SET,},
-  { "PASSWORD",          TK_PASSWORD,},
-  { "FOR",               TK_FOR,},
-  { "AVG",               TK_AVG_FUNC},
-  { "COUNT",             TK_COUNT_FUNC},
-  { "LAST",              TK_LAST_FUNC},
-  { "MAX",               TK_MAX_FUNC},
-  { "MIN",               TK_MIN_FUNC},
-  { "SUM",               TK_SUM_FUNC},
-  { "FIRST",             TK_FIRST_FUNC},
+  { "AND",               TK_AND },
+  { "AS",                TK_AS },
+  { "DROP",              TK_DROP },
+  { "FROM",              TK_FROM },
+  { "INSERT",            TK_INSERT },
+  { "INTO",              TK_INTO },
+  { "IS",                TK_IS },
+  { "NOT",               TK_NOT },
+  { "NULL",              TK_NULL },
+  { "SELECT",            TK_SELECT },
+  { "TABLE",             TK_TABLE },
+  { "VALUES",            TK_VALUES },
+  { "WHERE",             TK_WHERE },
+  { "CREATE",            TK_CREATE },
+  { "GROUP",             TK_GROUP },
+  { "BY",                TK_BY },
+  { "LIKE",              TK_LIKE },
+  { "ADD",               TK_ADD },
+  { "USER",              TK_USER },
+  { "IDENTIFIED",        TK_IDENTIFIED },
+  { "ROLE",              TK_ROLE },
+  { "SET",               TK_SET },
+  { "PASSWORD",          TK_PASSWORD },
+  { "FOR",               TK_FOR },
   { "BOOL",              TK_BOOL_TYPE},
   { "BIGINT",            TK_BIGINT_TYPE},
   { "DATETIME",          TK_DATETIME_TYPE},
@@ -189,107 +182,13 @@ PdbErr_t Tokenize::RunParser(Arena* pArena, SQLParser* pParse, const char* pSql,
 
   char* pDestStr = nullptr;
   size_t destLen = 0;
-
-  int tokenType = 0;
-  size_t i = 0;
-  Token lastToken;
-
-  while (pSql[i] != '\0' && i < sqlLen && !pParse->GetError())
-  {
-    lastToken.str_ = &pSql[i];
-    lastToken.len_ = GetToken((const unsigned char*)&pSql[i], (size_t)(sqlLen - i), &tokenType, nullptr);
-    i += lastToken.len_;
-
-    if (tokenType == TK_STRING)
-    {
-      pDestStr = pArena->Allocate(lastToken.len_);
-      if (pDestStr == nullptr)
-        return PdbE_NOMEM;
-
-      retVal = GetStr(lastToken.str_, lastToken.len_, pDestStr, &destLen);
-      if (retVal != PdbE_OK)
-        return retVal;
-
-      //字符串使用时，都是用长度作为结束，所以此处不用设置末尾为0
-      lastToken.str_ = pDestStr;
-      lastToken.len_ = (int)destLen;
-    }
-    else if (tokenType == TK_BLOB) // 不会有插入，做update时得处理
-    {
-      pDestStr = pArena->Allocate(((lastToken.len_ - 3) / 2));
-      if (pDestStr == nullptr)
-        return PdbE_NOMEM;
-
-      retVal = StrToBlob(lastToken.str_, lastToken.len_, (uint8_t*)pDestStr, &destLen);
-      if (retVal != PdbE_OK)
-        return retVal;
-
-      lastToken.str_ = pDestStr;
-      lastToken.len_ = (int)destLen;
-    }
-
-    switch (tokenType)
-    {
-    case TK_SPACE:
-    case TK_COMMENT:
-    {
-      //pParse->SetError();
-    }
-    break;
-    case TK_ILLEGAL:
-    {
-      pParse->SetError();
-    }
-    break;
-    case TK_SEMI:
-    {
-
-    }
-    default: {
-      pdbParse(pEngine, tokenType, lastToken, pParse);
-      break;
-    }
-    }
-  }
-
-  if (i > sqlLen)
-  {
-    pParse->SetError();
-  }
-
-  if (!pParse->GetError())
-  {
-    lastToken.str_ = nullptr;
-    lastToken.len_ = 0;
-    if (tokenType != TK_SEMI)
-    {
-      pdbParse(pEngine, TK_SEMI, lastToken, pParse);
-    }
-    pdbParse(pEngine, 0, lastToken, pParse);
-
-    pdbParseFree(pEngine, free);
-    return PdbE_OK;
-  }
-
-  pdbParseFree(pEngine, free);
-
-  return PdbE_OK;
-}
-
-
-PdbErr_t Tokenize::RunInsertParser(Arena* pArena,
-  InsertSql* pInsertSql, const char* pSql, size_t sqlLen)
-{
-  PdbErr_t retVal = PdbE_OK;
-  char* pDestStr = nullptr;
-  size_t destLen = 0;
   bool needEscape = true;
 
   int tokenType = 0;
   size_t i = 0;
   Token lastToken;
 
-  while (pSql[i] != '\0' && i < sqlLen)
+  while (pSql[i] != '\0' && i < sqlLen && !pParse->GetError())
   {
     needEscape = false;
     lastToken.str_ = &pSql[i];
@@ -318,26 +217,68 @@ PdbErr_t Tokenize::RunInsertParser(Arena* pArena,
         lastToken.len_ -= 2;
       }
     }
-    else if (tokenType == TK_BLOB) // 不会有插入，做update时得处理
+    else if (tokenType == TK_BLOB) 
     {
-      pDestStr = pArena->Allocate((lastToken.len_ / 2));
-      if (pDestStr == nullptr)
-        return PdbE_NOMEM;
+      if (lastToken.len_ % 2 == 0)
+        return PdbE_INVALID_BLOB_VAL;
 
-      retVal = StrToBlob(lastToken.str_, lastToken.len_, (uint8_t*)pDestStr, &destLen);
-      if (retVal != PdbE_OK)
-        return retVal;
+      if (lastToken.len_ >= 5)
+      {
+        pDestStr = pArena->Allocate(((lastToken.len_ - 3) / 2));
+        if (pDestStr == nullptr)
+          return PdbE_NOMEM;
 
-      lastToken.str_ = pDestStr;
-      lastToken.len_ = (int)destLen;
+        retVal = StrToBlob(lastToken.str_, lastToken.len_, (uint8_t*)pDestStr, &destLen);
+        if (retVal != PdbE_OK)
+          return retVal;
+
+        lastToken.str_ = pDestStr;
+        lastToken.len_ = (int)destLen;
+      }
+      else
+      {
+        lastToken.str_ = nullptr;
+        lastToken.len_ = 0;
+      }
     }
-    else if (tokenType == TK_SPACE || tokenType == TK_COMMENT)
-      continue;
-    else if (tokenType == TK_ILLEGAL)
-      return PdbE_SQL_ERROR;
 
-    pInsertSql->AddToken(tokenType, lastToken.len_, lastToken.str_);
+    switch (tokenType)
+    {
+    case TK_SPACE:
+    case TK_COMMENT:
+    break;
+    case TK_ILLEGAL:
+    {
+      pParse->SetError();
+    }
+    break;
+    default: {
+      pdbParse(pEngine, tokenType, lastToken, pParse);
+      break;
+    }
+    }
   }
+
+  if (i > sqlLen)
+  {
+    pParse->SetError();
+  }
+
+  if (!pParse->GetError())
+  {
+    lastToken.str_ = nullptr;
+    lastToken.len_ = 0;
+    if (tokenType != TK_SEMI)
+    {
+      pdbParse(pEngine, TK_SEMI, lastToken, pParse);
+    }
+    pdbParse(pEngine, 0, lastToken, pParse);
+
+    pdbParseFree(pEngine, free);
+    return PdbE_OK;
+  }
+
+  pdbParseFree(pEngine, free);
 
   return PdbE_OK;
 }

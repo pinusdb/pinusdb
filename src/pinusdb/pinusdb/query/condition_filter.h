@@ -31,6 +31,7 @@ public:
 
   PdbErr_t BuildCondition(const ExprItem* pExpr, const TableInfo* pTabInfo);
   PdbErr_t RunCondition(const DBVal* pVals, size_t valCnt, bool& resultVal) const;
+  bool AlwaysFalse() const { return alwaysFalse_; }
 
 private:
   PdbErr_t _BuildCondition(const ExprItem* pExpr, const TableInfo* pTabInfo);
@@ -50,5 +51,6 @@ private:
   ConditionItem* BuildLikeCondition(size_t fieldPos, DBVal* pVal);
 
 private:
+  bool alwaysFalse_;
   std::vector<ConditionItem*> conditionVec_;
 };

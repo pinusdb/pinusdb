@@ -437,7 +437,7 @@ PdbErr_t PDBTable::DropTable()
   resultList.push_back(retVal); \
   continue\
 
-PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
+PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
   bool errBreak, std::list<PdbErr_t>& resultList)
 {
   PdbErr_t retVal = PdbE_OK;
@@ -447,14 +447,13 @@ PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
   Arena arena;
   CommitLogBlock logBlock;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
-  retVal = pInsertObj->InitTableInfo(pTabInfo);
+  retVal = pInsertSql->InitTableInfo(pTabInfo);
   if (retVal != PdbE_OK)
     return retVal;
 
   uint32_t tabMetaCode = pTabInfo->GetMetaCode();
   size_t fieldCnt = pTabInfo->GetFieldCnt();
   DBVal* pVals = (DBVal*)arena.AllocateAligned(sizeof(DBVal) * fieldCnt);
-  int* pTypes = (int*)arena.AllocateAligned(sizeof(int) * fieldCnt);
   uint8_t* pRecBuf = (uint8_t*)arena.AllocateAligned(PDB_MAX_REC_LEN);
   if (pVals == nullptr || pRecBuf == nullptr)
   {
@@ -465,8 +464,9 @@ PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
   //将所有字段设置为默认值
   for (int i = 0; i < fieldCnt; i++)
   {
-    pTabInfo->GetFieldInfo(i, (pTypes + i));
-    switch (pTypes[i])
+    int32_t fieldType = 0;
+    pTabInfo->GetFieldInfo(i, &fieldType);
+    switch (fieldType)
     {
     case PDB_FIELD_TYPE::TYPE_BOOL: DBVAL_ELE_SET_BOOL(pVals, i, false); break;
     case PDB_FIELD_TYPE::TYPE_INT64:
@@ -495,11 +495,11 @@ PdbErr_t PDBTable::Insert(IInsertObj* pInsertObj,
   uint16_t recLen = 0;
   int curPartDay = -1;
   int curRecDay = 0;
-  while (!pInsertObj->IsEnd())
+  while (!pInsertSql->IsEnd())
   {
     pValBuf = pRecBg + sizeof(uint16_t);
 
-    retVal = pInsertObj->GetNextRec(pTypes, pVals, fieldCnt);
+    retVal = pInsertSql->GetNextRec(pVals, fieldCnt);
     if (retVal != PdbE_OK)
     {
       LOG_DEBUG("failed to insert record, get next record error {}", retVal);
@@ -623,7 +623,7 @@ PdbErr_t PDBTable::Query(DataTable* pResultTable, const QueryParam* pQueryParam)
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabInfoRef;
-  const ExprList* pColList = pQueryParam->pSelList_;
+  //const ExprList* pColList = pQueryParam->pSelList_;
   const ExprItem* pConditionItem = pQueryParam->pWhere_;
   const GroupOpt* pGroup = pQueryParam->pGroup_;
   const OrderByOpt* pOrderBy = pQueryParam->pOrderBy_;

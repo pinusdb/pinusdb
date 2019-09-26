@@ -23,6 +23,7 @@
 
 #include "expr/sql_parser.h"
 #include "expr/tokenize.h"
+#include "expr/expr_item.h"
 
 #include "db/db_impl.h"
 #include "global_variable.h"
@@ -260,7 +261,7 @@ bool EventHandle::ExecTask()
   }
   case METHOD_CMD_INSERT_REQ:
   {
-    retVal = ExecInsert(&successCnt);
+    retVal = ExecInsertSql(&successCnt);
     repMethodId = METHOD_CMD_INSERT_REP;
     break;
   }
@@ -466,7 +467,7 @@ PdbErr_t EventHandle::DecodeSqlPacket(const char** ppSql, size_t* pSqlLen)
   return PdbE_OK;
 }
 
-PdbErr_t EventHandle::DecodeInsertTable(InsertTable* pInsertTab)
+PdbErr_t EventHandle::DecodeInsertTable(InsertSql* pInsertSql)
 {
   const uint8_t* pTmp = pRecvBuf_;
   const uint8_t* pBufLimit = pRecvBuf_ + recvBodyLen_;
@@ -481,6 +482,30 @@ PdbErr_t EventHandle::DecodeInsertTable(InsertTable* pInsertTab)
     LOG_ERROR("failed to decode insert packet, packet length: ({}), field count: ({}), row count: ({})",
       recvBodyLen_, fieldCnt_, recCnt_);
     return PdbE_PACKET_ERROR;
+  }
+
+  pInsertSql->SetFieldCnt(fieldCnt_);
+  pInsertSql->SetRecCnt(recCnt_);
+
+  for (uint32_t idx = 0; idx <= fieldCnt_ && pTmp < pBufLimit; idx++)
+  {
+    vType = *pTmp++;
+    if (pTmp >= pBufLimit)
+      return PdbE_PACKET_ERROR;
+
+    if (vType != PDB_VALUE_TYPE::VAL_STRING)
+      return PdbE_PACKET_ERROR;
+
+    pTmp = Coding::VarintDecode32(pTmp, pBufLimit, &v32);
+    if (pTmp == nullptr || (pTmp + v32) > pBufLimit)
+      return PdbE_PACKET_ERROR;
+
+    if (idx == 0)
+      pInsertSql->SetTableName((const char*)pTmp, v32);
+    else
+      pInsertSql->AppendFieldName((const char*)pTmp, v32);
+
+    pTmp += v32;
   }
 
   while (pTmp < pBufLimit)
@@ -537,15 +562,69 @@ PdbErr_t EventHandle::DecodeInsertTable(InsertTable* pInsertTab)
     if (pTmp == nullptr)
       return PdbE_PACKET_ERROR;
 
-    pInsertTab->AddVal(&dbVal);
+    pInsertSql->AppendVal(&dbVal);
   }
 
   if (pTmp != pBufLimit)
     return PdbE_PACKET_ERROR;
 
+  if (!pInsertSql->Valid())
+    return PdbE_PACKET_ERROR;
+
   return PdbE_OK;
 }
 
+
+PdbErr_t EventHandle::DecodeInsertSql(InsertSql* pInsertSql, Arena* pArena)
+{
+  PdbErr_t retVal = PdbE_OK;
+  DBVal val;
+  const char* pSql = nullptr;
+  size_t sqlLen = 0;
+  retVal = DecodeSqlPacket(&pSql, &sqlLen);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  SQLParser sqlParser;
+  Tokenize::RunParser(pArena, &sqlParser, pSql, sqlLen);
+  if (sqlParser.GetError())
+    return PdbE_SQL_ERROR;
+
+  if (sqlParser.GetCmdType() != SQLParser::CmdType::CT_Insert)
+    return PdbE_SQL_ERROR;
+
+  const InsertParam* pInsertParam = sqlParser.GetInsertParam();
+  pInsertSql->SetTableName(pInsertParam->tabName_);
+  const std::vector<ExprItem*>& colVec = pInsertParam->pColList_->GetExprList();
+  pInsertSql->SetFieldCnt(colVec.size());
+
+  for (auto colIt = colVec.begin(); colIt != colVec.end(); colIt++)
+  {
+    if ((*colIt)->GetOp() != TK_ID)
+      return PdbE_SQL_ERROR;
+
+    pInsertSql->AppendFieldName((*colIt)->GetValueStr());
+  }
+
+  const std::list<ExprList*>& recList = pInsertParam->pValRecList_->GetRecList();
+  pInsertSql->SetRecCnt(recList.size());
+  for (auto recIt = recList.begin(); recIt != recList.end(); recIt++)
+  {
+    const std::vector<ExprItem*>& valVec = (*recIt)->GetExprList();
+    if (valVec.size() != colVec.size())
+      return PdbE_SQL_ERROR;
+
+    for (auto valIt = valVec.begin(); valIt != valVec.end(); valIt++)
+    {
+      if (!(*valIt)->GetDBVal(&val))
+        return PdbE_SQL_ERROR;
+
+      pInsertSql->AppendVal(&val);
+    }
+  }
+
+  return PdbE_OK;
+}
 
 PdbErr_t EventHandle::EncodeQueryPacket(PdbErr_t retVal, DataTable* pTable)
 {
@@ -743,13 +822,13 @@ PdbErr_t EventHandle::ExecQuery(DataTable* pResultTable)
   return retVal;
 }
 
-PdbErr_t EventHandle::ExecInsert(int32_t* pSuccessCnt)
+PdbErr_t EventHandle::ExecInsertSql(int32_t* pSuccessCnt)
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
-  InsertSql* pInsertSql = nullptr;
+  InsertSql insertSql;
   std::list<PdbErr_t> resultList;
-
+  
   *pSuccessCnt = 0;
 
   if (userRole_ != PDB_ROLE::ROLE_ADMIN
@@ -759,35 +838,11 @@ PdbErr_t EventHandle::ExecInsert(int32_t* pSuccessCnt)
     return PdbE_OPERATION_DENIED; //没有权限
   }
 
-  do {
-    const char* pSql = nullptr;
-    size_t sqlLen = 0;
-    retVal = DecodeSqlPacket(&pSql, &sqlLen);
-    if (retVal != PdbE_OK)
-      break;
+  retVal = DecodeInsertSql(&insertSql, &arena);
+  if (retVal != PdbE_OK)
+    return retVal;
 
-    pInsertSql = new InsertSql();
-    if (pInsertSql == nullptr)
-    {
-      retVal = PdbE_NOMEM;
-      break;
-    }
-
-    retVal = Tokenize::RunInsertParser(&arena, pInsertSql, pSql, sqlLen);
-    if (retVal != PdbE_OK)
-      break;
-
-    retVal = pInsertSql->ParseMeta();
-    if (retVal != PdbE_OK)
-      break;
-
-    retVal = pGlbTableSet->Insert(pInsertSql, true, resultList);
-
-  } while (false);
-
-  if (pInsertSql != nullptr)
-    delete pInsertSql;
-
+  retVal = pGlbTableSet->Insert(&insertSql, true, resultList);
   *pSuccessCnt = static_cast<int32_t>(resultList.size());
   return retVal;
 }
@@ -795,7 +850,7 @@ PdbErr_t EventHandle::ExecInsert(int32_t* pSuccessCnt)
 PdbErr_t EventHandle::ExecInsertTable(std::list<PdbErr_t>& resultList)
 {
   PdbErr_t retVal = PdbE_OK;
-  InsertTable* pInsertTab = nullptr;
+  InsertSql insertSql;
 
   if (userRole_ != PDB_ROLE::ROLE_ADMIN
     && userRole_ != PDB_ROLE::ROLE_WRITE_ONLY
@@ -804,32 +859,11 @@ PdbErr_t EventHandle::ExecInsertTable(std::list<PdbErr_t>& resultList)
     return PdbE_OPERATION_DENIED; //没有权限
   }
 
-  do {
-    pInsertTab = new InsertTable(fieldCnt_, recCnt_);
-    if (pInsertTab == nullptr)
-    {
-      retVal = PdbE_NOMEM;
-      break;
-    }
+  retVal = DecodeInsertTable(&insertSql);
+  if (retVal != PdbE_OK)
+    return retVal;
 
-    retVal = DecodeInsertTable(pInsertTab);
-    if (retVal != PdbE_OK)
-      break;
-
-    retVal = pInsertTab->ParseMeta();
-    if (retVal != PdbE_OK)
-      break;
-
-    retVal = pGlbTableSet->Insert(pInsertTab, false, resultList);
-
-  } while (false);
-
-  if (pInsertTab != nullptr)
-  {
-    delete pInsertTab;
-  }
-
-  return retVal;
+  return pGlbTableSet->Insert(&insertSql, false, resultList);
 }
 
 PdbErr_t EventHandle::ExecNonQuery()

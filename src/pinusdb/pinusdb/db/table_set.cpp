@@ -537,15 +537,15 @@ PDBTable* TableSet::GetTable(uint64_t tabNameCrc, RefUtil* pTabRef)
   return nullptr;
 }
 
-PdbErr_t TableSet::Insert(IInsertObj* pInsertObj, bool errBreak, std::list<PdbErr_t>& resultList)
+PdbErr_t TableSet::Insert(InsertSql* pInsertSql, bool errBreak, std::list<PdbErr_t>& resultList)
 {
   RefUtil tabRef;
-  std::string tabName = pInsertObj->GetTableName();
+  std::string tabName = pInsertSql->GetTableName();
   PDBTable* pTable = GetTable(tabName.c_str(), &tabRef);
   if (pTable != nullptr)
-    return pTable->Insert(pInsertObj, errBreak, resultList);
+    return pTable->Insert(pInsertSql, errBreak, resultList);
   else if (StringTool::ComparyNoCase(tabName.c_str(), SYSTAB_SYSDEV_NAME))
-    return InsertDev(pInsertObj, errBreak, resultList);
+    return InsertDev(pInsertSql, errBreak, resultList);
 
   return PdbE_TABLE_NOT_FOUND;
 }
@@ -802,7 +802,7 @@ size_t TableSet::GetDirtyPagePercent()
   resultList.push_back(retVal); \
   continue
 
-PdbErr_t TableSet::InsertDev(IInsertObj* pInsertObj,
+PdbErr_t TableSet::InsertDev(InsertSql* pInsertSql,
   bool errBreak, std::list<PdbErr_t>& resultList)
 {
   const int devFieldCnt = 4;
@@ -817,14 +817,13 @@ PdbErr_t TableSet::InsertDev(IInsertObj* pInsertObj,
   PdbStr devName;
   PdbStr devExpand;
 
-  int devTypes[devFieldCnt] = { PDB_VALUE_TYPE::VAL_STRING, PDB_VALUE_TYPE::VAL_INT64, PDB_VALUE_TYPE::VAL_STRING, PDB_VALUE_TYPE::VAL_STRING };
   DBVal devVals[devFieldCnt];
   DBVAL_ELE_SET_STRING(devVals, 0, nullptr, 0);
   DBVAL_ELE_SET_INT64(devVals, 1, 0);
   DBVAL_ELE_SET_STRING(devVals, 2, nullptr, 0);
   DBVAL_ELE_SET_STRING(devVals, 3, nullptr, 0);
   
-  retVal = pInsertObj->InitTableInfo(&sysDevInfo_);
+  retVal = pInsertSql->InitTableInfo(&sysDevInfo_);
   if (retVal != PdbE_OK)
     return retVal;
 
@@ -832,9 +831,9 @@ PdbErr_t TableSet::InsertDev(IInsertObj* pInsertObj,
     std::unique_lock<std::mutex> devLock(devMutex_);
     totalDevCnt = GetTotalDevCnt();
 
-    while (!pInsertObj->IsEnd())
+    while (!pInsertSql->IsEnd())
     {
-      retVal = pInsertObj->GetNextRec(devTypes, devVals, devFieldCnt);
+      retVal = pInsertSql->GetNextRec(devVals, devFieldCnt);
       if (retVal != PdbE_OK)
       {
         INSERT_DEV_ERROR_OCCUR;

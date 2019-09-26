@@ -23,6 +23,7 @@
 #include "expr/limit_opt.h"
 #include "expr/expr_item.h"
 #include "expr/parse.h"
+#include "expr/record_list.h"
 #include "pdb.h"
 #include <string>
 
@@ -151,12 +152,12 @@ class InsertParam
 public:
   std::string tabName_;
   ExprList* pColList_;
-  ExprList* pValList_;
+  RecordList* pValRecList_;
 
   InsertParam()
   {
     this->pColList_ = nullptr;
-    this->pValList_ = nullptr;
+    this->pValRecList_ = nullptr;
   }
 
   ~InsertParam()
@@ -164,8 +165,8 @@ public:
     if (this->pColList_ != nullptr)
       delete pColList_;
 
-    if (this->pValList_ != nullptr)
-      delete pValList_;
+    if (this->pValRecList_ != nullptr)
+      delete pValRecList_;
   }
 };
 
@@ -221,7 +222,7 @@ public:
   ~SQLParser();
 
   void SetQuery(ExprList* pSelList, Token* pSrcTab, ExprItem* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit);
-  void SetInsert(Token* pTabToken, ExprList* pColList, ExprList* pValList);
+  void SetInsert(Token* pTabName, ExprList* pColList, RecordList* pRecList);
   void SetDelete(Token* pTabToken, ExprItem* pWhere);
   void SetCreateTable(Token* pTabName, ColumnList* pColList);
   void SetAlterTable(Token* pTabName, ColumnList* pColList);
