@@ -103,6 +103,7 @@
         <Key word="VALUES" />
         <Key word="WHERE" />
         <Key word="CREATE" />
+		<Key word="ALTER" />
         <Key word="GROUP" />
         <Key word="BY" />
         <Key word="ORDER" />
