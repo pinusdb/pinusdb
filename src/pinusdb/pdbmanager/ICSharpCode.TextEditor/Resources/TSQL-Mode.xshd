@@ -139,6 +139,8 @@
 		<Key word="REAL3" />
 		<Key word="REAL4" />
 		<Key word="REAL6" />
+		<Key word="IN" />
+		<Key word="NOT" />
       </KeyWords>
 
       <KeyWords name="Keywords 2" bold="false" italic="false" color="Magenta">
