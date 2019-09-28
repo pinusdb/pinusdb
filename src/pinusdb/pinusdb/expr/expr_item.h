@@ -44,11 +44,11 @@ public:
   int GetOp() const;
   const ExprItem* GetLeftExpr() const;
   const ExprItem* GetRightExpr() const;
-  const ExprItem* GetParentExpr() const;
   const ExprList* GetExprList() const;
 
   static ExprItem* MakeCondition(int op, Token* pID, ExprItem* pRight);
   static ExprItem* MakeCondition(int op, ExprItem* pLeft, ExprItem* pRight);
+  static ExprItem* MakeFuncCondition(int op, Token* pID, ExprList* pArgs);
   static ExprItem* MakeFunction(int op, Token* pFuncName, ExprList* pArgs, Token* pAsName);
   static ExprItem* MakeTimeVal(bool nonnegative, Token* pVal, Token* pUnit);
   static ExprItem* MakeValue(int op, Token* pVal);
@@ -59,7 +59,6 @@ private:
   int op_;        // Operation performed by this node
   ExprItem* pLeft_;   // Left subnodes
   ExprItem* pRight_;  // Right subnodes
-  ExprItem* pParentExpr_;  // Parent
   ExprList* pExprList_;    // A list of expressions used as function arguments
                            // or in "<expr> IN (<expr-list>)"
   std::string funcName_;
@@ -75,6 +74,7 @@ public:
 
   ExprList* AddExprItem(ExprItem* pExprItem);
   const std::vector<ExprItem*>& GetExprList() const;
+  bool GetIntValList(std::list<int64_t>& valList) const;
 
   static ExprList* AppendExprItem(ExprList* pExprList, ExprItem* pExprItem);
   static void FreeExprList(ExprList* pExprList);

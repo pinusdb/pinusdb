@@ -22,9 +22,6 @@
 
 DevFilter::DevFilter()
 {
-  emptySet_ = false;
-  includeMin_ = true;
-  includeMax_ = true;
   minDevId_ = 1;
   maxDevId_ = INT64_MAX;
 }
@@ -35,44 +32,26 @@ DevFilter::~DevFilter()
 
 PdbErr_t DevFilter::BuildFilter(const ExprItem* pCondition)
 {
-  emptySet_ = false;
-  includeMin_ = true;
-  includeMax_ = true;
   minDevId_ = 1;
   maxDevId_ = INT64_MAX;
 
   return _BuildFilter(pCondition);
 }
 
-bool DevFilter::IsEmptySet() const
-{
-  return emptySet_;
-}
-
-bool DevFilter::HaveEqualObjId() const
-{
-  return (includeMin_ && includeMax_ && minDevId_ == maxDevId_);
-}
-
-int64_t DevFilter::GetEqualObjId() const
-{
-  if (HaveEqualObjId())
-  {
-    return minDevId_;
-  }
-
-  return 0;
-}
-
 bool DevFilter::Filter(int64_t devId) const
 {
-  if (devId > minDevId_ || (devId == minDevId_ && includeMin_))
-  {
-    if (devId < maxDevId_ || (devId == maxDevId_ && includeMax_))
-      return true;
-  }
+  if (devId < minDevId_ || devId > maxDevId_)
+    return false;
 
-  return false;
+  DBVal vals;
+  for (auto condiIt = conditionVec_.begin(); condiIt != conditionVec_.end(); condiIt++)
+  {
+    DBVAL_SET_INT64(&vals, devId);
+    if (!(*condiIt)->GetLogic(&vals, 1))
+      return false;
+  }
+  
+  return true;
 }
 
 PdbErr_t DevFilter::_BuildFilter(const ExprItem* pExpr)
@@ -114,72 +93,52 @@ PdbErr_t DevFilter::_BuildFilter(const ExprItem* pExpr)
 
     if (StringTool::ComparyNoCase(fieldName, DEVID_FIELD_NAME, (sizeof(DEVID_FIELD_NAME) - 1)))
     {
-      //只处理对象的 等于，大于，大于等于，小于，小于等于
-      if (op != TK_EQ
-        && op != TK_GT
-        && op != TK_GE
-        && op != TK_LT
-        && op != TK_LE)
-        return PdbE_OK;
-
-      int64_t tmpDevId = 0;
-
-      if (pRightExpr == nullptr)
-        return PdbE_SQL_CONDITION_EXPR_ERROR;
-
-      const std::string rightValStr = pRightExpr->GetValueStr();
-      if (pRightExpr->GetOp() == TK_INTEGER)
+      if (op == TK_IN || op == TK_NOTIN)
       {
-        if (!StringTool::StrToInt64(rightValStr.c_str(), rightValStr.size(), &tmpDevId))
-          return PdbE_INVALID_INT_VAL;
+        const ExprList* pArgs = pExpr->GetExprList();
+        if (pArgs == nullptr)
+          return PdbE_SQL_CONDITION_EXPR_ERROR;
+
+        std::list<int64_t> argValList;
+        if (!pArgs->GetIntValList(argValList))
+          return PdbE_SQL_CONDITION_EXPR_ERROR;
+
+        if (argValList.empty())
+          return PdbE_SQL_CONDITION_EXPR_ERROR;
+
+        if (op == TK_IN)
+          conditionVec_.push_back(new InNumCondition(PDB_DEVID_INDEX, argValList));
+        else
+          conditionVec_.push_back(new NotInNumCondition(PDB_DEVID_INDEX, argValList));
       }
       else
       {
-        return PdbE_VALUE_MISMATCH;
-      }
+        if (pRightExpr == nullptr)
+          return PdbE_SQL_CONDITION_EXPR_ERROR;
 
-      switch (op)
-      {
-      case TK_EQ:
-        if (minDevId_ < tmpDevId || (minDevId_ == tmpDevId && includeMin_))
+        int64_t rightVal = 0;
+        if (!pRightExpr->GetIntVal(&rightVal))
+          return PdbE_INVALID_INT_VAL;
+
+        if (op == TK_LT || op == TK_LE)
+
+        switch (op)
         {
-          minDevId_ = tmpDevId;
-          includeMin_ = true;
+        case TK_LT:
+        case TK_LE:
+          if (maxDevId_ > rightVal)
+            maxDevId_ = rightVal;
+          break;
+        case TK_GT:
+        case TK_GE:
+          if (minDevId_ < rightVal)
+            minDevId_ = rightVal;
+          break;
+        case TK_EQ:
+          maxDevId_ = rightVal;
+          minDevId_ = rightVal;
+          break;
         }
-        else
-          emptySet_ = true; //没有任何objid满足条件
-
-        if (maxDevId_ > tmpDevId || (maxDevId_ == tmpDevId && includeMax_))
-        {
-          maxDevId_ = tmpDevId;
-          includeMax_ = true;
-        }
-        else
-          emptySet_ = true; //没有任何objid满足条件
-
-        break;
-      case TK_GT:
-      case TK_GE:
-        if (minDevId_ < tmpDevId || (minDevId_ == tmpDevId && includeMin_))
-        {
-          minDevId_ = tmpDevId;
-          includeMin_ = (op == TK_GE);
-        }
-        else
-          emptySet_ = true; //没有任何objid满足条件
-
-        break;
-      case TK_LT:
-      case TK_LE:
-        if (maxDevId_ > tmpDevId || (maxDevId_ == tmpDevId && includeMax_))
-        {
-          maxDevId_ = tmpDevId;
-          includeMax_ = (op == TK_LE);
-        }
-        else
-          emptySet_ = true; //没有任何objid满足条件
-
-        break;
       }
 
     }

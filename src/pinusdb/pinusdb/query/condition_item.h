@@ -496,3 +496,63 @@ public:
 private:
   size_t fieldPos_;
 };
+
+class InNumCondition : public ConditionItem
+{
+public:
+  InNumCondition(size_t fieldPos, const std::list<int64_t>& valList)
+  {
+    fieldPos_ = fieldPos;
+    for (auto valIt = valList.begin(); valIt != valList.end(); valIt++)
+    {
+      if (valSet_.find(*valIt) == valSet_.end())
+      {
+        valSet_.insert(*valIt);
+      }
+    }
+  }
+
+  virtual ~InNumCondition(){}
+
+  virtual bool GetLogic(const DBVal* pVals, size_t valCnt) const
+  {
+    if (!DBVAL_ELE_IS_TYPE(pVals, fieldPos_, PDB_FIELD_TYPE::TYPE_INT64))
+      return false;
+
+    return valSet_.find(DBVAL_ELE_GET_INT64(pVals, fieldPos_)) != valSet_.end();
+  }
+
+private:
+  size_t fieldPos_;
+  std::unordered_set<int64_t> valSet_;
+};
+
+class NotInNumCondition : public ConditionItem
+{
+public:
+  NotInNumCondition(size_t fieldPos, const std::list<int64_t>& valList)
+  {
+    fieldPos_ = fieldPos;
+    for (auto valIt = valList.begin(); valIt != valList.end(); valIt++)
+    {
+      if (valSet_.find(*valIt) == valSet_.end())
+      {
+        valSet_.insert(*valIt);
+      }
+    }
+  }
+
+  virtual ~NotInNumCondition() {}
+
+  virtual bool GetLogic(const DBVal* pVals, size_t valCnt) const
+  {
+    if (!DBVAL_ELE_IS_TYPE(pVals, fieldPos_, PDB_FIELD_TYPE::TYPE_INT64))
+      return false;
+
+    return valSet_.find(DBVAL_ELE_GET_INT64(pVals, fieldPos_)) == valSet_.end();
+  }
+
+private:
+  size_t fieldPos_;
+  std::unordered_set<int64_t> valSet_;
+};

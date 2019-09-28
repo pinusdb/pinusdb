@@ -24,7 +24,6 @@ ExprItem::ExprItem()
   op_ = 0;
   pLeft_ = nullptr;
   pRight_ = nullptr;
-  pParentExpr_ = nullptr;
   pExprList_ = nullptr;
   tkVal_.str_ = nullptr;
   tkVal_.len_ = 0;
@@ -295,10 +294,6 @@ const ExprItem* ExprItem::GetRightExpr() const
 {
   return pRight_;
 }
-const ExprItem* ExprItem::GetParentExpr() const
-{
-  return pParentExpr_;
-}
 const ExprList* ExprItem::GetExprList() const
 {
   return pExprList_;
@@ -313,9 +308,6 @@ ExprItem* ExprItem::MakeCondition(int op, Token* pID, ExprItem* pRight)
   pNew->pLeft_->tkVal_ = *pID;
 
   pNew->pRight_ = pRight;
-  pNew->pLeft_->pParentExpr_ = pNew;
-  if (pRight != nullptr)
-    pRight->pParentExpr_ = pNew;
 
   return pNew;
 }
@@ -327,11 +319,18 @@ ExprItem* ExprItem::MakeCondition(int op, ExprItem* pLeft, ExprItem* pRight)
   pNew->pLeft_ = pLeft;
   pNew->pRight_ = pRight;
 
-  if (pLeft != nullptr)
-    pLeft->pParentExpr_ = pNew;
-  if (pRight != nullptr)
-    pRight->pParentExpr_ = pNew;
+  return pNew;
+}
 
+ExprItem* ExprItem::MakeFuncCondition(int op, Token* pID, ExprList* pArgs)
+{
+  ExprItem* pNew = new ExprItem();
+  pNew->op_ = op;
+  pNew->pLeft_ = new ExprItem();
+  pNew->pLeft_->op_ = TK_ID;
+  pNew->pLeft_->tkVal_ = *pID;
+
+  pNew->pExprList_ = pArgs;
   return pNew;
 }
 
@@ -444,6 +443,20 @@ ExprList* ExprList::AddExprItem(ExprItem* pExprItem)
 const std::vector<ExprItem*>& ExprList::GetExprList() const
 {
   return exprVec_;
+}
+
+bool ExprList::GetIntValList(std::list<int64_t>& valList) const
+{
+  int64_t tmpVal = 0;
+  for (auto exprIt = exprVec_.begin(); exprIt != exprVec_.end(); exprIt++)
+  {
+    if (!(*exprIt)->GetIntVal(&tmpVal))
+      return false;
+
+    valList.push_back(tmpVal);
+  }
+
+  return true;
 }
 
 ExprList* ExprList::AppendExprItem(ExprList* pExprList, ExprItem* pExprItem)

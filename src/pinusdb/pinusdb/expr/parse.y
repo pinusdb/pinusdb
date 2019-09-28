@@ -42,7 +42,7 @@ void pdbInsert(SQLParser* pParse, Token* pTabName, ExprList* pColList, RecordLis
 }
 %name pdbParse
 
-%nonassoc  ILLEGAL SPACE COMMENT FUNCTION INSERT INTO VALUES DELETE TOP IN TINYINT SMALLINT INT FLOAT ISNULL ISNOTNULL TIMEVAL.
+%nonassoc  ILLEGAL SPACE COMMENT FUNCTION INSERT INTO VALUES DELETE TOP NOTIN TINYINT SMALLINT INT FLOAT ISNULL ISNOTNULL TIMEVAL.
 
 //////////////////// The Add User ///////////////////////////////////
 
@@ -228,6 +228,8 @@ condi_expr(A) ::= ID(X) IS NOT NULL.         { A = ExprItem::MakeCondition(TK_IS
 condi_expr(A) ::= ID(X) IS NULL.             { A = ExprItem::MakeCondition(TK_ISNULL, &X, nullptr); }
 condi_expr(A) ::= userval(X) EQ userval(Y).  { A = ExprItem::MakeCondition(TK_EQ, X, Y); }
 condi_expr(A) ::= userval(X) NE userval(Y).  { A = ExprItem::MakeCondition(TK_NE, X, Y); }
+condi_expr(A) ::= ID(X) IN LP userval_list(L) RP.       { A = ExprItem::MakeFuncCondition(TK_IN, &X, L); }
+condi_expr(A) ::= ID(X) NOT IN LP userval_list(L) RP.   { A = ExprItem::MakeFuncCondition(TK_NOTIN, &X, L); }
 
 
 condi_expr(A) ::= condi_expr(X) AND condi_expr(Y).  { A = ExprItem::MakeCondition(TK_AND, X, Y); }

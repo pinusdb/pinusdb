@@ -140,8 +140,35 @@ PdbErr_t ConditionFilter::_BuildCondition(const ExprItem* pExpr, const TableInfo
       else
         pConditionItem = new IsNullCondition(fieldPos);
     }
+    else if (op == TK_IN || op == TK_NOTIN)
+    {
+      if (pLeftExpr->GetOp() != TK_ID || fieldType != PDB_FIELD_TYPE::TYPE_INT64)
+        return PdbE_SQL_CONDITION_EXPR_ERROR;
+
+      if (fieldType != PDB_FIELD_TYPE::TYPE_INT64)
+        return PdbE_SQL_CONDITION_EXPR_ERROR;
+
+      const ExprList* pArgs= pExpr->GetExprList();
+      if (pArgs == nullptr)
+        return PdbE_SQL_CONDITION_EXPR_ERROR;
+
+      std::list<int64_t> argValList;
+      if (!pArgs->GetIntValList(argValList))
+        return PdbE_SQL_CONDITION_EXPR_ERROR;
+
+      if (argValList.empty())
+        return PdbE_SQL_CONDITION_EXPR_ERROR;
+
+      if (op == TK_IN)
+        pConditionItem = new InNumCondition(fieldPos, argValList);
+      else
+        pConditionItem = new NotInNumCondition(fieldPos, argValList);
+    }
     else
     {
+      if (pRightExpr == nullptr)
+        return PdbE_SQL_CONDITION_EXPR_ERROR;
+
       // 右边只能是值
       if (!pRightExpr->GetDBVal(&rightVal))
         return PdbE_SQL_CONDITION_EXPR_ERROR;
