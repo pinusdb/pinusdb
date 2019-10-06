@@ -5,38 +5,38 @@
 ** in the input file. */
 #include <stdio.h>
 #line 1 "parse.y"
-
-#include "pdb.h"
-#include "expr/pdb_db_int.h"
-#include "expr/parse.h"
-#include "expr/expr_item.h"
-#include "expr/record_list.h"
-#include "expr/sql_parser.h"
-#include "expr/column_item.h"
-#include "expr/group_opt.h"
-#include "expr/orderby_opt.h"
-#include "expr/limit_opt.h"
-
-void pdbSetError(SQLParser* pParse, const char* pErrMsg);
-void pdbSelect(SQLParser* pParse, ExprList* pTagList, Token* pSrcTab, ExprItem* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit);
-void pdbCreateTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList);
-void pdbAlterTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList);
-
-void pdbDelete(SQLParser* pParse, Token* pTabName, ExprItem* pWhere);
-void pdbAttachTable(SQLParser* pParse, Token* pTabName);
-void pdbDetachTable(SQLParser* pParse, Token* pTabName);
-void pdbDropTable(SQLParser* pParse, Token* pTabToken);
-
-void pdbAttachFile(SQLParser* pParse, Token* pTabName, Token* pDate, Token* pType);
-void pdbDetachFile(SQLParser* pParse, Token* pTabName, Token* pDate);
-void pdbDropFile(SQLParser* pParse, Token* pTabName, Token* pDate);
-
-void pdbAddUser(SQLParser* pParse, Token* pNameToken, Token* pPwdToken);
-void pdbChangePwd(SQLParser* pParse, Token* pNameToken, Token* pPwdToken);
-void pdbChangeRole(SQLParser* pParse, Token* pNameToken, Token* pRoleToken);
-void pdbDropUser(SQLParser* pParse, Token* pNameToken);
-
-void pdbInsert(SQLParser* pParse, Token* pTabName, ExprList* pColList, RecordList* pRecList);
+
+#include "pdb.h"
+#include "expr/pdb_db_int.h"
+#include "expr/parse.h"
+#include "expr/expr_item.h"
+#include "expr/record_list.h"
+#include "expr/sql_parser.h"
+#include "expr/column_item.h"
+#include "expr/group_opt.h"
+#include "expr/orderby_opt.h"
+#include "expr/limit_opt.h"
+
+void pdbSetError(SQLParser* pParse, const char* pErrMsg);
+void pdbSelect(SQLParser* pParse, ExprList* pTagList, Token* pSrcTab, ExprItem* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit);
+void pdbCreateTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList);
+void pdbAlterTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList);
+
+void pdbDelete(SQLParser* pParse, Token* pTabName, ExprItem* pWhere);
+void pdbAttachTable(SQLParser* pParse, Token* pTabName);
+void pdbDetachTable(SQLParser* pParse, Token* pTabName);
+void pdbDropTable(SQLParser* pParse, Token* pTabToken);
+
+void pdbAttachFile(SQLParser* pParse, Token* pTabName, Token* pDate, Token* pType);
+void pdbDetachFile(SQLParser* pParse, Token* pTabName, Token* pDate);
+void pdbDropFile(SQLParser* pParse, Token* pTabName, Token* pDate);
+
+void pdbAddUser(SQLParser* pParse, Token* pNameToken, Token* pPwdToken);
+void pdbChangePwd(SQLParser* pParse, Token* pNameToken, Token* pPwdToken);
+void pdbChangeRole(SQLParser* pParse, Token* pNameToken, Token* pRoleToken);
+void pdbDropUser(SQLParser* pParse, Token* pNameToken);
+
+void pdbInsert(SQLParser* pParse, Token* pTabName, ExprList* pColList, RecordList* pRecList);
 
 #line 42 "parse.c"
 /* Next is all token values, in a form suitable for use by makeheaders.
@@ -933,8 +933,8 @@ static void yy_reduce(
   */
       case 0:
 #line 49 "parse.y"
-{
-  pdbAddUser(pParse, &yymsp[-4].minor.yy14, &yymsp[-1].minor.yy0);
+{
+  pdbAddUser(pParse, &yymsp[-4].minor.yy14, &yymsp[-1].minor.yy0);
 }
 #line 939 "parse.c"
         /* No destructor defined for ADD */
@@ -945,8 +945,8 @@ static void yy_reduce(
         break;
       case 1:
 #line 53 "parse.y"
-{
-  pdbDropUser(pParse, &yymsp[-1].minor.yy14);
+{
+  pdbDropUser(pParse, &yymsp[-1].minor.yy14);
 }
 #line 951 "parse.c"
         /* No destructor defined for DROP */
@@ -955,8 +955,8 @@ static void yy_reduce(
         break;
       case 2:
 #line 58 "parse.y"
-{
-  pdbChangePwd(pParse, &yymsp[-6].minor.yy14, &yymsp[-2].minor.yy0); 
+{
+  pdbChangePwd(pParse, &yymsp[-6].minor.yy14, &yymsp[-2].minor.yy0); 
 }
 #line 961 "parse.c"
         /* No destructor defined for SET */
@@ -970,8 +970,8 @@ static void yy_reduce(
         break;
       case 3:
 #line 62 "parse.y"
-{
-  pdbChangeRole(pParse, &yymsp[-3].minor.yy14, &yymsp[-1].minor.yy0);
+{
+  pdbChangeRole(pParse, &yymsp[-3].minor.yy14, &yymsp[-1].minor.yy0);
 }
 #line 976 "parse.c"
         /* No destructor defined for SET */
@@ -992,8 +992,8 @@ static void yy_reduce(
         break;
       case 6:
 #line 71 "parse.y"
-{
-  pdbDropTable(pParse, &yymsp[-1].minor.yy0);
+{
+  pdbDropTable(pParse, &yymsp[-1].minor.yy0);
 }
 #line 998 "parse.c"
         /* No destructor defined for DROP */
@@ -1002,8 +1002,8 @@ static void yy_reduce(
         break;
       case 7:
 #line 75 "parse.y"
-{
-  pdbAttachTable(pParse, &yymsp[-1].minor.yy0);
+{
+  pdbAttachTable(pParse, &yymsp[-1].minor.yy0);
 }
 #line 1008 "parse.c"
         /* No destructor defined for ATTACH */
@@ -1012,8 +1012,8 @@ static void yy_reduce(
         break;
       case 8:
 #line 79 "parse.y"
-{
-  pdbDetachTable(pParse, &yymsp[-1].minor.yy0);
+{
+  pdbDetachTable(pParse, &yymsp[-1].minor.yy0);
 }
 #line 1018 "parse.c"
         /* No destructor defined for DETACH */
@@ -1022,8 +1022,8 @@ static void yy_reduce(
         break;
       case 9:
 #line 85 "parse.y"
-{
-  pdbAttachFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-5].minor.yy0, &yymsp[-3].minor.yy0);
+{
+  pdbAttachFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-5].minor.yy0, &yymsp[-3].minor.yy0);
 }
 #line 1028 "parse.c"
         /* No destructor defined for ATTACH */
@@ -1034,8 +1034,8 @@ static void yy_reduce(
         break;
       case 10:
 #line 89 "parse.y"
-{
-  pdbDetachFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-3].minor.yy0);
+{
+  pdbDetachFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-3].minor.yy0);
 }
 #line 1040 "parse.c"
         /* No destructor defined for DETACH */
@@ -1045,8 +1045,8 @@ static void yy_reduce(
         break;
       case 11:
 #line 93 "parse.y"
-{
-  pdbDropFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-3].minor.yy0);
+{
+  pdbDropFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-3].minor.yy0);
 }
 #line 1051 "parse.c"
         /* No destructor defined for DROP */
@@ -1056,8 +1056,8 @@ static void yy_reduce(
         break;
       case 12:
 #line 100 "parse.y"
-{
-  pdbCreateTable(pParse, &yymsp[-4].minor.yy0, yymsp[-2].minor.yy97);
+{
+  pdbCreateTable(pParse, &yymsp[-4].minor.yy0, yymsp[-2].minor.yy97);
 }
 #line 1062 "parse.c"
         /* No destructor defined for CREATE */
@@ -1068,8 +1068,8 @@ static void yy_reduce(
         break;
       case 13:
 #line 104 "parse.y"
-{
-  pdbAlterTable(pParse, &yymsp[-4].minor.yy0, yymsp[-2].minor.yy97);
+{
+  pdbAlterTable(pParse, &yymsp[-4].minor.yy0, yymsp[-2].minor.yy97);
 }
 #line 1074 "parse.c"
         /* No destructor defined for ALTER */
@@ -1080,16 +1080,16 @@ static void yy_reduce(
         break;
       case 14:
 #line 113 "parse.y"
-{
-  yygotominor.yy97 = ColumnList::AppendColumnItem(yymsp[-2].minor.yy97, yymsp[0].minor.yy124);
+{
+  yygotominor.yy97 = ColumnList::AppendColumnItem(yymsp[-2].minor.yy97, yymsp[0].minor.yy124);
 }
 #line 1086 "parse.c"
         /* No destructor defined for COMMA */
         break;
       case 15:
 #line 116 "parse.y"
-{
-  yygotominor.yy97 = ColumnList::AppendColumnItem(nullptr, yymsp[0].minor.yy124);
+{
+  yygotominor.yy97 = ColumnList::AppendColumnItem(nullptr, yymsp[0].minor.yy124);
 }
 #line 1094 "parse.c"
         break;
@@ -1155,8 +1155,8 @@ static void yy_reduce(
         break;
       case 26:
 #line 135 "parse.y"
-{
-  pdbDelete(pParse, &yymsp[-2].minor.yy0, yymsp[-1].minor.yy98);
+{
+  pdbDelete(pParse, &yymsp[-2].minor.yy0, yymsp[-1].minor.yy98);
 }
 #line 1161 "parse.c"
         /* No destructor defined for DELETE */
@@ -1165,8 +1165,8 @@ static void yy_reduce(
         break;
       case 27:
 #line 141 "parse.y"
-{
-  pdbInsert(pParse, &yymsp[-6].minor.yy0, yymsp[-4].minor.yy70, yymsp[-1].minor.yy114);
+{
+  pdbInsert(pParse, &yymsp[-6].minor.yy0, yymsp[-4].minor.yy70, yymsp[-1].minor.yy114);
 }
 #line 1171 "parse.c"
         /* No destructor defined for INSERT */
@@ -1178,8 +1178,8 @@ static void yy_reduce(
         break;
       case 28:
 #line 147 "parse.y"
-{
-  pdbSelect(pParse, yymsp[-7].minor.yy70, &yymsp[-5].minor.yy0, yymsp[-4].minor.yy98, yymsp[-3].minor.yy11, yymsp[-2].minor.yy41, yymsp[-1].minor.yy17);
+{
+  pdbSelect(pParse, yymsp[-7].minor.yy70, &yymsp[-5].minor.yy0, yymsp[-4].minor.yy98, yymsp[-3].minor.yy11, yymsp[-2].minor.yy41, yymsp[-1].minor.yy17);
 }
 #line 1184 "parse.c"
         /* No destructor defined for SELECT */
@@ -1212,15 +1212,15 @@ static void yy_reduce(
         break;
       case 33:
 #line 161 "parse.y"
-{
-  yygotominor.yy70 = ExprList::AppendExprItem(nullptr, yymsp[0].minor.yy98);
+{
+  yygotominor.yy70 = ExprList::AppendExprItem(nullptr, yymsp[0].minor.yy98);
 }
 #line 1218 "parse.c"
         break;
       case 34:
 #line 164 "parse.y"
-{
-  yygotominor.yy70 = ExprList::AppendExprItem(yymsp[-2].minor.yy70, yymsp[0].minor.yy98);
+{
+  yygotominor.yy70 = ExprList::AppendExprItem(yymsp[-2].minor.yy70, yymsp[0].minor.yy98);
 }
 #line 1225 "parse.c"
         /* No destructor defined for COMMA */
@@ -1576,9 +1576,9 @@ static void yy_syntax_error(
   pdbParseARG_FETCH;
 #define TOKEN (yyminor.yy0)
 #line 39 "parse.y"
-
-  const char* errmsg = TOKEN.str_;
-  pdbSetError(pParse, errmsg);
+
+  const char* errmsg = TOKEN.str_;
+  pdbSetError(pParse, errmsg);
 
 #line 1583 "parse.c"
   pdbParseARG_STORE; /* Suppress warning about unused %extra_argument variable */
