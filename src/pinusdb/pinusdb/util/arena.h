@@ -31,6 +31,7 @@ public:
 
   char* Allocate(size_t bytes);
   char* AllocateAligned(size_t bytes);
+  char* AllocateAligned(size_t bytes, size_t align);
 
   size_t MemoryUsage() const {
     return reinterpret_cast<uintptr_t>(memoryUsage_.load(std::memory_order_relaxed));

@@ -17,6 +17,7 @@
 #include "table/field_info.h"
 #include "util/string_tool.h"
 #include "pdb_error.h"
+#include <string.h>
 
 FieldInfo::FieldInfo()
 {

@@ -35,9 +35,9 @@ private:
 
   static PdbErr_t GetStr(const char* pSourceStr, size_t sourceLen, char* pDest, size_t* pDestLen);
 
-  static int GetToken(const unsigned char* z, size_t maxLen, int* tokenType, bool* needEscape);
+  static size_t GetToken(const unsigned char* z, size_t maxLen, int* tokenType, bool* needEscape);
 
-  static int GetKeywordType(const char* z, int n);
+  static int GetKeywordType(const char* z, size_t n);
 
 
 private:

@@ -62,13 +62,13 @@ NormalPartIdx::~NormalPartIdx()
   idxFile_.Close();
 }
 
-PdbErr_t NormalPartIdx::Create(const char* pPath, int32_t partCode)
+PdbErr_t NormalPartIdx::Create(const char* pPath, uint32_t partCode)
 {
   PdbErr_t retVal = PdbE_OK;
   OSFile osFile;
   NormalIdxMeta idxMeta;
 
-  if (partCode < 0 || partCode > 365 * 10000)
+  if (partCode > 365 * 10000)
     return PdbE_INVALID_PARAM;
 
   retVal = osFile.OpenNew(pPath);
@@ -292,7 +292,6 @@ PdbErr_t NormalPartIdx::WriteIdx(const std::vector<NormalPageIdx>& idxVec)
 
 PdbErr_t NormalPartIdx::GetIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx)
 {
-  PdbErr_t retVal = PdbE_OK;
   if (pIdx == nullptr)
     return PdbE_INVALID_PARAM;
 
@@ -324,7 +323,6 @@ PdbErr_t NormalPartIdx::GetIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx)
 
 PdbErr_t NormalPartIdx::GetPrevIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx)
 {
-  PdbErr_t retVal = PdbE_OK;
   if (pIdx == nullptr)
     return PdbE_INVALID_PARAM;
 
@@ -360,7 +358,6 @@ PdbErr_t NormalPartIdx::GetPrevIndex(int64_t devId, int64_t ts, NormalPageIdx* p
 
 PdbErr_t NormalPartIdx::GetNextIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx)
 {
-  PdbErr_t retVal = PdbE_OK;
   if (pIdx == nullptr)
     return PdbE_INVALID_PARAM;
 

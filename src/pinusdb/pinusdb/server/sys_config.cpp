@@ -58,12 +58,16 @@ SysConfig::~SysConfig()
 
 bool SysConfig::LoadConfig()
 {
+#ifdef _WIN32
   TCHAR szFilePath[MAX_PATH];
   ::GetModuleFileName(NULL, szFilePath, MAX_PATH);
 
   boost::filesystem::path filePath(szFilePath);
   std::string cfgPath = filePath.parent_path().string();
   cfgPath += "/config.ini";
+#else
+  std::string cfgPath = "/etc/pinusdb/config.ini";
+#endif
 
   if (!boost::filesystem::exists(cfgPath.c_str()))
     return false;
@@ -214,25 +218,25 @@ PdbErr_t SysConfig::Query(IResultFilter* pFilter)
   APPEND_DATA_CFG;
   //////////////////////////////////////////////////////////////////////
 
-  sprintf_s(dataBuf, "%d", port_);
+  sprintf(dataBuf, "%d", port_);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_PORT_NAME, strlen(SYSCFG_PORT_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
   //////////////////////////////////////////////////////////////////////
 
-  sprintf_s(dataBuf, "%d", cacheSize_);
+  sprintf(dataBuf, "%d", cacheSize_);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_CACHE_SIZE_NAME, strlen(SYSCFG_CACHE_SIZE_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
   //////////////////////////////////////////////////////////////////////
 
-  sprintf_s(dataBuf, "%d", queryTimeOut_);
+  sprintf(dataBuf, "%d", queryTimeOut_);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_QUERY_TIMEOUT_NAME, strlen(SYSCFG_QUERY_TIMEOUT_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
   //////////////////////////////////////////////////////////////////////
 
-  sprintf_s(dataBuf, "%d", insertValidDay_);
+  sprintf(dataBuf, "%d", insertValidDay_);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_INSERT_VALID_DAY_NAME, strlen(SYSCFG_INSERT_VALID_DAY_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
@@ -289,22 +293,22 @@ PdbErr_t SysConfig::Query(IResultFilter* pFilter)
     DBVAL_ELE_SET_STRING(vals, 1, "false", 5);
   APPEND_DATA_CFG;
 
-  sprintf_s(dataBuf, "%d", PDB_MAJOR_VER_VAL);
+  sprintf(dataBuf, "%d", PDB_MAJOR_VER_VAL);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_MAJORVER_NAME, strlen(SYSCFG_MAJORVER_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
 
-  sprintf_s(dataBuf, "%d", PDB_MINOR_VER_VAL);
+  sprintf(dataBuf, "%d", PDB_MINOR_VER_VAL);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_MINORVER_NAME, strlen(SYSCFG_MINORVER_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
 
-  sprintf_s(dataBuf, "%d", PDB_BUILD_VER_VAL);
+  sprintf(dataBuf, "%d", PDB_BUILD_VER_VAL);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_BUILDVER_NAME, strlen(SYSCFG_BUILDVER_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
   
-  sprintf_s(dataBuf, "%d", PDB_SYS_DEV_CNT);
+  sprintf(dataBuf, "%d", PDB_SYS_DEV_CNT);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_DEV_CNT_NAME, strlen(SYSCFG_DEV_CNT_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;

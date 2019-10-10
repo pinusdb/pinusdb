@@ -29,8 +29,14 @@
 #include "global_variable.h"
 #include "util/coding.h"
 
-EventHandle::EventHandle(const char* pRemoteIp, int remotePort)
+EventHandle::EventHandle(int socket, const char* pRemoteIp, int remotePort)
 {
+#ifndef _WIN32
+  this->socket_ = socket;
+  this->refCnt_ = 0;
+#endif
+
+  this->eventState_ = EventState::kRecv;
   this->remotePort_ = remotePort;
   this->remoteIp_ = pRemoteIp;
   this->userRole_ = 0;
@@ -61,12 +67,18 @@ EventHandle::~EventHandle()
 {
   LOG_INFO("disconnect ({}:{})", remoteIp_.c_str(), remotePort_);
 
+#ifndef _WIN32
+  close(socket_);
+#endif
+
   if (pRecvBuf_ != nullptr)
     delete pRecvBuf_;
 
   if (pSendBuf_ != nullptr)
     delete pSendBuf_;
 }
+
+#ifdef _WIN32
 
 bool EventHandle::RecvPostedEvent(const uint8_t* pBuf, size_t bytesTransfered)
 {
@@ -75,7 +87,7 @@ bool EventHandle::RecvPostedEvent(const uint8_t* pBuf, size_t bytesTransfered)
 
   if (pBuf == nullptr || bytesTransfered <= 0)
   {
-    LOG_ERROR("failed to RecvPostedEvent, transfered bytes ({}), socket will be closed", 
+    LOG_ERROR("failed to RecvPostedEvent, transfered bytes ({}), socket will be closed",
       bytesTransfered);
     this->SetEnd();
     return false;
@@ -112,13 +124,13 @@ bool EventHandle::RecvPostedEvent(const uint8_t* pBuf, size_t bytesTransfered)
         retVal = DecodeHead();
         if (retVal != PdbE_OK)
         {
-          LOG_ERROR("decode packet head failed, client ({}:{}) err:{}", 
+          LOG_ERROR("decode packet head failed, client ({}:{}) err:{}",
             remoteIp_.c_str(), remotePort_, retVal);
           break;
         }
       }
     }
-    
+
     if (bytesTransfered == 0)
       break;
 
@@ -144,7 +156,7 @@ bool EventHandle::RecvPostedEvent(const uint8_t* pBuf, size_t bytesTransfered)
       uint32_t tmpCrc32 = StringTool::CRC32(pRecvBuf_, totalRecvBodyLen_);
       if (tmpCrc32 != dataCrc_)
       {
-        LOG_ERROR("connection ({}:{}) packet body crc error", 
+        LOG_ERROR("connection ({}:{}) packet body crc error",
           remoteIp_.c_str(), remotePort_);
         retVal = PdbE_PACKET_ERROR;
         break;
@@ -171,7 +183,6 @@ bool EventHandle::SendPostedEvent(size_t bytesTransfered)
   PdbErr_t retVal = PdbE_OK;
 
   do {
-
     if (bytesTransfered <= 0)
     {
       LOG_ERROR("failed to send packet, sent packet length ({})", bytesTransfered);
@@ -185,7 +196,7 @@ bool EventHandle::SendPostedEvent(size_t bytesTransfered)
       retVal = PdbE_TASK_STATE_ERROR;
       break;
     }
-  
+
     if (this->eventState_ != EventState::kSend)
     {
       LOG_ERROR("failed to send packet, current state ({})", this->eventState_);
@@ -195,7 +206,7 @@ bool EventHandle::SendPostedEvent(size_t bytesTransfered)
 
     if (sendLen_ + bytesTransfered > totalSendLen_)
     {
-      LOG_ERROR("failed to send packet, total length ({}),  sent length ({}) error", 
+      LOG_ERROR("failed to send packet, total length ({}),  sent length ({}) error",
         totalSendLen_, (sendLen_ + bytesTransfered));
       retVal = PdbE_PACKET_ERROR;
       break;
@@ -225,96 +236,6 @@ bool EventHandle::SendPostedEvent(size_t bytesTransfered)
     return false;
   }
 
-  return true;
-}
-
-bool EventHandle::ExecTask()
-{
-  PdbErr_t retVal = PdbE_OK;
-
-  int32_t successCnt = 0;
-  int32_t errPos = 0;
-  DataTable resultTable;
-  uint32_t repMethodId = METHOD_ERROR_REP;
-  std::list<PdbErr_t> insertRet;
-
-  if (this->IsEnd())
-  {
-    LOG_ERROR("failed to exec task, socket({}:{}) is closed",
-      remoteIp_.c_str(), remotePort_);
-    return false;
-  }
-
-  switch (method_)
-  {
-  case METHOD_CMD_LOGIN_REQ:
-  {
-    retVal = ExecLogin();
-    repMethodId = METHOD_CMD_LOGIN_REP;
-    break;
-  }
-  case METHOD_CMD_QUERY_REQ:
-  {
-    retVal = ExecQuery(&resultTable);
-    repMethodId = METHOD_CMD_QUERY_REP;
-    break;
-  }
-  case METHOD_CMD_INSERT_REQ:
-  {
-    retVal = ExecInsertSql(&successCnt);
-    repMethodId = METHOD_CMD_INSERT_REP;
-    break;
-  }
-  case METHOD_CMD_NONQUERY_REQ:
-  {
-    retVal = ExecNonQuery();
-    repMethodId = METHOD_CMD_NONQUERY_REP;
-    break;
-  }
-  case METHOD_CMD_INSERT_TABLE_REQ:
-  {
-    retVal = ExecInsertTable(insertRet);
-    repMethodId = METHOD_CMD_INSERT_TABLE_REP;
-    break;
-  }
-  default:
-  {
-    retVal = PdbE_PACKET_ERROR;
-    break;
-  }
-  }
-
-  if (method_ == METHOD_CMD_QUERY_REQ)
-  {
-    EncodeQueryPacket(retVal, &resultTable);
-  }
-  else if (method_ == METHOD_CMD_INSERT_REQ)
-  {
-    EncodeInsertPacket(retVal, successCnt);
-  }
-  else if (method_ == METHOD_CMD_INSERT_TABLE_REQ)
-  {
-    EncodeInsertTablePacket(retVal, insertRet);
-  }
-  else
-  {
-    //其它报文
-    AllocSendBuf(ProtoHeader::kProtoHeadLength);
-    ProtoHeader proHdr;
-    proHdr.Load(pSendBuf_);
-    proHdr.InitHeader(repMethodId, 0, retVal, 0);
-    this->totalSendLen_ = ProtoHeader::kProtoHeadLength;
-  }
-
-  //如果接收缓冲大于某个值，则释放
-  FreeRecvBuf();
-
-  this->sendLen_ = 0;
-  this->recvHeadLen_ = 0;
-  this->recvBodyLen_ = 0;
-  this->totalRecvBodyLen_ = 0;
-
-  this->eventState_ = EventState::kSend;
   return true;
 }
 
@@ -396,6 +317,241 @@ bool EventHandle::GetSendBuf(WSABUF* pWsaBuf)
   return true;
 }
 
+#else
+
+bool EventHandle::RecvData()
+{
+  PdbErr_t retVal = PdbE_OK;
+  int nread = 0;
+
+  if (eventState_ != EventState::kRecv)
+    return false;
+
+  if (this->IsEnd())
+    return false;
+
+  std::unique_lock<std::mutex> eventLock(eventMutex_);
+  do {
+    if (this->eventState_ != EventState::kRecv)
+    {
+      retVal = PdbE_TASK_STATE_ERROR;
+      break;
+    }
+
+    if (recvHeadLen_ < ProtoHeader::kProtoHeadLength)
+    {
+      while (recvHeadLen_ < ProtoHeader::kProtoHeadLength)
+      {
+        int tmpLen = ProtoHeader::kProtoHeadLength - recvHeadLen_;
+        nread = read(socket_, (recvHead_ + recvHeadLen_), tmpLen);
+
+        if (nread <= 0)
+        {
+          if (nread < 0 && errno != EAGAIN)
+          {
+            retVal = PdbE_NET_ERROR;
+          }
+          break;
+        }
+
+        recvHeadLen_ += nread;
+      }
+
+      if (recvHeadLen_ == ProtoHeader::kProtoHeadLength)
+      {
+        retVal = DecodeHead();
+        if (retVal != PdbE_OK)
+        {
+          LOG_ERROR("recv socket data, decode protocal head failed, error:({})", retVal);
+          break;
+        }
+      }
+    }
+
+    while (recvBodyLen_ < totalRecvBodyLen_)
+    {
+      int tmpLen = totalRecvBodyLen_ - recvBodyLen_;
+      nread = read(socket_, (pRecvBuf_ + recvBodyLen_), tmpLen);
+
+      if (nread <= 0)
+      {
+        if (nread < 0 && errno != EAGAIN)
+        {
+          retVal = PdbE_NET_ERROR;
+        }
+        break;
+      }
+
+      recvBodyLen_ += nread;
+    }
+
+    if (recvBodyLen_ == totalRecvBodyLen_)
+    {
+      uint32_t tmpCrc32 = StringTool::CRC32(pRecvBuf_, totalRecvBodyLen_);
+      if (tmpCrc32 != dataCrc_)
+      {
+        LOG_ERROR("recv socket data, protocal body crc error");
+        retVal = PdbE_PACKET_ERROR;
+        break;
+      }
+
+      this->eventState_ = EventState::kExec;
+    }
+
+  } while (false);
+
+  if (retVal != PdbE_OK)
+  {
+    LOG_ERROR("recv socket data failed, connection close");
+    this->SetEnd();
+    return false;
+  }
+
+  return true;
+}
+
+bool EventHandle::SendData()
+{
+  std::unique_lock<std::mutex> eventLock(eventMutex_);
+  return _SendData();
+}
+
+bool EventHandle::_SendData()
+{
+  if (eventState_ == EventState::kSend)
+  {
+    while (sendLen_ < totalSendLen_)
+    {
+      int nwrite = write(socket_, (pSendBuf_ + sendLen_), (totalSendLen_ - sendLen_));
+      if (nwrite <= 0)
+      {
+        if (nwrite < 0 && errno != EAGAIN)
+        {
+          this->eventState_ = EventState::kEnd;
+          return false;
+        }
+        break;
+      }
+
+      sendLen_ += nwrite;
+    }
+
+    if (sendLen_ == totalSendLen_)
+    {
+      this->eventState_ = EventState::kRecv;
+
+      this->recvHeadLen_ = 0;
+      this->recvBodyLen_ = 0;
+      this->totalRecvBodyLen_ = 0;
+
+      this->sendLen_ = 0;
+      this->totalSendLen_ = 0;
+
+      FreeSendBuf();
+    }
+  }
+
+  return true;
+}
+
+#endif
+
+bool EventHandle::ExecTask()
+{
+  PdbErr_t retVal = PdbE_OK;
+
+  int32_t successCnt = 0;
+  DataTable resultTable;
+  uint32_t repMethodId = METHOD_ERROR_REP;
+  std::list<PdbErr_t> insertRet;
+
+#ifndef _WIN32
+  std::unique_lock<std::mutex> eventLock(eventMutex_);
+#endif
+  if (this->IsEnd())
+  {
+    LOG_ERROR("failed to exec task, socket({}:{}) is closed",
+      remoteIp_.c_str(), remotePort_);
+    return false;
+  }
+
+  switch (method_)
+  {
+  case METHOD_CMD_LOGIN_REQ:
+  {
+    retVal = ExecLogin();
+    repMethodId = METHOD_CMD_LOGIN_REP;
+    break;
+  }
+  case METHOD_CMD_QUERY_REQ:
+  {
+    retVal = ExecQuery(&resultTable);
+    repMethodId = METHOD_CMD_QUERY_REP;
+    break;
+  }
+  case METHOD_CMD_INSERT_REQ:
+  {
+    retVal = ExecInsertSql(&successCnt);
+    repMethodId = METHOD_CMD_INSERT_REP;
+    break;
+  }
+  case METHOD_CMD_NONQUERY_REQ:
+  {
+    retVal = ExecNonQuery();
+    repMethodId = METHOD_CMD_NONQUERY_REP;
+    break;
+  }
+  case METHOD_CMD_INSERT_TABLE_REQ:
+  {
+    retVal = ExecInsertTable(insertRet);
+    repMethodId = METHOD_CMD_INSERT_TABLE_REP;
+    break;
+  }
+  default:
+  {
+    retVal = PdbE_PACKET_ERROR;
+    break;
+  }
+  }
+
+  if (method_ == METHOD_CMD_QUERY_REQ)
+  {
+    EncodeQueryPacket(retVal, &resultTable);
+  }
+  else if (method_ == METHOD_CMD_INSERT_REQ)
+  {
+    EncodeInsertPacket(retVal, successCnt);
+  }
+  else if (method_ == METHOD_CMD_INSERT_TABLE_REQ)
+  {
+    EncodeInsertTablePacket(retVal, insertRet);
+  }
+  else
+  {
+    //其它报文
+    AllocSendBuf(ProtoHeader::kProtoHeadLength);
+    ProtoHeader proHdr;
+    proHdr.Load(pSendBuf_);
+    proHdr.InitHeader(repMethodId, 0, retVal, 0);
+    this->totalSendLen_ = ProtoHeader::kProtoHeadLength;
+  }
+
+  //如果接收缓冲大于某个值，则释放
+  FreeRecvBuf();
+
+  this->sendLen_ = 0;
+  this->recvHeadLen_ = 0;
+  this->recvBodyLen_ = 0;
+  this->totalRecvBodyLen_ = 0;
+  this->eventState_ = EventState::kSend;
+
+#ifdef _WIN32
+  return true;
+#else
+  return _SendData();
+#endif
+}
+
 PdbErr_t EventHandle::DecodeHead()
 {
   PdbErr_t retVal = PdbE_OK;
@@ -461,7 +617,6 @@ PdbErr_t EventHandle::DecodeSqlPacket(const char** ppSql, size_t* pSqlLen)
     return PdbE_INVALID_PARAM;
   }
 
-  uint8_t* pTmp = pRecvBuf_;
   *pSqlLen = recvBodyLen_;
   *ppSql = (const char*)pRecvBuf_;
   return PdbE_OK;
@@ -473,7 +628,6 @@ PdbErr_t EventHandle::DecodeInsertTable(InsertSql* pInsertSql)
   const uint8_t* pBufLimit = pRecvBuf_ + recvBodyLen_;
   DBVal dbVal;
   uint32_t vType = 0;
-  uint32_t vLen = 0;
   uint32_t v32 = 0;
   uint64_t v64 = 0;
 
@@ -1261,8 +1415,6 @@ PdbErr_t EventHandle::AllocRecvBuf(size_t bufLen)
   pRecvBuf_ = nullptr;
   recvBufLen_ = 0;
 
-  PdbErr_t retVal = PdbE_OK;
-
   if (bufLen <= 0)
     return PdbE_INVALID_PARAM;
 
@@ -1303,8 +1455,6 @@ PdbErr_t EventHandle::AllocSendBuf(size_t bufLen)
 
   pSendBuf_ = nullptr;
   sendBufLen_ = 0;
-
-  PdbErr_t retVal = PdbE_OK;
 
   if (bufLen <= 0)
     return PdbE_INVALID_PARAM;

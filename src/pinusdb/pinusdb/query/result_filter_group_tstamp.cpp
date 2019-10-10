@@ -63,7 +63,6 @@ PdbErr_t ResultFilterGroupTStamp::AppendData(const DBVal* pVals, size_t valCnt, 
   bool resultVal = true;
   PdbErr_t retVal = PdbE_OK;
 
-  int64_t devId = DBVAL_ELE_GET_INT64(pVals, PDB_DEVID_INDEX);
   int64_t tstamp = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
 
   uint64_t groupId = (tstamp - minTimeStamp_) / timeGroupRange_;

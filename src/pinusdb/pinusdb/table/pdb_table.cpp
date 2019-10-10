@@ -132,6 +132,10 @@ PdbErr_t PDBTable::OpenTable(uint32_t tabCode, const char* pTabName)
 PdbErr_t PDBTable::Close()
 {
   PdbErr_t retVal = PdbE_OK; 
+
+  if (tabCrc_ == 0 && tabCode_ == 0)
+    return PdbE_OK;
+
   retVal = SyncDirtyPages(true);
   if (retVal == PdbE_OK)
   {
@@ -149,6 +153,8 @@ PdbErr_t PDBTable::Close()
     delete pTabInfo_;
 
   partVec_.clear();
+  tabCrc_ = 0;
+  tabCode_ = 0;
   return PdbE_OK;
 }
 
@@ -173,12 +179,9 @@ PdbErr_t PDBTable::RecoverDW()
       }
 
       //判断文件内容是否正确
-      pPageBuf = arena.AllocateAligned(NORMAL_PAGE_SIZE * (SYNC_PAGE_CNT + 1));
+      pPageBuf = arena.AllocateAligned(NORMAL_PAGE_SIZE * SYNC_PAGE_CNT, PDB_KB_BYTES(8));
       if (pPageBuf == nullptr)
         return PdbE_NOMEM;
-
-      size_t bufMod = reinterpret_cast<uintptr_t>(pPageBuf) & (NORMAL_PAGE_SIZE - 1);
-      pPageBuf += (bufMod == 0 ? 0 : (NORMAL_PAGE_SIZE - bufMod));
 
       retVal = dwFile_.Read(pPageBuf, (NORMAL_PAGE_SIZE * SYNC_PAGE_CNT), 0);
       if (retVal != PdbE_OK)
@@ -204,12 +207,7 @@ PdbErr_t PDBTable::RecoverDW()
     FileTool::RemoveFile(dwPath_.c_str());
   }
 
-  char* pDwPathBuf = arena.Allocate((dwPath_.size() + 4));
-  if (pDwPathBuf == nullptr)
-    return PdbE_NOMEM;
-
-  strncpy(pDwPathBuf, dwPath_.c_str(), (dwPath_.size() + 4));
-  FileTool::MakeParentPath(pDwPathBuf);
+  FileTool::MakeParentPath(dwPath_.c_str());
 
   retVal = dwFile_.Open(dwPath_.c_str(), false, true, true);
   if (retVal != PdbE_OK)
@@ -222,7 +220,7 @@ PdbErr_t PDBTable::RecoverDW()
   return PdbE_OK;
 }
 
-PdbErr_t PDBTable::OpenDataPart(int32_t partCode, bool isNormalPart)
+PdbErr_t PDBTable::OpenDataPart(uint32_t partCode, bool isNormalPart)
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil partRef;
@@ -316,13 +314,13 @@ PdbErr_t PDBTable::AttachPart(const char* pPartDate, int fileType)
   return retVal;
 }
 
-PdbErr_t PDBTable::DetachPart(int32_t partCode)
+PdbErr_t PDBTable::DetachPart(uint32_t partCode)
 {
   DataPart* pDataPart = nullptr;
   int32_t invalidDays = pGlbSysCfg->GetInsertValidDay();
   int32_t invalidBgDay = DateTime::NowDayCode() - invalidDays;
 
-  if (partCode >= invalidBgDay)
+  if (partCode >= static_cast<uint32_t>(invalidBgDay))
     return PdbE_DATA_FILE_IN_ACTIVE;
 
   pDataPart = DelOrReplacePart(partCode, nullptr);
@@ -330,7 +328,7 @@ PdbErr_t PDBTable::DetachPart(int32_t partCode)
     return PdbE_DATA_FILE_NOT_FOUND;
 
   //Cancel dump task
-  if (dumpPartCode_.load() == partCode)
+  if (dumpPartCode_.load() == static_cast<int>(partCode))
   {
     CancelDumpTask();
   }
@@ -354,13 +352,13 @@ PdbErr_t PDBTable::DetachPart(int32_t partCode)
   return PdbE_OK;
 }
 
-PdbErr_t PDBTable::DropPart(int32_t partCode)
+PdbErr_t PDBTable::DropPart(uint32_t partCode)
 {
   DataPart* pDataPart = nullptr;
   int32_t invalidDays = pGlbSysCfg->GetInsertValidDay();
   int32_t invalidBgDay = DateTime::NowDayCode() - invalidDays; 
 
-  if (partCode >= invalidBgDay)
+  if (partCode >= static_cast<uint32_t>(invalidBgDay))
     return PdbE_DATA_FILE_IN_ACTIVE;
 
   pDataPart = DelOrReplacePart(partCode, nullptr);
@@ -368,7 +366,7 @@ PdbErr_t PDBTable::DropPart(int32_t partCode)
     return PdbE_DATA_FILE_NOT_FOUND;
 
   //Cancel dump task
-  if (dumpPartCode_.load() == partCode)
+  if (dumpPartCode_.load() == static_cast<int>(partCode))
   {
     CancelDumpTask();
   }
@@ -462,7 +460,7 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
   }
 
   //将所有字段设置为默认值
-  for (int i = 0; i < fieldCnt; i++)
+  for (size_t i = 0; i < fieldCnt; i++)
   {
     int32_t fieldType = 0;
     pTabInfo->GetFieldInfo(i, &fieldType);
@@ -488,7 +486,6 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
   int64_t devId = 0;
   int64_t tstamp = 0;
   uint8_t* pLimitRec = pRecBuf + PDB_MAX_REC_LEN;
-  uint8_t* pLogBg = pRecBuf;
   uint8_t* pRecBg = pRecBuf + sizeof(int64_t);
   uint8_t* pValBuf = nullptr;
   DataPart* pDataPart = nullptr;
@@ -523,7 +520,7 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
       INSERT_REC_ERROR_OCCUR;
     }
 
-    for (int i = PDB_TSTAMP_INDEX; i < fieldCnt; i++)
+    for (size_t i = PDB_TSTAMP_INDEX; i < fieldCnt; i++)
     {
       if ((pValBuf + 2 + DBVAL_ELE_GET_LEN(pVals, i)) > pLimitRec)
       {
@@ -627,7 +624,7 @@ PdbErr_t PDBTable::Query(DataTable* pResultTable, const QueryParam* pQueryParam)
   const ExprItem* pConditionItem = pQueryParam->pWhere_;
   const GroupOpt* pGroup = pQueryParam->pGroup_;
   const OrderByOpt* pOrderBy = pQueryParam->pOrderBy_;
-  uint64_t timeOutTick = GetTickCount64() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   IResultFilter* pResultFilter = nullptr;
@@ -780,9 +777,8 @@ PdbErr_t PDBTable::QuerySnapshot(DataTable* pResultTable, const QueryParam* pQue
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabInfoRef;
-  const ExprList* pColList = pQueryParam->pSelList_;
   const ExprItem* pConditionItem = pQueryParam->pWhere_;
-  uint64_t timeOutTick = GetTickCount64() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   if (pQueryParam->pGroup_ != nullptr)
@@ -878,7 +874,7 @@ PdbErr_t PDBTable::DumpPartToComp()
   std::string compIdxPath;
   std::string compDataPath;
 
-  while (!glbCancelCompTask)
+  while (!glbCancelCompTask && glbRunning)
   {
     GetDataPartEqualOrLess(partCode, false, &partRef);
     pDataPart = partRef.GetObj<DataPart>();
@@ -1216,7 +1212,7 @@ PdbErr_t PDBTable::QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstam
 }
 
 
-void PDBTable::GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, RefUtil* pPartRef)
+void PDBTable::GetDataPartEqualOrGreat(uint32_t partCode, bool includeEqual, RefUtil* pPartRef)
 {
   std::unique_lock<std::mutex> partLock(partMutex_);
   pPartRef->Attach(nullptr);
@@ -1224,7 +1220,7 @@ void PDBTable::GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, RefU
   if (idx < 0)
     return;
 
-  int tmpPartCode = partVec_[idx]->GetPartCode();
+  uint32_t tmpPartCode = partVec_[idx]->GetPartCode();
   if (tmpPartCode == partCode && includeEqual)
   {
     pPartRef->Attach(partVec_[idx]);
@@ -1238,14 +1234,14 @@ void PDBTable::GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, RefU
   }
 
   idx++;
-  if (idx < partVec_.size())
+  if (idx < static_cast<int>(partVec_.size()))
   {
     pPartRef->Attach(partVec_[idx]);
     return;
   }
 }
 
-void PDBTable::GetDataPartEqualOrLess(int32_t partCode, bool includeEqual, RefUtil* pPartRef)
+void PDBTable::GetDataPartEqualOrLess(uint32_t partCode, bool includeEqual, RefUtil* pPartRef)
 {
   std::unique_lock<std::mutex> partLock(partMutex_);
   pPartRef->Attach(nullptr);
@@ -1253,7 +1249,7 @@ void PDBTable::GetDataPartEqualOrLess(int32_t partCode, bool includeEqual, RefUt
   if (idx < 0)
     return;
 
-  int tmpPartCode = partVec_[idx]->GetPartCode();
+  uint32_t tmpPartCode = partVec_[idx]->GetPartCode();
   if (tmpPartCode == partCode && includeEqual)
   {
     pPartRef->Attach(partVec_[idx]);
@@ -1274,7 +1270,7 @@ void PDBTable::GetDataPartEqualOrLess(int32_t partCode, bool includeEqual, RefUt
   }
 }
 
-DataPart* PDBTable::GetDataPart(int32_t partCode, RefUtil* pPartRef)
+DataPart* PDBTable::GetDataPart(uint32_t partCode, RefUtil* pPartRef)
 {
   std::unique_lock<std::mutex> partLock(partMutex_);
   pPartRef->Attach(nullptr);
@@ -1291,13 +1287,13 @@ DataPart* PDBTable::GetDataPart(int32_t partCode, RefUtil* pPartRef)
   return nullptr;
 }
 
-int PDBTable::_GetDataPartPos(int32_t partCode)
+int PDBTable::_GetDataPartPos(uint32_t partCode)
 {
   int partCnt = static_cast<int>(partVec_.size());
   int lwr = 0;
   int upr = partCnt - 1;
   int idx = 0;
-  int tmpPartCode = 0;
+  uint32_t tmpPartCode = 0;
 
   if (partVec_.empty())
     return -1;
@@ -1317,7 +1313,7 @@ int PDBTable::_GetDataPartPos(int32_t partCode)
   return idx;
 }
 
-PdbErr_t PDBTable::GetOrCreateNormalPart(int32_t partCode, RefUtil* pPartRef)
+PdbErr_t PDBTable::GetOrCreateNormalPart(uint32_t partCode, RefUtil* pPartRef)
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabInfoRef;
@@ -1384,7 +1380,7 @@ PdbErr_t PDBTable::GetOrCreateNormalPart(int32_t partCode, RefUtil* pPartRef)
   return retVal;
 }
 
-PdbErr_t PDBTable::BuildPartPath(int32_t partCode, bool isNormal, bool createParent,
+PdbErr_t PDBTable::BuildPartPath(uint32_t partCode, bool isNormal, bool createParent,
   std::string& partDateStr, std::string& idxPath, std::string& dataPath)
 {
   char pathBuf[MAX_PATH];
@@ -1395,7 +1391,7 @@ PdbErr_t PDBTable::BuildPartPath(int32_t partCode, bool isNormal, bool createPar
   DateTime dtPart((partCode * MillisPerDay));
   dtPart.GetDatePart(&partYear, &partMonth, &partDay);
 
-  sprintf_s(pathBuf, "%04d-%02d-%02d", partYear, partMonth, partDay);
+  sprintf(pathBuf, "%04d-%02d-%02d", partYear, partMonth, partDay);
   partDateStr = pathBuf;
 
   std::string sysDBPath;
@@ -1404,7 +1400,7 @@ PdbErr_t PDBTable::BuildPartPath(int32_t partCode, bool isNormal, bool createPar
   else
     sysDBPath = pGlbSysCfg->GetCompressDataPath();
 
-  sprintf_s(pathBuf, "%s/%s/%04d/%02d/%s_%04d%02d%02d", sysDBPath.c_str(), tabName_.c_str(),
+  sprintf(pathBuf, "%s/%s/%04d/%02d/%s_%04d%02d%02d", sysDBPath.c_str(), tabName_.c_str(),
     partYear, partMonth, tabName_.c_str(), partYear, partMonth, partDay);
 
   idxPath = pathBuf;
@@ -1427,7 +1423,7 @@ PdbErr_t PDBTable::BuildPartPath(int32_t partCode, bool isNormal, bool createPar
 }
 
 
-DataPart* PDBTable::DelOrReplacePart(int32_t partCode, DataPart* pNewPart)
+DataPart* PDBTable::DelOrReplacePart(uint32_t partCode, DataPart* pNewPart)
 {
   DataPart* pDataPart = nullptr;
   std::unique_lock<std::mutex> partLock(partMutex_);

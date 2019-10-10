@@ -18,6 +18,9 @@
 #include <algorithm>
 #include "util/log_util.h"
 #include "util/string_tool.h"
+#include "boost/filesystem.hpp"
+
+namespace bfs = boost::filesystem;
 
 CommitLogList::CommitLogList()
 {
@@ -127,7 +130,6 @@ PdbErr_t CommitLogList::AppendData(uint64_t tabCrc, uint32_t metaCode,
 
 void CommitLogList::GetCurLogPos(uint64_t* pDataLogPos)
 {
-  PdbErr_t retVal = PdbE_OK;
   if (pDataLogPos != nullptr)
     *pDataLogPos = 0;
 
@@ -285,56 +287,53 @@ void CommitLogList::Shutdown()
   }
 }
 
-#define ValidateLogFile(pFile, fileCode)  do { \
-  fileCode = -1; \
-  if (strlen(pFile) == 12) \
-  {  \
-    fileCode = 0; \
-    for (int i = 0; i < 8; i++)  \
-    {  \
-      if (pFile[i] >= '0' || pFile[i] <= '9') \
-      { \
-        fileCode = fileCode * 10 + pFile[i] - '0'; \
-      }  \
-      else { \
-        fileCode = -1; \
-        break; \
-      }  \
-    }  \
-  }  \
-}while(false)
-
 PdbErr_t CommitLogList::InitLogFileList(const char* pLogPath)
 {
   PdbErr_t retVal = PdbE_OK;
-  WIN32_FIND_DATA findFileData;
-  HANDLE findHandle = INVALID_HANDLE_VALUE;
   int32_t fileCode = 0;
-  char pathBuf[MAX_PATH];
-
   std::vector<int32_t> logFileVec;
   std::vector<std::string> errFileVec;
+  char pathBuf[MAX_PATH];
 
-  sprintf_s(pathBuf, "%s/*.cmt", pLogPath);
-  findHandle = FindFirstFile(pathBuf, &findFileData);
-  if (findHandle == INVALID_HANDLE_VALUE)
-    return PdbE_OK;
-
-  do {
-    ValidateLogFile(findFileData.cFileName, fileCode);
-    if (fileCode > 0)
+  bfs::path logPath(pLogPath);
+  bfs::recursive_directory_iterator endIter;
+  for (bfs::recursive_directory_iterator fIter(logPath); fIter != endIter; fIter++)
+  {
+    if (!bfs::is_directory(*fIter))
     {
-      if (fileCode >= 20000000)
+      std::string fileName = fIter->path().filename().string();
+      if (fileName.size() != 12)
+        continue;
+
+      if (!StringTool::EndWithNoCase(fileName, ".cmt", 4))
+        continue;
+
+      const char* pFileName = fileName.c_str();
+      fileCode = 0;
+      for (int i = 0; i < 8; i++)
       {
-        LOG_ERROR("failed to init datalog list, file code overflow");
-        return PdbE_DATA_LOG_ERROR;
+        if (pFileName[i] >= '0' && pFileName[i] <= '9')
+        {
+          fileCode = fileCode * 10 + pFileName[i] - '0';
+        }
+        else
+        {
+          fileCode = -1;
+          break;
+        }
       }
 
-      logFileVec.push_back(fileCode);
+      if (fileCode >= 0)
+      {
+        if (fileCode >= 20000000)
+        {
+          LOG_ERROR("failed to init datalog list, file code overflow");
+          return PdbE_DATA_LOG_ERROR;
+        }
+        logFileVec.push_back(fileCode);
+      }
     }
-  } while (FindNextFile(findHandle, &findFileData));
-  FindClose(findHandle);
-
+  }
 
   if (!logFileVec.empty())
   {
@@ -343,7 +342,7 @@ PdbErr_t CommitLogList::InitLogFileList(const char* pLogPath)
     CommitLogFile* pLogFile = nullptr;
     for (auto fileIt = logFileVec.begin(); fileIt != logFileVec.end(); fileIt++)
     {
-      sprintf_s(pathBuf, "%s/%08d.cmt", pLogPath, *fileIt);
+      sprintf(pathBuf, "%s/%08d.cmt", pLogPath, *fileIt);
       pLogFile = new CommitLogFile();
       retVal = pLogFile->OpenLog(*fileIt, pathBuf);
       if (retVal != PdbE_OK)
@@ -380,7 +379,7 @@ PdbErr_t CommitLogList::NewLogFile()
   uint32_t maxFileCode = nextFileCode_ + 100;
 
   do {
-    sprintf_s(pathBuf, "%s/%08d.cmt", logPath_.c_str(), nextFileCode_);
+    sprintf(pathBuf, "%s/%08d.cmt", logPath_.c_str(), nextFileCode_);
     if (!FileTool::FileExists(pathBuf))
       break;
 

@@ -77,7 +77,7 @@ public:
   virtual PdbErr_t AbandonDirtyPages() { return PdbE_OK; }
   virtual size_t GetDirtyPageCnt() { return 0; }
 
-  int32_t GetPartCode() const { return static_cast<int32_t>(bgDayTs_ / MillisPerDay); }
+  uint32_t GetPartCode() const { return static_cast<uint32_t>(bgDayTs_ / MillisPerDay); }
   std::string GetIdxPath() const { return idxPath_; }
   std::string GetDataPath() const { return dataPath_; }
 

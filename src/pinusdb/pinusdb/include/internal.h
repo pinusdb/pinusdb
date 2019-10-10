@@ -16,9 +16,11 @@
 
 #pragma once
 
+#ifdef _WIN32
 #include <WinSock2.h>
 #include <Windows.h>
 #include <MSWSock.h>
+#endif
 
 #include <stdint.h>
 #include <string>
@@ -49,7 +51,7 @@
 #define COMPRESS_DATA_FILE_HEAD_STR "PDB COMPRESS 1"
 
 #define PDB_MAJOR_VER_VAL        1
-#define PDB_MINOR_VER_VAL        3
+#define PDB_MINOR_VER_VAL        4
 #define PDB_BUILD_VER_VAL        0
 
 #define PDB_BOOL_FALSE           0
@@ -100,6 +102,10 @@
 
 //每条记录最长 8K
 #define PDB_MAX_REC_LEN              8192
+
+#ifndef MAX_PATH
+#define MAX_PATH 260
+#endif
 
 typedef struct _PdbStr
 {

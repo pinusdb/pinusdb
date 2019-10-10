@@ -254,7 +254,6 @@ PdbErr_t NormalDataPage::SplitMost(NormalDataPage* pNewPage, int32_t bytes)
   assert(pNewPage != nullptr);
   PdbByte* pRecBg = nullptr;
   PdbByte* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
-  PdbByte* pPageEnd = pPageData + NORMAL_PAGE_SIZE;
   uint16_t* pPageIdxs = (uint16_t*)(pPageData + sizeof(NormalDataHead));
   NormalDataHead* pHead = (NormalDataHead*)pPageData;
 
@@ -339,7 +338,6 @@ PdbErr_t NormalDataPage::UpdateIdxTs()
 
 PdbErr_t NormalDataPage::InsertForPos(int idx, const uint8_t* pRec, size_t recLen)
 {
-  PdbErr_t retVal = PdbE_OK;
   assert(pPage_ != nullptr);
   NormalDataHead* pHead = (NormalDataHead*)(PAGEHDR_GET_PAGEDATA(pPage_));
 

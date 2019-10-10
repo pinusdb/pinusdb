@@ -17,6 +17,7 @@
 #include "commitlog/commit_log_file.h"
 #include "util/string_tool.h"
 #include "util/log_util.h"
+#include "util/date_time.h"
 
 CommitLogFile::CommitLogFile()
 {
@@ -146,7 +147,7 @@ PdbErr_t CommitLogFile::NewLog(uint32_t fileCode, const char* pPath, uint64_t re
     }
 
     syncLen_ = 0;
-    syncTime_ = GetTickCount64();
+    syncTime_ = DateTime::NowTickCount();
     curPos_ += sizeof(SyncBlkHdr);
   } while (false);
 
@@ -175,7 +176,7 @@ void CommitLogFile::Sync()
   {
     logFile_.Sync();
     syncLen_ = curPos_;
-    syncTime_ = GetTickCount64();
+    syncTime_ = DateTime::NowTickCount();
   }
 }
 
@@ -206,7 +207,7 @@ PdbErr_t CommitLogFile::AppendData(const LogBlkHdr* pLogHdr, const CommitLogBloc
     curPos_ += recItem->len_;
   }
 
-  uint64_t curTime = GetTickCount64();
+  uint64_t curTime = DateTime::NowTickCount();
   if ((curPos_ - syncLen_) > PDB_MB_BYTES(2) || curTime > (syncTime_ + 3000))
   {
     logFile_.Sync();

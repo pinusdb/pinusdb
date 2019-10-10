@@ -14,6 +14,8 @@
 * along with this program; If not, see <http://www.gnu.org/licenses>
 */
 
+#ifdef _WIN32
+
 #include "internal.h"
 #include <winsvc.h>
 #include <string.h>
@@ -51,7 +53,7 @@ PagePool* pGlbPagePool = nullptr;
 TableSet* pGlbTableSet = nullptr;
 CommitLogList* pGlbCommitLog = nullptr;
 bool glbCancelCompTask = false;
-
+bool glbRunning = true;
 
 void ReportSvcStatus(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwWaitHint);
 
@@ -81,6 +83,8 @@ void ServiceMain()
   ReportSvcStatus(SERVICE_RUNNING, NO_ERROR, 0);
 
   WaitForSingleObject(stopEvent, INFINITE);
+  glbRunning = false;
+  glbCancelCompTask = true;
   pServer->Stop();
 
   //释放全局变量
@@ -263,3 +267,5 @@ int main(int argc, char* argv[])
   }
   return 0;
 }
+
+#endif

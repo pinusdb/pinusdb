@@ -42,7 +42,6 @@ public:
   static DBImpl* GetInstance();
   
   PdbErr_t Start();
-  void StopTask();
   void Stop();
 
   void SyncTask();
@@ -61,7 +60,6 @@ private:
   std::thread* pCompTask_;  //历史数据压缩
   bool isInit_;
 
-  bool running_;
   std::mutex stopMutex_;
   std::condition_variable stopVariable_;
 

@@ -46,7 +46,7 @@ public:
   NormalPartIdx();
   ~NormalPartIdx();
 
-  static PdbErr_t Create(const char* pPath, int32_t partCode);
+  static PdbErr_t Create(const char* pPath, uint32_t partCode);
 
   PdbErr_t Open(const char* pPath, bool readOnly);
   PdbErr_t Close();
@@ -58,7 +58,7 @@ public:
   PdbErr_t GetPrevIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx);
   PdbErr_t GetNextIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx);
 
-  int32_t GetPartCode() const { return static_cast<int32_t>(bgDayTs_ / MillisPerDay); }
+  uint32_t GetPartCode() const { return static_cast<uint32_t>(bgDayTs_ / MillisPerDay); }
   int32_t GetMaxPageNo() const { return maxPageNo_; }
 
   void GetAllDevId(std::vector<int64_t>& devIdVec);

@@ -60,6 +60,7 @@ public:
 
   static bool Parse(const char* pStr, size_t len, int64_t* pMillseconds);
   static bool ParseDate(const char* pStr, size_t len, int32_t* pDayCode);
+  static int64_t GetSysTimeZone() { return sysTimeZone_; }
 
   int64_t TotalMilliseconds() const;
 
@@ -68,6 +69,7 @@ public:
 
   static int64_t NowMilliseconds();
   static int32_t NowDayCode();
+  static uint64_t NowTickCount();
 
   static void InitTimeZone();
 

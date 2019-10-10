@@ -32,7 +32,6 @@ public:
   TableSet();
   ~TableSet();
 
-  void Stop();
   PdbErr_t CreateTable(const CreateTableParam* pTableParam);
   PdbErr_t AlterTable(const CreateTableParam* pTableParam);
   PdbErr_t OpenTable(const char* pTabName);
@@ -68,6 +67,7 @@ private:
     bool errBreak, std::list<PdbErr_t>& resultList);
 
   PdbErr_t QuerySysTable(const QueryParam* pQueryParam, int32_t userRole, DataTable* pResultTable);
+  PdbErr_t QueryVariable(const QueryParam* pQueryParam, DataTable* pResultTable);
 
   size_t GetTotalDevCnt();
   void GetAllTable(std::list<uint64_t>& tableCrcList);
@@ -75,7 +75,6 @@ private:
   PDBTable* EraseTable(uint64_t tabCrc);
 
 private:
-  bool running_;
   size_t maxDev_;
   std::mutex tabMutex_; //针对添加表、删除表、打开表、附加表、分离表
   std::mutex devMutex_; //设备

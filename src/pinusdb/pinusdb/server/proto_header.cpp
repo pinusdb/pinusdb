@@ -16,6 +16,7 @@
 
 #include "server/proto_header.h"
 #include "util/string_tool.h"
+#include <string.h>
 
 typedef struct _ProtoHdrInfo
 {

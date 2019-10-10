@@ -36,9 +36,9 @@ public:
   virtual ~NormalDataPart();
 
   static PdbErr_t Create(const char* pIdxPath, const char* pDataPath,
-    const TableInfo* pTabInfo, int32_t partCode);
+    const TableInfo* pTabInfo, uint32_t partCode);
 
-  PdbErr_t Open(uint8_t tabCode, int32_t partCode,
+  PdbErr_t Open(uint8_t tabCode, uint32_t partCode,
     const char* pIdxPath, const char* pDataPath);
 
   virtual void Close();

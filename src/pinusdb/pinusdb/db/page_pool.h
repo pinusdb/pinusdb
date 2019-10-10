@@ -35,7 +35,6 @@ public:
   ~PagePool();
 
   bool InitPool();
-  void Stop();
   size_t GetPoolPageCnt() { return totalCacheSize_ / NORMAL_PAGE_SIZE; }
   PdbErr_t GetPage(uint64_t pageCode, PageRef* pPageRef);
 
@@ -53,8 +52,6 @@ private:
   };
 
 private:
-  bool running_;
-
   std::mutex poolMutex_;
 
   struct list_head readList_;

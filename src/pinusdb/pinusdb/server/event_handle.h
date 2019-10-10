@@ -23,23 +23,46 @@
 #include "query/data_table.h"
 #include "expr/sql_parser.h"
 #include "util/arena.h"
-#include "server/iocp_event.h"
 #include "expr/insert_sql.h"
 
-class EventHandle : public IOCPEvent
+class EventHandle
 {
 public:
-  EventHandle(const char* pRemoteIp, int remotePort);
-  virtual ~EventHandle();
+  EventHandle(int socket, const char* pRemoteIp, int remotePort);
+  ~EventHandle();
 
-  virtual bool RecvPostedEvent(const uint8_t* pBuf, size_t bytesTransfered);
-  virtual bool SendPostedEvent(size_t bytesTransfered);
-  virtual bool ExecTask();
+#ifdef _WIN32
+  bool RecvPostedEvent(const uint8_t* pBuf, size_t bytesTransfered);
+  bool SendPostedEvent(size_t bytesTransfered);
+  bool GetRecvBuf(WSABUF* pWsaBuf);
+  bool GetSendBuf(WSABUF* pWsaBuf);
+#else
+  bool RecvData();
+  bool SendData();
 
-  virtual bool GetRecvBuf(WSABUF* pWsaBuf);
-  virtual bool GetSendBuf(WSABUF* pWsaBuf);
-
+  int GetSocket() const { return socket_; }
+  inline void AddRef() { this->refCnt_.fetch_add(1); }
+  inline bool MinusRef() { return this->refCnt_.fetch_sub(1) == 1; }
 protected:
+  bool _SendData();
+#endif
+
+public:
+  bool ExecTask();
+
+  inline int GetState() { return eventState_; }
+  inline bool IsEnd() { return eventState_ == EventState::kEnd; }
+  inline void SetEnd() { eventState_ = EventState::kEnd; }
+
+  enum EventState
+  {
+    kRecv = 1,     //正在接收报文
+    kExec = 2,     //正在执行或等待被执行
+    kSend = 3,  //正在发送返回报文
+    kEnd = 4,   //全部数据已提交
+  };
+protected:
+
   PdbErr_t DecodeHead();
 
   PdbErr_t DecodeSqlPacket(const char** ppSql, size_t* pSqlLen);
@@ -77,7 +100,14 @@ protected:
   PdbErr_t AllocSendBuf(size_t bufLen);
   void FreeSendBuf();
 
-private:
+protected:
+#ifndef _WIN32
+  std::mutex eventMutex_;
+  std::atomic<int> refCnt_;
+  int socket_;
+#endif
+
+  int32_t eventState_;
   int32_t remotePort_;
   int32_t userRole_;                   //登录的角色
   std::string remoteIp_;

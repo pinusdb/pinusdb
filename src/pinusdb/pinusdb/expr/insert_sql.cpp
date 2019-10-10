@@ -21,6 +21,7 @@
 #include "util/date_time.h"
 #include <math.h>
 
+#ifdef _WIN32
 #define CONVERT_TO_REAL_VALUE(pVal, kMultiple) do { \
   if(DBVAL_IS_INT64(pVal) && DBVAL_GET_INT64(pVal) >= PDB_MIN_REAL_VALUE && DBVAL_GET_INT64(pVal) <= PDB_MAX_REAL_VALUE) \
   { \
@@ -35,11 +36,26 @@
     return PdbE_VALUE_MISMATCH;  \
   } \
 } while(false)
+#else
+#define CONVERT_TO_REAL_VALUE(pVal, kMultiple) do { \
+  if(DBVAL_IS_INT64(pVal) && DBVAL_GET_INT64(pVal) >= PDB_MIN_REAL_VALUE && DBVAL_GET_INT64(pVal) <= PDB_MAX_REAL_VALUE) \
+  { \
+    DBVAL_SET_INT64(pVal, (DBVAL_GET_INT64(pVal) * kMultiple)); \
+  } \
+  else if (DBVAL_IS_DOUBLE(pVal) && DBVAL_GET_DOUBLE(pVal) >= PDB_MIN_REAL_VALUE && DBVAL_GET_DOUBLE(pVal) <= PDB_MAX_REAL_VALUE) \
+  { \
+    DBVAL_SET_INT64(pVal, static_cast<int64_t>(round(DBVAL_GET_DOUBLE(pVal) * kMultiple))); \
+  } \
+  else \
+  { \
+    return PdbE_VALUE_MISMATCH;  \
+  } \
+} while(false)
+#endif
 
 PdbErr_t ConvertDBVal(DBVal* pVal, int valType) 
 {
   int64_t intVal = 0;
-  double dval = 0;
   switch (valType)
   {
   case PDB_FIELD_TYPE::TYPE_DATETIME:
@@ -165,7 +181,6 @@ bool InsertSql::IsEnd() const
 PdbErr_t InsertSql::GetNextRec(DBVal* pVals, size_t valCnt)
 {
   PdbErr_t retVal = PdbE_OK;
-  int64_t int64Val = 0;
   DBVal val;
 
   for (size_t idx = 0; idx < fieldCnt_; idx++)

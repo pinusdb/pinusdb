@@ -120,8 +120,6 @@ PdbErr_t DevFilter::_BuildFilter(const ExprItem* pExpr)
         if (!pRightExpr->GetIntVal(&rightVal))
           return PdbE_INVALID_INT_VAL;
 
-        if (op == TK_LT || op == TK_LE)
-
         switch (op)
         {
         case TK_LT:

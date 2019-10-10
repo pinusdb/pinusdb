@@ -18,6 +18,7 @@
 #include "pdb_error.h"
 #include "table/table_info.h"
 #include "util/string_tool.h"
+#include <string.h>
 
 TableInfo::TableInfo()
 {

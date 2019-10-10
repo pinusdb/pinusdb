@@ -18,6 +18,9 @@
 
 #include <time.h>
 #include <string.h>
+#ifdef _WIN32
+#include <Windows.h>
+#endif
 
   ///////////////////////////////////////////////////////////////
 
@@ -417,6 +420,17 @@ int32_t DateTime::NowDayCode()
   return static_cast<int32_t>(rawtime / (3600 * 24));
 }
 
+uint64_t DateTime::NowTickCount()
+{
+#ifdef _WIN32
+  return GetTickCount64();
+#else
+  struct timespec ts;
+  clock_gettime(CLOCK_MONOTONIC, &ts);
+  return (((int64_t)(ts.tv_sec) * 1000) + (ts.tv_nsec / 1000000));
+#endif
+}
+
 void DateTime::InitTimeZone()
 {
   time_t t1, t2;
@@ -471,6 +485,6 @@ std::string DateTime::GetDateStr() const
   int day = 0;
 
   GetDatePart(&year, &month, &day);
-  sprintf_s(buf, "%04d-%02d-%02d", year, month, day);
+  sprintf(buf, "%04d-%02d-%02d", year, month, day);
   return buf;
 }

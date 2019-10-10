@@ -16,6 +16,8 @@
 
 #pragma once
 
+#ifdef _WIN32
+
 #include "internal.h"
 
 int crash_handler(char const* module, struct _EXCEPTION_POINTERS *ep, DWORD thread_id = 0);
@@ -49,4 +51,4 @@ void invalid_param_handler(const wchar_t* expression
   if (GetExceptionCode() == EXCEPTION_STACK_OVERFLOW) {} action; } \
   do{} while(0)
 
-
+#endif

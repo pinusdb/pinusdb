@@ -37,7 +37,6 @@ CompDataPart::~CompDataPart()
 
 PdbErr_t CompDataPart::Open(int32_t partCode, const char* pDataPath)
 {
-  PdbErr_t retVal = PdbE_OK;
   dataPath_ = pDataPath;
 
   pData_ = nullptr;
@@ -69,7 +68,7 @@ PdbErr_t CompDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tstam
 
 PdbErr_t CompDataPart::UnMap()
 {
-  if (GetRefCnt() == 0 && ((lastQueryTime_ + 600000) < GetTickCount64()) && pData_ != nullptr)
+  if (GetRefCnt() == 0 && ((lastQueryTime_ + 600000) < DateTime::NowTickCount()) && pData_ != nullptr)
   {
     dataMemMap_.Close();
     pData_ = nullptr;
@@ -90,7 +89,6 @@ PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
   int64_t bgTs = pHisIter->GetBgTs();
   int64_t edTs = pHisIter->GetEdTs();
   size_t fieldCnt = pHisIter->GetFieldCnt();
-  size_t rawLen = 0;
   int64_t curTs = 0;
   bool firstPage = true;
   bool isAdd = false;
@@ -103,7 +101,7 @@ PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
       return retVal;
   }
 
-  lastQueryTime_ = GetTickCount64();
+  lastQueryTime_ = DateTime::NowTickCount();
 
   retVal = GetIdx(devId, bgTs, &compDevId, &curIdxPos);
   if (retVal == PdbE_DEV_NOT_FOUND)
@@ -155,7 +153,7 @@ PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
       pHisIter->Next();
     }
 
-    if (GetTickCount64() > timeOut)
+    if (DateTime::NowTickCount() > timeOut)
       return PdbE_QUERY_TIME_OUT;
   }
 
@@ -171,7 +169,6 @@ PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
   int64_t bgTs = pHisIter->GetBgTs();
   int64_t edTs = pHisIter->GetEdTs();
   size_t fieldCnt = pHisIter->GetFieldCnt();
-  size_t rawLen = 0;
   int64_t curTs = 0;
   bool firstPage = true;
   bool isAdd = false;
@@ -184,7 +181,7 @@ PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
       return retVal;
   }
 
-  lastQueryTime_ = GetTickCount64();
+  lastQueryTime_ = DateTime::NowTickCount();
 
   retVal = GetIdx(devId, edTs, &compDevId, &curIdxPos);
   if (retVal == PdbE_DEV_NOT_FOUND)
@@ -236,7 +233,7 @@ PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
       pHisIter->Prev();
     }
 
-    if (GetTickCount64() > timeOut)
+    if (DateTime::NowTickCount() > timeOut)
       return PdbE_QUERY_TIME_OUT;
   }
 
@@ -249,10 +246,7 @@ PdbErr_t CompDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
   PdbErr_t retVal = PdbE_OK;
   CompDevId compDevId;
   CompDataIter* pHisIter = (CompDataIter*)pQueryParam;
-  int64_t bgTs = pHisIter->GetBgTs();
-  int64_t edTs = pHisIter->GetEdTs();
   size_t fieldCnt = pHisIter->GetFieldCnt();
-  size_t rawLen = 0;
 
   if (pData_ == nullptr)
   {
@@ -261,7 +255,7 @@ PdbErr_t CompDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
       return retVal;
   }
 
-  lastQueryTime_ = GetTickCount64();
+  lastQueryTime_ = DateTime::NowTickCount();
 
   retVal = GetIdx(devId, MaxMillis, &compDevId, nullptr);
   if (retVal == PdbE_DEV_NOT_FOUND)
@@ -316,7 +310,7 @@ PdbErr_t CompDataPart::InitMemMap()
     pDevId_ = (const CompDevId*)(pTmpBase + pFooter->devIdsPos_);
     devCnt_ = static_cast<int32_t>(pFooter->devCnt_);
     pData_ = pTmpBase;
-    lastQueryTime_ = GetTickCount64();
+    lastQueryTime_ = DateTime::NowTickCount();
 
     if (fieldVec_.empty())
     {
@@ -568,7 +562,7 @@ PdbErr_t CompDataPart::CompDataIter::Load(const uint8_t* pBuf, size_t bufLen)
   DecodeTstampVals(pValsBg, pTmp, pValsLimit);
   pValsBg += recCnt_;
 
-  for (int fieldIdx = (PDB_TSTAMP_INDEX + 1); fieldIdx < fieldCnt_; fieldIdx++)
+  for (size_t fieldIdx = (PDB_TSTAMP_INDEX + 1); fieldIdx < fieldCnt_; fieldIdx++)
   {
     pTmp = pValsLimit;
     pTmp = Coding::VarintDecode32(pTmp, pBlkLimit, &u32);

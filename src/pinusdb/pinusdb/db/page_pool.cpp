@@ -26,10 +26,12 @@
 #include "util/date_time.h"
 #include "global_variable.h"
 
+#ifndef _WIN32
+#include <sys/sysinfo.h>
+#endif
+
 PagePool::PagePool()
 {
-  running_ = true;
-
   INIT_LIST_HEAD(&readList_);
   INIT_LIST_HEAD(&freeList_);
 
@@ -43,35 +45,52 @@ PagePool::~PagePool()
 {
   for (auto hdrIter = hdrVec_.begin(); hdrIter != hdrVec_.end(); hdrIter++)
   {
+#ifdef _WIN32
     delete [](*hdrIter);
+#else
+    free(*hdrIter);
+#endif
   }
 
   for (auto memIter = cacheMemVec_.begin(); memIter != cacheMemVec_.end(); memIter++)
   {
+#ifdef _WIN32
     VirtualFreeEx(GetCurrentProcess(), *memIter, 0, MEM_RELEASE);
+#else
+    free(*memIter);
+#endif
   }
 }
 
 bool PagePool::InitPool()
 {
+  size_t totalPhyMem = 0;
+
+#ifdef _WIN32
   MEMORYSTATUSEX memStatus;
   memStatus.dwLength = sizeof(MEMORYSTATUSEX);
   GlobalMemoryStatusEx(&memStatus);
+  totalPhyMem = memStatus.ullTotalPhys;
+#else
+  struct sysinfo sInfo;
+  sysinfo(&sInfo);
+  totalPhyMem = sInfo.totalram;
+#endif
 
   size_t cacheSize = PDB_MB_BYTES(pGlbSysCfg->GetCacheSize()); //从配置文件中读取出来的单位是M
-  size_t maxCacheSize = ((memStatus.ullTotalPhys / 8) * 5); //最大为物理内存的5/8
+  size_t maxCacheSize = ((totalPhyMem / 8) * 5); //最大为物理内存的5/8
   size_t minCacheSize = PDB_GB_BYTES(1); //最小1GB
-  if (memStatus.ullTotalPhys < PDB_GB_BYTES(8))
-    minCacheSize = memStatus.ullTotalPhys / 8; // 如果物理内存小于8G，最小缓存为内存的1/8
+  if (totalPhyMem < PDB_GB_BYTES(8))
+    minCacheSize = totalPhyMem / 8; // 如果物理内存小于8G，最小缓存为内存的1/8
 
   if (cacheSize == 0)
   {
-    if (memStatus.ullTotalPhys < PDB_GB_BYTES(4))
-      cacheSize = (memStatus.ullTotalPhys / 8); // 内存小于4G时，推荐为物理内存的1/8
-    else if (memStatus.ullTotalPhys < PDB_GB_BYTES(8))
-      cacheSize = (memStatus.ullTotalPhys / 4); // 内存小于8G时，推荐为物理内存的1/4
+    if (totalPhyMem < PDB_GB_BYTES(4))
+      cacheSize = (totalPhyMem / 8); // 内存小于4G时，推荐为物理内存的1/8
+    else if (totalPhyMem < PDB_GB_BYTES(8))
+      cacheSize = (totalPhyMem / 4); // 内存小于8G时，推荐为物理内存的1/4
     else
-      cacheSize = (memStatus.ullTotalPhys / 2); // 使用推荐值, 物理内存的1/2
+      cacheSize = (totalPhyMem / 2); // 使用推荐值, 物理内存的1/2
   }
   else if (cacheSize < minCacheSize)
     cacheSize = minCacheSize; // 使用最小缓存
@@ -96,14 +115,8 @@ bool PagePool::InitPool()
   return true;
 }
 
-void PagePool::Stop()
-{
-  this->running_ = false;
-}
-
 PdbErr_t PagePool::GetPage(uint64_t pageCode, PageRef* pPageRef)
 {
-  PdbErr_t retVal = PdbE_OK;
   PageHdr* pTmpPage = nullptr;
   
   std::unique_lock<std::mutex> poolLock(poolMutex_);
@@ -154,7 +167,7 @@ PageHdr* PagePool::_GetFreePage()
 
   if (list_empty(&freeList_) && useCacheSize_ < totalCacheSize_)
   {
-    uint64_t nowTick = GetTickCount64();
+    uint64_t nowTick = DateTime::NowTickCount();
     if (lastAllocErrorTime_ < (nowTick - kErrorCoolingTime))
     {
       if (_AllocCache() != PdbE_OK)
@@ -197,6 +210,7 @@ void PagePool::_PutFreePage(PageHdr* pPage)
   list_add(&(pPage->listHdr_), &readList_);
 }
 
+#ifdef _WIN32
 PdbErr_t PagePool::_AllocCache()
 {
   DWORD lastError = NO_ERROR;
@@ -238,7 +252,7 @@ PdbErr_t PagePool::_AllocCache()
   if (pHdrBuf == nullptr)
   {
     VirtualFreeEx(GetCurrentThread(), pTmpMem, 0, MEM_RELEASE);
-    LOG_ERROR("failed to allocate memory", __FILE__, __LINE__);
+    LOG_ERROR("failed to allocate memory");
     return PdbE_NOMEM;
   }
 
@@ -250,7 +264,6 @@ PdbErr_t PagePool::_AllocCache()
     list_add(&(pHdrItem->listHdr_), &freeList_);
     pHdrItem++;
     pDataItem += NORMAL_PAGE_SIZE;
-
   }
 
   cacheMemVec_.push_back(pTmpMem);
@@ -261,3 +274,45 @@ PdbErr_t PagePool::_AllocCache()
   return PdbE_OK;
 }
 
+#else
+
+PdbErr_t PagePool::_AllocCache()
+{
+  void* pTmpMem = malloc((kAllocSize + NORMAL_PAGE_SIZE));
+  if (pTmpMem == nullptr)
+  {
+    LOG_ERROR("pagepool allocate cache failed");
+    return PdbE_NOMEM;
+  }
+
+  size_t pageCnt = kAllocSize / NORMAL_PAGE_SIZE;
+  uint8_t* pHdrBuf = (uint8_t*)malloc(sizeof(PageHdr) * pageCnt);
+  if (pHdrBuf == nullptr)
+  {
+    free(pTmpMem);
+    LOG_ERROR("failed to allocate memory");
+    return PdbE_NOMEM;
+  }
+
+  PageHdr* pHdrItem = (PageHdr*)pHdrBuf;
+  uint8_t* pDataItem = (uint8_t*)pTmpMem;
+  size_t dataMod = reinterpret_cast<uintptr_t>(pTmpMem) & (NORMAL_PAGE_SIZE - 1);
+  size_t slop = (dataMod == 0 ? 0 : NORMAL_PAGE_SIZE - dataMod);
+  pDataItem += slop;
+
+  for (size_t i = 0; i < pageCnt; i++)
+  {
+    PAGEHDR_INIT(pHdrItem, pDataItem);
+    list_add(&(pHdrItem->listHdr_), &freeList_);
+    pHdrItem++;
+    pDataItem += NORMAL_PAGE_SIZE;
+  }
+
+  cacheMemVec_.push_back(pTmpMem);
+  hdrVec_.push_back(pHdrBuf);
+
+  useCacheSize_ += kAllocSize;
+  return PdbE_OK;
+}
+
+#endif

@@ -34,3 +34,4 @@ extern PagePool* pGlbPagePool;
 extern TableSet* pGlbTableSet;
 extern CommitLogList* pGlbCommitLog;
 extern bool glbCancelCompTask;
+extern bool glbRunning;

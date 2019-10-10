@@ -16,6 +16,7 @@
 
 #pragma once
 #include "internal.h"
+#include "port/mem_map_file.h"
 #include "util/arena.h"
 #include "util/skip_list.h"
 #include "table/table_info.h"
@@ -48,20 +49,13 @@ public:
     size_t queryOffset, size_t queryRecord);
   PdbErr_t QueryDevInfo(const std::string& tabName, IResultFilter* pFilter);
   PdbErr_t DelDev(const std::string& tabName, const ConditionFilter* pCondition);
-
   void Flush();
 
 private:
-  PdbErr_t _MapFile(const char* pPath);
-  PdbErr_t _GrowFile();
-  PdbErr_t _UnMapFile();
   PdbErr_t _DelDev(int64_t devId);
 
 private:
-  HANDLE fileHandle_;
-  HANDLE mapHandle_;
-  LPVOID pBase_;
-  size_t fileSize_;
+  MemMapFile devIdFile_;
 
   //用于插入时判断设备是否存在
   std::mutex insertMutex_;

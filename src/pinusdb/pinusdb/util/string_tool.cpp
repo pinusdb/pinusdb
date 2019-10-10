@@ -17,7 +17,7 @@
 #include "util/string_tool.h"
 #include "pdb.h"
 #include <algorithm>
-#include <Windows.h>
+#include <string.h>
 
 /*
 ** This table maps from the first byte of a UTF-8 character to the number
@@ -309,7 +309,7 @@ bool StringTool::ComparyNoCase(const std::string& str1, const char* pStr2, size_
 bool StringTool::Utf8LikeCompare(const char* zPattern, const char* zString, size_t len)
 {
   uint32_t c = 0;
-  int32_t c2;
+  uint32_t c2;
 
   const char* pEnd = zString + len;
 
@@ -426,22 +426,6 @@ bool StringTool::EndWithNoCase(const std::string& str1, const char* pEndPart, si
     return false;
 
   return StringTool::StartWithNoCase((str1.c_str() + str1.length() - endPartLen), pEndPart);
-}
-
-std::string StringTool::ConvertGbkToUtf8(const std::string& strGbk)
-{
-  int len = MultiByteToWideChar(CP_ACP, 0, strGbk.c_str(), -1, NULL, 0);
-  wchar_t* wstr = new wchar_t[len + 1];
-  memset(wstr, 0, len + 1);
-  MultiByteToWideChar(CP_ACP, 0, strGbk.c_str(), -1, wstr, len);
-  len = WideCharToMultiByte(CP_UTF8, 0, wstr, -1, NULL, 0, NULL, NULL);
-  char* pStr = new char[len + 1];
-  memset(pStr, 0, len + 1);
-  WideCharToMultiByte(CP_UTF8, 0, wstr, -1, pStr, len, NULL, NULL);
-  std::string result(pStr);
-  delete pStr;
-  delete wstr;
-  return result;
 }
 
 bool StringTool::ValidName(const char* pName, size_t nameLen)
@@ -567,7 +551,7 @@ bool StringTool::StrToInt64(const char* pStr, size_t len, int64_t* pVal)
     pStr++;
   }
 
-  int i = 0;
+  size_t i = 0;
   int c = pStr[0];
   for (i = 0; i < len && c >= '0' && c <= '9'; i++)
   {
@@ -662,7 +646,7 @@ bool StringTool::StrToDouble(const char* pStr, size_t len, double* pVal)
     }
   }
 
-  if (pTmp - pStr != len)
+  if (static_cast<size_t>(pTmp - pStr) != len)
   {
     return false;
   }

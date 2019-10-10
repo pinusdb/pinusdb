@@ -37,9 +37,9 @@ public:
   PdbErr_t OpenTable(uint32_t tabCode, const char* pTabName);
   PdbErr_t Close();
   PdbErr_t RecoverDW();
-  PdbErr_t OpenDataPart(int32_t partCode, bool isNormalPart);
-  PdbErr_t DetachPart(int32_t partCode);
-  PdbErr_t DropPart(int32_t partCode);
+  PdbErr_t OpenDataPart(uint32_t partCode, bool isNormalPart);
+  PdbErr_t DetachPart(uint32_t partCode);
+  PdbErr_t DropPart(uint32_t partCode);
   void CancelDumpTask();
 
   PdbErr_t AttachPart(const char* pPartDate, int fileType);
@@ -78,18 +78,18 @@ private:
     ISnapshotResultFilter* pFilter, uint64_t queryTimeOut);
 
 private:
-  void GetDataPartEqualOrGreat(int32_t partCode, bool includeEqual, RefUtil* pPartRef);
-  void GetDataPartEqualOrLess(int32_t partCode, bool includeEqual, RefUtil* pPartRef);
+  void GetDataPartEqualOrGreat(uint32_t partCode, bool includeEqual, RefUtil* pPartRef);
+  void GetDataPartEqualOrLess(uint32_t partCode, bool includeEqual, RefUtil* pPartRef);
 
-  DataPart* GetDataPart(int32_t partCode, RefUtil* pPartRef);
+  DataPart* GetDataPart(uint32_t partCode, RefUtil* pPartRef);
 
-  int _GetDataPartPos(int32_t partCode);
+  int _GetDataPartPos(uint32_t partCode);
 
-  PdbErr_t GetOrCreateNormalPart(int32_t partCode, RefUtil* pPartRef);
-  PdbErr_t BuildPartPath(int32_t partCode, bool isNormal, bool createParent,
+  PdbErr_t GetOrCreateNormalPart(uint32_t partCode, RefUtil* pPartRef);
+  PdbErr_t BuildPartPath(uint32_t partCode, bool isNormal, bool createParent,
     std::string& partDateStr, std::string& idxPath, std::string& dataPath);
 
-  DataPart* DelOrReplacePart(int32_t partCode, DataPart* pNewPart);
+  DataPart* DelOrReplacePart(uint32_t partCode, DataPart* pNewPart);
 
 private:
   std::atomic_int dumpPartCode_;

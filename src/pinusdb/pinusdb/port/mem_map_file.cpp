@@ -15,6 +15,9 @@
 */
 
 #include "port/mem_map_file.h"
+#include "util/log_util.h"
+
+#ifdef _WIN32
 
 MemMapFile::MemMapFile()
 {
@@ -97,6 +100,39 @@ PdbErr_t MemMapFile::Sync()
   return PdbE_OK;
 }
 
+PdbErr_t MemMapFile::GrowFile(size_t growSize)
+{
+  if (readOnly_)
+    return PdbE_FILE_READONLY;
+
+  size_t newSize = fileSize_ + growSize;
+  DWORD upperBits = (newSize >> 32);
+  DWORD lowerBits = (newSize & 0xFFFFFFFF);
+
+  FlushViewOfFile(pBase_, fileSize_);
+
+  HANDLE tmpMapHandle = CreateFileMapping(fileHandle_, NULL, PAGE_READWRITE, upperBits, lowerBits, NULL);
+  if (tmpMapHandle == NULL)
+  {
+    return PdbE_IOERR;
+  }
+
+  LPVOID pTmpBase = MapViewOfFile(tmpMapHandle, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, newSize);
+  if (NULL == pTmpBase)
+  {
+    CloseHandle(tmpMapHandle);
+    return PdbE_IOERR;
+  }
+
+  UnmapViewOfFile(pBase_);
+  CloseHandle(mapHandle_);
+
+  fileSize_ = newSize;
+  pBase_ = pTmpBase;
+  mapHandle_ = tmpMapHandle;
+  return PdbE_OK;
+}
+
 void MemMapFile::Close()
 {
   if (pBase_ != NULL)
@@ -124,3 +160,132 @@ void MemMapFile::Close()
   readOnly_ = true;
 }
 
+#else
+
+#include <sys/mman.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+MemMapFile::MemMapFile()
+{
+  fileHandle_ = -1;
+  pBase_ = nullptr;
+  fileSize_ = 0;
+  readOnly_ = true;
+}
+
+MemMapFile::~MemMapFile()
+{
+  Close();
+}
+
+bool MemMapFile::IsOpened()
+{
+  return pBase_ != nullptr;
+}
+
+PdbErr_t MemMapFile::Open(const char* pFilePath, bool readOnly)
+{
+  if (fileHandle_ >= 0 || pBase_ != nullptr)
+    return PdbE_OBJECT_INITIALIZED;
+
+  readOnly_ = readOnly;
+  int flags = O_LARGEFILE | O_NOATIME;
+  if (readOnly)
+    flags |= O_RDONLY;
+  else
+    flags |= O_RDWR;
+
+  int tmpHandle = open(pFilePath, flags);
+  if (tmpHandle < 0)
+  {
+    LOG_ERROR("mmap failed, open file({}) failed, err:({})", pFilePath, errno);
+    return PdbE_IOERR;
+  }
+
+  struct stat sbuf;
+  if (fstat(tmpHandle, &sbuf) < 0)
+  {
+    LOG_ERROR("mmap failed, get file({}) size failed, err:({})", pFilePath, errno);
+    close(tmpHandle);
+    return PdbE_IOERR;
+  }
+
+  fileSize_ = sbuf.st_size;
+
+  void* pTmpAddr = mmap(nullptr, fileSize_, 
+    (readOnly ? PROT_READ : PROT_READ | PROT_WRITE), MAP_SHARED, tmpHandle, 0);
+  if (pTmpAddr == MAP_FAILED)
+  {
+    LOG_ERROR("mmap failed, file({}), err:({})", pFilePath, errno);
+    close(tmpHandle);
+    return PdbE_IOERR;
+  }
+
+  fileHandle_ = tmpHandle;
+  pBase_ = pTmpAddr;
+  return PdbE_OK;
+}
+
+PdbErr_t MemMapFile::Sync()
+{
+  if (msync(pBase_, fileSize_, MS_SYNC) != 0)
+  {
+    LOG_ERROR("msync mmap file failed, err:({})", errno);
+    return PdbE_IOERR;
+  }
+
+  return PdbE_OK;
+}
+
+
+PdbErr_t MemMapFile::GrowFile(size_t growSize)
+{
+  if (readOnly_)
+    return PdbE_FILE_READONLY;
+
+  size_t newSize = fileSize_ + growSize;
+  if (ftruncate(fileHandle_, newSize) < 0)
+  {
+    LOG_ERROR("grow mmap file to ({}) failed, errno:({})",
+      newSize, errno);
+    return PdbE_IOERR;
+  }
+
+  void* pTmpAddr = mmap(nullptr, newSize, (PROT_READ | PROT_WRITE),
+    MAP_SHARED, fileHandle_, 0);
+  if (pTmpAddr == MAP_FAILED)
+  {
+    LOG_ERROR("grow devid file failed, mmap errno:({})", errno);
+    return PdbE_IOERR;
+  }
+
+  munmap(pBase_, fileSize_);
+  
+  fileSize_ = newSize;
+  pBase_ = pTmpAddr;
+  return PdbE_OK;
+}
+
+void MemMapFile::Close()
+{
+  if (pBase_ != nullptr)
+  {
+    Sync();
+    if (munmap(pBase_, fileSize_) < 0)
+    {
+      LOG_ERROR("munmap failed, ");
+    }
+
+    pBase_ = nullptr;
+  }
+
+  if (fileHandle_ >= 0)
+  {
+    close(fileHandle_);
+    fileHandle_ = -1;
+  }
+}
+
+#endif

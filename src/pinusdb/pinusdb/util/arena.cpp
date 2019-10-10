@@ -72,6 +72,15 @@ char* Arena::AllocateAligned(size_t bytes)
   return result;
 }
 
+char* Arena::AllocateAligned(size_t bytes, size_t align)
+{
+  assert((align & (align - 1)) == 0);
+  char* pTmp = AllocateNewBlock(bytes + align);
+  size_t currentMod = reinterpret_cast<uintptr_t>(pTmp) & (align - 1);
+  size_t slop = (currentMod == 0 ? 0 : align - currentMod);
+  return (pTmp + slop);
+}
+
 char* Arena::AllocateNewBlock(size_t blockBytes)
 {
   char* result = new char[blockBytes];

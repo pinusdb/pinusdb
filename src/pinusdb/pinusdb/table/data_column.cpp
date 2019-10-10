@@ -17,6 +17,7 @@
 #include "table/data_column.h"
 #include "util/string_tool.h"
 #include "internal.h"
+#include <string.h>
 
 DataColumn::DataColumn()
 {

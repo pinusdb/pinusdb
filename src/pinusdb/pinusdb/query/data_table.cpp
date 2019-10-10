@@ -76,7 +76,7 @@ PdbErr_t DataTable::AppendData(DBObj* pObj)
   int colType = 0;
   const DBVal* pVal = nullptr;
 
-  for (int i = 0; i < fieldCnt; i++)
+  for (size_t i = 0; i < fieldCnt; i++)
   {
     pVal = pObj->GetFieldValue(i);
     if (DBVAL_IS_NULL(pVal))
@@ -167,7 +167,6 @@ PdbErr_t DataTable::Serialize(uint8_t* pData, size_t* pBodyLen)
 
 PdbErr_t DataTable::HeadSerialize(uint8_t* pData, size_t* pDataLen)
 {
-  size_t serializeLen = 0;
   size_t fieldCnt = tabInfo_.GetFieldCnt();
   int32_t fieldType = 0;
 

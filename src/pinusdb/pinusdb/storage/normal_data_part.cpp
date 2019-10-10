@@ -22,6 +22,7 @@
 #include "util/log_util.h"
 #include "util/date_time.h"
 #include "storage/comp_block_builder.h"
+#include <string.h>
 
 #define NORMAL_DATA_GROW_SIZE  (128 * 1024 * 1024)
 #define NORMAL_PAGE_OFFSET(pageNo)  (((int64_t)pageNo) * NORMAL_PAGE_SIZE)
@@ -51,7 +52,7 @@ NormalDataPart::~NormalDataPart()
 }
 
 PdbErr_t NormalDataPart::Create(const char* pIdxPath, const char* pDataPath,
-  const TableInfo* pTabInfo, int32_t partCode)
+  const TableInfo* pTabInfo, uint32_t partCode)
 {
   PdbErr_t retVal = PdbE_OK;
   OSFile dataFile;
@@ -60,7 +61,7 @@ PdbErr_t NormalDataPart::Create(const char* pIdxPath, const char* pDataPath,
   DataFileMeta* pMeta = (DataFileMeta*)pTmpMeta;
   size_t fieldCnt = pTabInfo->GetFieldCnt();
 
-  ZeroMemory(pTmpMeta, sizeof(DataFileMeta));
+  memset(pTmpMeta, 0, sizeof(DataFileMeta));
   strncpy(pMeta->headStr_, NORMAL_DATA_FILE_HEAD_STR, sizeof(pMeta->headStr_));
 
   pMeta->partCode_ = partCode;
@@ -111,7 +112,7 @@ PdbErr_t NormalDataPart::Create(const char* pIdxPath, const char* pDataPath,
   return retVal;
 }
 
-PdbErr_t NormalDataPart::Open(uint8_t tabCode, int32_t partCode,
+PdbErr_t NormalDataPart::Open(uint8_t tabCode, uint32_t partCode,
   const char* pIdxPath, const char* pDataPath)
 {
   PdbErr_t retVal = PdbE_OK;
@@ -120,7 +121,7 @@ PdbErr_t NormalDataPart::Open(uint8_t tabCode, int32_t partCode,
   dataPath_ = pDataPath;
   readOnly_ = false;
 
-  char* pTmpMeta = arena.Allocate(sizeof(DataFileMeta));
+  char* pTmpMeta = arena.AllocateAligned(sizeof(DataFileMeta), PDB_KB_BYTES(8));
   if (pTmpMeta == nullptr)
     return PdbE_NOMEM;
 
@@ -141,7 +142,7 @@ PdbErr_t NormalDataPart::Open(uint8_t tabCode, int32_t partCode,
 
   uint64_t metaCode64 = 0;
   FieldInfo finfo;
-  for (size_t i = 0; i < pDataMeta->fieldCnt_; i++)
+  for (uint32_t i = 0; i < pDataMeta->fieldCnt_; i++)
   {
     retVal = finfo.SetFieldInfo(pDataMeta->fieldRec_[i].fieldName_,
       pDataMeta->fieldRec_[i].fieldType_, false);
@@ -163,7 +164,7 @@ PdbErr_t NormalDataPart::Open(uint8_t tabCode, int32_t partCode,
   if (retVal != PdbE_OK)
     return retVal;
 
-  int32_t idxPartCode = normalIdx_.GetPartCode();
+  uint32_t idxPartCode = normalIdx_.GetPartCode();
   if (idxPartCode != partCode)
   {
     LOG_ERROR("failed to open data file ({}), date code error", pDataPath);
@@ -664,7 +665,7 @@ PdbErr_t NormalDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
       pDataIter->Next();
     }
 
-    if (GetTickCount64() > timeOut)
+    if (DateTime::NowTickCount() > timeOut)
       return PdbE_QUERY_TIME_OUT;
 
     retVal = normalIdx_.GetNextIndex(devId, curTs, &pageIdx);
@@ -760,7 +761,7 @@ PdbErr_t NormalDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
       pDataIter->Prev();
     }
 
-    if (GetTickCount64() > timeOut)
+    if (DateTime::NowTickCount() > timeOut)
       return PdbE_QUERY_TIME_OUT;
 
     retVal = normalIdx_.GetPrevIndex(devId, curTs, &pageIdx);
@@ -879,7 +880,7 @@ PdbErr_t NormalDataPart::DumpToCompPartId(int64_t devId, PageDataIter* pDataIter
     if (retVal != PdbE_OK)
       return retVal;
 
-    if (glbCancelCompTask)
+    if (glbCancelCompTask || !glbRunning)
       return PdbE_TASK_CANCEL;
   }
 
@@ -1260,7 +1261,6 @@ DBVal* NormalDataPart::PageDataIter::GetRecord()
   uint64_t u64val = 0;
   double realVal = 0;
   uint32_t valLen = 0;
-  uint32_t u32val = 0;
   uint16_t recLen = 0;
   if (normalPage_.GetRecData(curIdx_, &pRecBg) != PdbE_OK)
     return nullptr;

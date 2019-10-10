@@ -14,6 +14,8 @@
 * along with this program; If not, see <http://www.gnu.org/licenses>
 */
 
+#ifdef _WIN32
+
 #include "util/dbg.h"
 #include <DbgHelp.h>
 #include <time.h>
@@ -121,3 +123,5 @@ int crash_handler_with_stack_overflow(char const* module, struct _EXCEPTION_POIN
     return crash_handler(module, ep);
   }
 }
+
+#endif

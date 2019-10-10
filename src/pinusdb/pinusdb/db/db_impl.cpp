@@ -55,7 +55,6 @@ DBImpl::DBImpl()
   pRepTask_ = nullptr;
   pCompTask_ = nullptr;
   isInit_ = false;
-  running_ = true;
 }
 
 DBImpl::~DBImpl()
@@ -131,17 +130,8 @@ PdbErr_t DBImpl::Start()
   return PdbE_OK;
 }
 
-void DBImpl::StopTask()
-{
-  running_ = false;
-  glbCancelCompTask = true;
-  pGlbTableSet->Stop();
-}
-
 void DBImpl::Stop()
 {
-  running_ = false;
-  glbCancelCompTask = true;
   stopVariable_.notify_all();
   pCompTask_->join();
   pSyncTask_->join();
@@ -153,27 +143,30 @@ void DBImpl::Stop()
 
 void DBImpl::SyncTask()
 {
+#ifdef _WIN32
   PDB_SEH_BEGIN(false);
   _SyncTask();
   PDB_SEH_END("synctask", return);
+#else
+  _SyncTask();
+#endif
 }
 
 void DBImpl::_SyncTask()
 {
-  PdbErr_t retVal = PdbE_OK;
   uint32_t syncFileCode = 1;
   uint64_t curLogPos = 0;
   int64_t dbTick = 0;
   int64_t syncAllTick = 0;
 
-  while (running_)
+  while (glbRunning)
   {
     do {
       std::unique_lock<std::mutex> stopLock(stopMutex_);
       stopVariable_.wait_for(stopLock, std::chrono::seconds(1));
     } while (false);
 
-    if (!running_)
+    if (!glbRunning)
       break;
 
     dbTick++;
@@ -216,27 +209,31 @@ void DBImpl::_SyncTask()
 
 void DBImpl::CompressTask()
 {
+#ifdef _WIN32
   PDB_SEH_BEGIN(false);
   _CompressTask();
   PDB_SEH_END("compresstask", return);
+#else
+  _CompressTask();
+#endif
 }
 
 void DBImpl::_CompressTask()
 {
-  while (running_)
+  while (glbRunning)
   {
     do {
       std::unique_lock<std::mutex> stopLock(stopMutex_);
       stopVariable_.wait_for(stopLock, std::chrono::seconds(600));
     } while (false);
 
-    if (!running_)
+    if (!glbRunning)
       break;
 
     if (pGlbSysCfg->GetCompressFlag())
       pGlbTableSet->DumpToCompress();
 
-    if (running_)
+    if (glbRunning)
       pGlbTableSet->UnMapCompressData();
   }
 }

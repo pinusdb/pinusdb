@@ -17,6 +17,9 @@
 #pragma once
 #include "internal.h"
 #include "util/arena.h"
+#include <string.h>
+
+typedef unsigned char byte;
 
 class CommitLogBlock
 {

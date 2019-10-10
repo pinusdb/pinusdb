@@ -25,7 +25,7 @@
 #define BLKTYPE_INSERT_REP     4  // 数据插入由同组数据库发起，不需要同步到同组的数据库
 
 #define DATA_LOG_FILE_VER      2
-#define DATA_LOG_FILE_SIZE     ((uint64_t)512 * 1024 * 1024)  //每个日志文件最大512M
+#define DATA_LOG_FILE_SIZE     (512 * 1024 * 1024)  //每个日志文件最大512M
 
 typedef struct _BlkHdr
 {

@@ -21,6 +21,7 @@
 #include <atomic>
 #include <memory>
 #include <string>
+#include <string.h>
 #include "util/arena.h"
 #include "util/random.h"
 
@@ -60,12 +61,11 @@ private:
   enum { kMaxHeight = 8 };
 
   Comparator const compare_;
+  Random rnd_;
   Arena* pArena_;
   Node* const pHead_;
 
   volatile int32_t maxHeight_;
-
-  Random rnd_;
 
   Node* NewNode(const Key key, const Val val, int height);
   int RandomHeight();

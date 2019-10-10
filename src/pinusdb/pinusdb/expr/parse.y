@@ -148,6 +148,11 @@ cmd ::= SELECT target_list(T) FROM ID(X) where_opt(W) groupby_opt(G) orderby_opt
   pdbSelect(pParse, T, &X, W, G, O, L);
 }
 
+cmd ::= SELECT target_list(T) SEMI.
+{
+  pdbSelect(pParse, T, nullptr, nullptr, nullptr, nullptr, nullptr);
+}
+
 %type target_list               { ExprList* }
 %destructor target_list         { ExprList::FreeExprList($$); }
 %type target_item               { ExprItem* }
@@ -157,6 +162,7 @@ target_item(A) ::= STAR(S).         { A = ExprItem::MakeValue(TK_STAR, &S); }
 target_item(A) ::= ID(N).           { A = ExprItem::MakeValue(TK_ID, &N); }
 target_item(A) ::= ID(N) AS ID(X).  { A = ExprItem::MakeValue(TK_ID, &N, &X); }
 target_item(A) ::= ID(N) LP arg_list(L) RP AS ID(X). { A = ExprItem::MakeFunction(TK_FUNCTION, &N, L, &X); }
+target_item(A) ::= ID(N) LP RP AS ID(X). { A = ExprItem::MakeFunction(TK_FUNCTION, &N, nullptr, &X); }
 
 target_list(A) ::= target_item(X). {
   A = ExprList::AppendExprItem(nullptr, X);

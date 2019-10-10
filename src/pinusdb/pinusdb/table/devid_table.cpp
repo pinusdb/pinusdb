@@ -41,7 +41,7 @@ typedef struct _DevMetaFormat
 
   FieldInfoFormat fieldRec_[PDB_TABLE_MAX_FIELD_COUNT];
 
-  char padTail_[24508];
+  char padTail_[10428];
   uint32_t crc_;
 }DevMetaFormat;
 
@@ -57,11 +57,6 @@ typedef struct _DevItem
 
 DevIDTable::DevIDTable()
 {
-  fileHandle_ = INVALID_HANDLE_VALUE;
-  mapHandle_ = NULL;
-  pBase_ = NULL;
-  fileSize_ = 0;
-
   isSortId_ = true;
   isSortInfo_ = true;
 }
@@ -122,17 +117,16 @@ PdbErr_t DevIDTable::Open(const char* pPath, const char* pTabName, TableInfo* pT
 {
   PdbErr_t retVal = PdbE_OK;
   std::unique_lock<std::mutex> fileLock(fileMutex_);
-  if (fileHandle_ != INVALID_HANDLE_VALUE)
-    return PdbE_OPENED;
-
-  retVal = _MapFile(pPath);
+  retVal = devIdFile_.Open(pPath, false);
   if (retVal != PdbE_OK)
     return retVal;
 
   freePosList_.clear();
+  uint8_t* pBase = devIdFile_.GetBaseAddr();
+  size_t fileSize = devIdFile_.MemMapSize();
 
   //1. 验证元数据页
-  const DevMetaFormat* pMeta = (const DevMetaFormat*)pBase_;
+  const DevMetaFormat* pMeta = (const DevMetaFormat*)pBase;
   if (strncmp(pMeta->headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN) != 0)
   {
     LOG_ERROR("device file ({}) unknown file type", pPath);
@@ -140,7 +134,7 @@ PdbErr_t DevIDTable::Open(const char* pPath, const char* pTabName, TableInfo* pT
   }
 
   //1.1 验证 CRC
-  if (pMeta->crc_ != StringTool::CRC32(pBase_, (sizeof(DevMetaFormat) - 4)))
+  if (pMeta->crc_ != StringTool::CRC32(pBase, (sizeof(DevMetaFormat) - 4)))
   {
     LOG_ERROR("table file ({}) meta block crc error", pPath);
     return PdbE_DEVID_FILE_ERROR;
@@ -175,8 +169,8 @@ PdbErr_t DevIDTable::Open(const char* pPath, const char* pTabName, TableInfo* pT
 
   //2. 验证数据页
   DevIdPos devIdPos;
-  DevItem* pDevItem = (DevItem*)pBase_;
-  size_t devCnt = fileSize_ / sizeof(DevItem);
+  DevItem* pDevItem = (DevItem*)pBase;
+  size_t devCnt = fileSize / sizeof(DevItem);
   for (size_t idx = (sizeof(DevMetaFormat) / sizeof(DevItem)); idx < devCnt; idx++)
   {
     if (pDevItem[idx].pos_ == idx && pDevItem[idx].devId_ > 0)
@@ -213,7 +207,7 @@ PdbErr_t DevIDTable::Open(const char* pPath, const char* pTabName, TableInfo* pT
 PdbErr_t DevIDTable::Close()
 {
   std::unique_lock<std::mutex> fileLock(fileMutex_);
-  _UnMapFile();
+  devIdFile_.Close();
   return PdbE_OK;
 }
 
@@ -222,6 +216,8 @@ PdbErr_t DevIDTable::Alter(const TableInfo* pTabInfo)
   Arena arena;
   char* pTmpMeta = arena.Allocate(sizeof(DevMetaFormat));
   DevMetaFormat* pMeta = (DevMetaFormat*)pTmpMeta;
+
+  std::unique_lock<std::mutex> fileLock(fileMutex_);
 
   memset(pTmpMeta, 0, sizeof(DevMetaFormat));
   strncpy(pMeta->headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN);
@@ -240,10 +236,9 @@ PdbErr_t DevIDTable::Alter(const TableInfo* pTabInfo)
   }
 
   pMeta->crc_ = StringTool::CRC32(pTmpMeta, (sizeof(DevMetaFormat) - 4));
-
-  std::unique_lock<std::mutex> fileLock(fileMutex_);
-  memcpy(pBase_, pTmpMeta, sizeof(DevMetaFormat));
-  FlushViewOfFile(pBase_, sizeof(DevMetaFormat));
+  uint8_t* pBase = devIdFile_.GetBaseAddr();
+  memcpy(pBase, pTmpMeta, sizeof(DevMetaFormat));
+  devIdFile_.Sync();
 
   return PdbE_OK;
 }
@@ -261,6 +256,7 @@ PdbErr_t DevIDTable::DevExist(int64_t devId)
 
 PdbErr_t DevIDTable::AddDev(int64_t devId, PdbStr devName, PdbStr expand)
 {
+  PdbErr_t retVal = PdbE_OK;
   if (devId <= 0)
     return PdbE_INVALID_DEVID;
 
@@ -277,15 +273,29 @@ PdbErr_t DevIDTable::AddDev(int64_t devId, PdbStr devName, PdbStr expand)
   
   if (freePosList_.empty())
   {
-    _GrowFile();
+    size_t oldSize = devIdFile_.MemMapSize();
+    retVal = devIdFile_.GrowFile(DEVID_FILE_BLOCK_SIZE);
+    if (retVal != PdbE_OK)
+      return retVal;
+
+    size_t newSize = devIdFile_.MemMapSize();
+    size_t bgIdx = oldSize / sizeof(DevItem);
+    size_t edIdx = newSize / sizeof(DevItem);
+
+    for (size_t idx = bgIdx; idx < edIdx; idx++)
+    {
+      freePosList_.push_back(idx);
+    }
+
     if (freePosList_.empty())
       return PdbE_INVALID_PARAM;
   }
 
+  uint8_t* pBase = devIdFile_.GetBaseAddr();
   size_t devPos = *freePosList_.begin();
   freePosList_.erase(freePosList_.begin());
 
-  DevItem* pDevItem = (DevItem*)((uint8_t*)pBase_ + (sizeof(DevItem) * devPos));
+  DevItem* pDevItem = (DevItem*)(pBase + (sizeof(DevItem) * devPos));
   memset(pDevItem, 0, sizeof(DevItem));
 
   pDevItem->pos_ = static_cast<uint32_t>(devPos);
@@ -350,7 +360,7 @@ PdbErr_t DevIDTable::QueryDevId(const DevFilter* pDevFilter, std::list<int64_t>&
       upr = idx - 1;
   }
 
-  for (; idx < devIdVec_.size(); idx++)
+  for (; idx < static_cast<int>(devIdVec_.size()); idx++)
   {
     if (pDevFilter->Filter(devIdVec_[idx]))
     {
@@ -388,9 +398,10 @@ PdbErr_t DevIDTable::QueryDevInfo(const std::string& tabName, IResultFilter* pFi
     isSortInfo_ = true;
   }
 
+  uint8_t* pBase = devIdFile_.GetBaseAddr();
   for (auto devIt = devIdPosVec_.begin(); devIt != devIdPosVec_.end(); devIt++)
   {
-    DevItem* pDevItem = (DevItem*)((uint8_t*)pBase_ + (sizeof(DevItem) * devIt->pos_));
+    DevItem* pDevItem = (DevItem*)(pBase + (sizeof(DevItem) * devIt->pos_));
     DBVAL_ELE_SET_INT64(vals, 1, pDevItem->devId_);
     DBVAL_ELE_SET_STRING(vals, 2, pDevItem->devName_, strlen(pDevItem->devName_));
     DBVAL_ELE_SET_STRING(vals, 3, pDevItem->expand_, strlen(pDevItem->expand_));
@@ -422,9 +433,10 @@ PdbErr_t DevIDTable::DelDev(const std::string& tabName, const ConditionFilter* p
       isSortInfo_ = true;
     }
 
+    uint8_t* pBase = devIdFile_.GetBaseAddr();
     for (auto devIt = devIdPosVec_.begin(); devIt != devIdPosVec_.end(); )
     {
-      DevItem* pDevItem = (DevItem*)((uint8_t*)pBase_ + (sizeof(DevItem) * devIt->pos_));
+      DevItem* pDevItem = (DevItem*)(pBase + (sizeof(DevItem) * devIt->pos_));
       DBVAL_ELE_SET_INT64(vals, 1, pDevItem->devId_);
       DBVAL_ELE_SET_STRING(vals, 2, pDevItem->devName_, strlen(pDevItem->devName_));
       DBVAL_ELE_SET_STRING(vals, 3, pDevItem->expand_, strlen(pDevItem->expand_));
@@ -447,7 +459,6 @@ PdbErr_t DevIDTable::DelDev(const std::string& tabName, const ConditionFilter* p
   } while (false);
 
   Flush();
-
   return PdbE_OK;
 }
 
@@ -455,10 +466,7 @@ void DevIDTable::Flush()
 {
   do {
     std::unique_lock<std::mutex> fileLock(fileMutex_);
-    if (pBase_ != NULL)
-    {
-      FlushViewOfFile(pBase_, fileSize_);
-    }
+    devIdFile_.Sync();
 
     if (!isSortInfo_)
     {
@@ -475,99 +483,6 @@ void DevIDTable::Flush()
       isSortId_ = true;
     }
   } while (false);
-}
-
-PdbErr_t DevIDTable::_MapFile(const char* pPath)
-{
-  fileHandle_ = CreateFile(pPath,
-    GENERIC_READ | GENERIC_WRITE,
-    FILE_SHARE_READ | FILE_SHARE_WRITE,
-    NULL,
-    OPEN_EXISTING,
-    FILE_ATTRIBUTE_NORMAL,
-    NULL);
-
-  if (INVALID_HANDLE_VALUE == fileHandle_)
-    return PdbE_IOERR;
-
-  DWORD upperBits, lowerBits;
-  lowerBits = GetFileSize(fileHandle_, &upperBits);
-  fileSize_ = ((size_t)upperBits << 32) | lowerBits;
-  if ((fileSize_ % DEVID_FILE_BLOCK_SIZE) != 0)
-    return PdbE_INVALID_PARAM;
-
-  mapHandle_ = CreateFileMapping(fileHandle_, NULL, PAGE_READWRITE, upperBits, lowerBits, NULL);
-  if (NULL == mapHandle_)
-    return PdbE_IOERR;
-
-  pBase_ = MapViewOfFile(mapHandle_, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, fileSize_);
-  if (NULL == pBase_)
-    return PdbE_IOERR;
-
-  return PdbE_OK;
-}
-
-PdbErr_t DevIDTable::_GrowFile()
-{
-  if (pBase_ != NULL)
-    FlushViewOfFile(pBase_, fileSize_);
-
-  size_t tmpSize = fileSize_ + DEVID_FILE_BLOCK_SIZE;
-  DWORD upperBits = (tmpSize >> 32);
-  DWORD lowerBits = (tmpSize & 0xFFFFFFFF);
-  HANDLE tmpMapHandle = CreateFileMapping(fileHandle_, NULL, PAGE_READWRITE, upperBits, lowerBits, NULL);
-  if (tmpMapHandle == NULL)
-  {
-    return PdbE_IOERR;
-  }
-
-  LPVOID pTmpBase = MapViewOfFile(tmpMapHandle, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, tmpSize);
-  if (NULL == pTmpBase)
-  {
-    CloseHandle(tmpMapHandle);
-    return PdbE_IOERR;
-  }
-
-  UnmapViewOfFile(pBase_);
-  CloseHandle(mapHandle_);
-
-  size_t bgIdx = fileSize_ / sizeof(DevItem);
-  size_t edIdx = tmpSize / sizeof(DevItem);
-
-  for (size_t idx = bgIdx; idx < edIdx; idx++)
-  {
-    freePosList_.push_back(idx);
-  }
-
-  fileSize_ = tmpSize;
-  pBase_ = pTmpBase;
-  mapHandle_ = tmpMapHandle;
-
-  return PdbE_OK;
-}
-
-PdbErr_t DevIDTable::_UnMapFile()
-{
-  if (pBase_ != NULL)
-  {
-    FlushViewOfFile(pBase_, fileSize_);
-    UnmapViewOfFile(pBase_);
-    pBase_ = NULL;
-  }
-
-  if (mapHandle_ != NULL)
-  {
-    CloseHandle(mapHandle_);
-    mapHandle_ = NULL;
-  }
-
-  if (fileHandle_ != INVALID_HANDLE_VALUE)
-  {
-    CloseHandle(fileHandle_);
-    fileHandle_ = INVALID_HANDLE_VALUE;
-  }
-
-  return PdbE_OK;
 }
 
 PdbErr_t DevIDTable::_DelDev(int64_t devId)
@@ -596,4 +511,3 @@ PdbErr_t DevIDTable::_DelDev(int64_t devId)
 
   return PdbE_OK;
 }
-

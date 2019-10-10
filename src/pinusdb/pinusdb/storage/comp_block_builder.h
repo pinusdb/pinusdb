@@ -20,7 +20,7 @@
 #include <new>
 #include <list>
 #include <vector>
-#include "table\field_info.h"
+#include "table/field_info.h"
 
 class CompBlockBuilder
 {

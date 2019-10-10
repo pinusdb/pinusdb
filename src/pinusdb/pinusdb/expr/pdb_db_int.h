@@ -28,5 +28,5 @@ typedef struct Token Token;
 struct Token
 {
   const char* str_;
-  int len_;
+  size_t len_;
 };

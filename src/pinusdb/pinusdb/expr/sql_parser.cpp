@@ -42,7 +42,10 @@ void SQLParser::SetQuery(ExprList* pSelList, Token* pSrcTab, ExprItem* pWhere,
 
   this->queryParam_.pSelList_ = pSelList;
 
-  this->queryParam_.srcTab_ = std::string(pSrcTab->str_, pSrcTab->len_);
+  if (pSrcTab != nullptr)
+    this->queryParam_.srcTab_ = std::string(pSrcTab->str_, pSrcTab->len_);
+  else
+    this->queryParam_.srcTab_ = "";
 
   this->queryParam_.pWhere_ = pWhere;
   this->queryParam_.pGroup_ = pGroup;

@@ -133,34 +133,32 @@ bool ExprItem::GetNowFuncVal(int64_t* pVal) const
       if (argVec[1]->op_ != TK_ID && argVec[1]->op_ != TK_STRING)
         return false;
 
-      int64_t alignMilli = 0;
       std::string tValStr(argVec[1]->tkVal_.str_, argVec[1]->tkVal_.len_);
       if (StringTool::ComparyNoCase(tValStr, "s", (sizeof("s") - 1))
         || StringTool::ComparyNoCase(tValStr, "second", (sizeof("second") - 1)))
       {
-        alignMilli = MillisPerSecond;
+        tmpVal -= (tmpVal % MillisPerSecond);
       }
       else if (StringTool::ComparyNoCase(tValStr, "m", (sizeof("m") - 1))
         || StringTool::ComparyNoCase(tValStr, "minute", (sizeof("minute") - 1)))
       {
-        alignMilli = MillisPerMinute;
+        tmpVal -= (tmpVal % MillisPerMinute);
       }
       else if (StringTool::ComparyNoCase(tValStr, "h", (sizeof("h") - 1))
         || StringTool::ComparyNoCase(tValStr, "hour", (sizeof("hour") - 1)))
       {
-        alignMilli = MillisPerHour;
+        tmpVal -= (tmpVal % MillisPerHour);
       }
       else if (StringTool::ComparyNoCase(tValStr, "d", (sizeof("d") - 1))
         || StringTool::ComparyNoCase(tValStr, "day", (sizeof("day") - 1)))
       {
-        alignMilli = MillisPerDay;
+        tmpVal -= (tmpVal % MillisPerDay);
+        tmpVal += DateTime::GetSysTimeZone();
       }
       else
       {
         return false;
       }
-    
-      tmpVal -= (tmpVal % alignMilli);
     }
 
     int64_t timeOffset = 0;
