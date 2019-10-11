@@ -94,9 +94,7 @@ PdbErr_t PDBDataTable::AddRow(DBObj* pObj)
   if (pNewObj == nullptr)
     return PdbE_NOMEM;
 
-  char* pTmpBuf = nullptr;
-  
-  for (int i = 0; i < fieldCnt; i++)
+  for (size_t i = 0; i < fieldCnt; i++)
   {
     pVal = pObj->GetFieldValue(i);
 

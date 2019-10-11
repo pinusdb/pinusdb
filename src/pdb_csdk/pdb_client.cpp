@@ -322,7 +322,6 @@ PdbErr_t DBClient::DecodePacket(uint8_t* pPacket, size_t packetLen, PDBDataTable
 
   size_t offset = ProtoHeader::kProtoHeadLength;
   size_t recLen = 0;
-  const uint8_t* pLimit = pPacket + packetLen;
   size_t fieldCnt = proHdr.GetFieldCnt();
 
   DBObj tmpObj(nullptr);

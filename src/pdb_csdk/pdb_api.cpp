@@ -322,8 +322,6 @@ pdb_table_val_is_null_by_colidx(
   if (pDataObj == nullptr)
     return PdbE_INVALID_PARAM;
 
-  PdbErr_t retVal = PdbE_OK;
-
   const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
   if (pDataVal == nullptr)
     return PdbE_RECORD_FAIL;
@@ -377,8 +375,6 @@ pdb_table_get_bool_by_colidx(
   const DBObj* pDataObj = pTmp->GetData(rowIdx);
   if (pDataObj == nullptr)
     return PdbE_INVALID_PARAM;
-
-  PdbErr_t retVal = PdbE_OK;
 
   const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
   if (pDataVal == nullptr)
@@ -439,8 +435,6 @@ pdb_table_get_bigint_by_colidx(
   const DBObj* pDataObj = pTmp->GetData(rowIdx);
   if (pDataObj == nullptr)
     return PdbE_INVALID_PARAM;
-
-  PdbErr_t retVal = PdbE_OK;
 
   const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
   if (pDataVal == nullptr)
@@ -503,8 +497,6 @@ pdb_table_get_double_by_colidx(
   const DBObj* pDataObj = pTmp->GetData(rowIdx);
   if (pDataObj == nullptr)
     return PdbE_INVALID_PARAM;
-
-  PdbErr_t retVal = PdbE_OK;
 
   const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
   if (pDataVal == nullptr)
@@ -570,8 +562,6 @@ pdb_table_get_string_by_colidx(
   const DBObj* pDataObj = pTmp->GetData(rowIdx);
   if (pDataObj == nullptr)
     return PdbE_INVALID_PARAM;
-
-  PdbErr_t retVal = PdbE_OK;
 
   const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
   if (pDataVal == nullptr)
@@ -643,8 +633,6 @@ pdb_table_get_blob_by_colidx(
   if (pDataObj == nullptr)
     return PdbE_INVALID_PARAM;
 
-  PdbErr_t retVal = PdbE_OK;
-
   const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
   if (pDataVal == nullptr)
     return PdbE_RECORD_FAIL;
@@ -711,8 +699,6 @@ pdb_table_get_datetime_by_colidx(
   const DBObj* pDataObj = pTmp->GetData(rowIdx);
   if (pDataObj == nullptr)
     return PdbE_INVALID_PARAM;
-
-  PdbErr_t retVal = PdbE_OK;
 
   const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
   if (pDataVal == nullptr)
