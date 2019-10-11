@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <SignAssembly>false</SignAssembly>
+    <Version>1.4.0</Version>
+    <Authors>ZhangQuan</Authors>
+    <Company>长沙巨松软件科技有限公司</Company>
+    <Product>松果时序数据库(PinusDB)</Product>
+    <Description>松果时序数据库(PinusDB) DotNet SDK</Description>
+  </PropertyGroup>
+
+</Project>
