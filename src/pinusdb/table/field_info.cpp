@@ -56,13 +56,11 @@ void FieldInfo::operator=(const FieldInfo& cpy)
 
 PdbErr_t FieldInfo::SetFieldInfo(const char* pName, int32_t fieldType, bool isKey)
 {
-  size_t nameLen = strlen(pName);
-  PdbErr_t retVal = ValidFieldName(pName, nameLen);
-  if (retVal != PdbE_OK)
-    return retVal;
-
   if (!PDB_TYPE_IS_VALID(fieldType))
     return PdbE_INVALID_FIELD_TYPE;
+
+  if (strlen(pName) > (4 * PDB_FILED_NAME_LEN))
+    return PdbE_INVALID_FIELD_NAME;
 
   this->isKey_ = isKey;
   this->fieldType_ = fieldType;

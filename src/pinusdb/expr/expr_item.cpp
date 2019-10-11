@@ -344,7 +344,16 @@ ExprItem* ExprItem::MakeFunction(int op, Token* pFuncName, ExprList* pArgs, Toke
     pNew->funcName_ = "";
 
   if (pAsName != nullptr)
-    pNew->aliasName_ = std::string(pAsName->str_, pAsName->len_);
+  {
+    if (pAsName->len_ == 1 && pAsName->str_[0] == ')' && pFuncName != nullptr)
+    {
+      pNew->aliasName_ = std::string(pFuncName->str_, (pAsName->str_ + pAsName->len_ - pFuncName->str_));
+    }
+    else
+    {
+      pNew->aliasName_ = std::string(pAsName->str_, pAsName->len_);
+    }
+  }
   else
     pNew->aliasName_ = "";
 

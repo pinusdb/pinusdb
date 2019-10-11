@@ -112,6 +112,15 @@ PdbErr_t TableInfo::ValidStorageTable() const
   if (!StringTool::ComparyNoCase(fieldVec_[PDB_TSTAMP_INDEX].GetFieldName(), TSTAMP_FIELD_NAME))
     return PdbE_INVALID_TSTAMP_FIELD;
 
+  for (size_t idx = (PDB_TSTAMP_INDEX + 1); idx < fieldVec_.size(); idx++)
+  {
+    const char* pFieldName = fieldVec_[idx].GetFieldName();
+    size_t nameLen = strlen(pFieldName);
+    retVal = FieldInfo::ValidFieldName(pFieldName, nameLen);
+    if (retVal != PdbE_OK)
+      return retVal;
+  }
+
   return PdbE_OK;
 }
 
