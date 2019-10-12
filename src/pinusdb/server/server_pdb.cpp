@@ -534,13 +534,14 @@ SOCKET_CONTEXT* ServerPDB::DoAccept(SOCKET_CONTEXT* pContext, size_t bytesTransf
   else
     pNewClient = DoFirstRecvWithoutData(pContext);
 
-  this->PostAccept(pContext);
-
   if (pNewClient == nullptr)
   {
+    shutdown(pContext->socket_, SD_BOTH);
+    closesocket(pContext->socket_);
     LOG_ERROR("failed to create connection object");
   }
 
+  this->PostAccept(pContext);
   return pNewClient;
 }
 

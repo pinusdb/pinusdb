@@ -152,6 +152,8 @@ namespace PDB.DotNetSDK
         int tmpLen = ProtoHeader.kHeadLen - totalLen;
         int recvLen = sock.GetStream().Read(headBuf, totalLen, tmpLen);
         totalLen += recvLen;
+        if (recvLen == 0)
+          throw new PDBException(PDBErrorCode.PdbE_NET_ERROR);
       }
 
       ProtoHeader proHdr = new ProtoHeader(headBuf);
@@ -177,6 +179,8 @@ namespace PDB.DotNetSDK
         int tmpLen = bodyLen - totalLen;
         int recvLen = sock.GetStream().Read(packetBuf, (ProtoHeader.kHeadLen + totalLen), tmpLen);
         totalLen += recvLen;
+        if (recvLen == 0)
+          throw new PDBException(PDBErrorCode.PdbE_NET_ERROR);
       }
 
       UInt32 bodyCrc = proHdr.GetBodyCrc();
