@@ -481,7 +481,7 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
 
   int32_t invalidDays = pGlbSysCfg->GetInsertValidDay();
   int64_t invalidTstampBg = (DateTime::NowDayCode() - invalidDays) * MillisPerDay;
-  int64_t invalidTstampEd = invalidTstampBg + invalidDays * MillisPerDay * 2;
+  int64_t invalidTstampEd = invalidTstampBg + invalidDays * MillisPerDay * 2 + MillisPerDay;
 
   int64_t devId = 0;
   int64_t tstamp = 0;
