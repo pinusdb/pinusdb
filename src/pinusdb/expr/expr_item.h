@@ -35,6 +35,7 @@ public:
   
   bool GetTimeVal(int64_t* pVal) const;
   bool GetNowFuncVal(int64_t* pVal) const;
+  bool GetVersionFuncVal(DBVal* pVal) const;
   bool GetIntVal(int64_t* pVal) const;
   bool GetDoubleVal(double* pVal) const;
   bool GetDBVal(DBVal* pVal) const;

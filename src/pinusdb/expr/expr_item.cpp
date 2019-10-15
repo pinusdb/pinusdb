@@ -175,6 +175,17 @@ bool ExprItem::GetNowFuncVal(int64_t* pVal) const
   return true;
 }
 
+bool ExprItem::GetVersionFuncVal(DBVal* pVal) const
+{
+  if (pExprList_ != nullptr)
+    return false;
+
+  if (pVal != nullptr)
+    DBVAL_SET_STRING(pVal, PDB_VERSION_STR, (sizeof(PDB_VERSION_STR) - 1));
+  
+  return true;
+}
+
 bool ExprItem::GetIntVal(int64_t* pVal) const
 {
   int64_t tmpVal = 0;
@@ -259,10 +270,23 @@ bool ExprItem::GetDBVal(DBVal* pVal) const
   }
   case TK_FUNCTION:
   {
-    if (!GetNowFuncVal(&i64Val))
-      return false;
+    if (StringTool::ComparyNoCase(funcName_, PDB_SQL_FUNC_NOW_NAME, PDB_SQL_FUNC_NOW_NAME_LEN))
+    {
+      if (!GetNowFuncVal(&i64Val))
+        return false;
 
-    DBVAL_SET_DATETIME(&tmpVal, i64Val);
+      DBVAL_SET_DATETIME(&tmpVal, i64Val);
+    }
+    else if (StringTool::ComparyNoCase(funcName_, PDB_SQL_FUNC_VERSION_NAME, PDB_SQL_FUNC_VERSION_NAME_LEN))
+    {
+      if (!GetVersionFuncVal(&tmpVal))
+        return false;
+    }
+    else
+    {
+      return false;
+    }
+
     break;
   }
   default:

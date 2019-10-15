@@ -54,6 +54,8 @@
 #define PDB_MINOR_VER_VAL        4
 #define PDB_BUILD_VER_VAL        0
 
+#define PDB_VERSION_STR          "1.4.0"
+
 #define PDB_BOOL_FALSE           0
 #define PDB_BOOL_TRUE            1
 
@@ -151,6 +153,9 @@ typedef struct _FieldInfoFormat
 
 #define PDB_SQL_FUNC_NOW_NAME            "NOW"
 #define PDB_SQL_FUNC_NOW_NAME_LEN        (sizeof(PDB_SQL_FUNC_NOW_NAME) - 1)
+
+#define PDB_SQL_FUNC_VERSION_NAME        "VERSION"
+#define PDB_SQL_FUNC_VERSION_NAME_LEN    (sizeof(PDB_SQL_FUNC_VERSION_NAME) - 1)
 
 enum PDB_SQL_FUNC{
   FUNC_COUNT = 1,

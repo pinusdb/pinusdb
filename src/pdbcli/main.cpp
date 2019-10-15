@@ -157,6 +157,9 @@ void SetStdinEcho(bool enable = true)
 
 bool ReadConnInfo(std::string& hostStr, std::string& userStr, std::string& pwdStr, int& port)
 {
+  void* pTable = nullptr;
+  const char* pVerStr = nullptr;
+  size_t verLen = 0;
   char buf[128] = { 0 };
 
   std::cout << "Server IP:" << std::flush;
@@ -187,6 +190,17 @@ bool ReadConnInfo(std::string& hostStr, std::string& userStr, std::string& pwdSt
   PdbErr_t retVal = create_handle(hostStr.c_str(), port, userStr.c_str(), pwdStr.c_str(), &handle);
   if (retVal == PdbE_OK)
   {
+    std::cout << "Welcome to PinusDB. Command end with ;" << std::endl;
+    retVal = pdb_execute_query(handle, "SELECT VERSION()", &pTable);
+    if (retVal == PdbE_OK)
+    {
+      if (pdb_table_get_string_by_colidx(pTable, 0, 0, &pVerStr, &verLen) == PdbE_OK)
+      {
+        std::cout << "Server version: " << std::string(pVerStr, verLen).c_str() << std::endl;
+      }
+      pdb_table_free(pTable);
+    }
+
     pdb_disconnect(handle);
     return true;
   }
@@ -267,6 +281,7 @@ void print_error_msg(PdbErr_t ret)
     std::cout << "Error :" << ret << "," << pErrMsg << std::endl;
   }
 }
+
 
 #define PRINT_LINE(lineLen) do { std::cout.fill('-'); std::cout.width(lineLen); std::cout<< "-" << std::endl; std::cout.fill(' '); } while(false)
 #define PRINT_VAL_LEFT(val) do { std::cout.width(11); std::cout.setf(std::ios::left); std::cout << (val) << "|"; std::cout.unsetf(std::ios::left); } while(false)
