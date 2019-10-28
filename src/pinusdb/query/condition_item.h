@@ -435,8 +435,7 @@ public:
   LikeCondition(size_t fieldPos, const char* pStr, size_t strLen)
   {
     this->fieldPos_ = fieldPos;
-    this->pStrVal_ = pStr;
-    this->strLen_ = strLen;
+    this->patternStr_ = std::string(pStr, strLen);
   }
 
   virtual ~LikeCondition()
@@ -450,13 +449,12 @@ public:
     const char* pCurStr = DBVAL_ELE_GET_STRING(pVals, fieldPos_);
     size_t curLen = DBVAL_ELE_GET_LEN(pVals, fieldPos_);
 
-    return StringTool::Utf8LikeCompare(pStrVal_, pCurStr, curLen);
+    return StringTool::Utf8LikeCompare(patternStr_.c_str(), pCurStr, curLen);
   }
 
 private:
   size_t fieldPos_;
-  const char* pStrVal_;
-  size_t strLen_;
+  std::string patternStr_;
 };
 
 class IsNotNullCondition : public ConditionItem

@@ -336,13 +336,14 @@ bool StringTool::Utf8LikeCompare(const char* zPattern, const char* zString, size
       c = upper_to_lower_char[(uint8_t)c];
       while (zString < pEnd && ((c2 = upper_to_lower_char[(uint8_t)*zString]) != 0))
       {
-        while (c2 != 0 && c2 != c)
+        while (c2 != 0 && c2 != c && zString < pEnd)
         {
           zString++;
           c2 = upper_to_lower_char[(uint8_t)*zString];
         }
-        if (c2 == 0)
+        if (c2 == 0 || zString >= pEnd)
           return false;
+
         if (StringTool::Utf8LikeCompare(&zPattern[1], zString, (int32_t)(pEnd - zString)))
           return true;
         SKIP_UTF8(zString);

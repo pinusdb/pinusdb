@@ -40,13 +40,10 @@ PdbErr_t DevFilter::BuildFilter(const ExprItem* pCondition)
 
 bool DevFilter::Filter(int64_t devId) const
 {
-  if (devId < minDevId_ || devId > maxDevId_)
-    return false;
-
   DBVal vals;
+  DBVAL_SET_INT64(&vals, devId);
   for (auto condiIt = conditionVec_.begin(); condiIt != conditionVec_.end(); condiIt++)
   {
-    DBVAL_SET_INT64(&vals, devId);
     if (!(*condiIt)->GetLogic(&vals, 1))
       return false;
   }
@@ -111,6 +108,15 @@ PdbErr_t DevFilter::_BuildFilter(const ExprItem* pExpr)
         else
           conditionVec_.push_back(new NotInNumCondition(PDB_DEVID_INDEX, argValList));
       }
+      else if (op == TK_ISNULL)
+      {
+        minDevId_ = -1;
+        maxDevId_ = -1;
+      }
+      else if (op == TK_ISNOTNULL)
+      {
+        return PdbE_OK;
+      }
       else
       {
         if (pRightExpr == nullptr)
@@ -123,19 +129,43 @@ PdbErr_t DevFilter::_BuildFilter(const ExprItem* pExpr)
         switch (op)
         {
         case TK_LT:
+        {
+          conditionVec_.push_back(new LtNumCondition<PDB_VALUE_TYPE::VAL_INT64>(PDB_DEVID_INDEX, rightVal));
+          if (maxDevId_ > rightVal) { maxDevId_ = rightVal; }
+          break;
+        }
         case TK_LE:
-          if (maxDevId_ > rightVal)
-            maxDevId_ = rightVal;
+        {
+          conditionVec_.push_back(new LeNumCondition<PDB_VALUE_TYPE::VAL_INT64>(PDB_DEVID_INDEX, rightVal));
+          if (maxDevId_ > rightVal) { maxDevId_ = rightVal; }
           break;
+        }
         case TK_GT:
-        case TK_GE:
-          if (minDevId_ < rightVal)
-            minDevId_ = rightVal;
+        {
+          conditionVec_.push_back(new GtNumCondition<PDB_VALUE_TYPE::VAL_INT64>(PDB_DEVID_INDEX, rightVal));
+          if (minDevId_ < rightVal) { minDevId_ = rightVal; }
           break;
+        }
+        case TK_GE:
+        {
+          conditionVec_.push_back(new GeNumCondition<PDB_VALUE_TYPE::VAL_INT64>(PDB_DEVID_INDEX, rightVal));
+          if (minDevId_ < rightVal) { minDevId_ = rightVal; }
+          break;
+        }
+        case TK_NE:
+        {
+          conditionVec_.push_back(new NeNumCondition<PDB_VALUE_TYPE::VAL_INT64>(PDB_DEVID_INDEX, rightVal));
+          break;
+        }
         case TK_EQ:
+        {
+          conditionVec_.push_back(new EqNumCondition<PDB_VALUE_TYPE::VAL_INT64>(PDB_DEVID_INDEX, rightVal));
           maxDevId_ = rightVal;
           minDevId_ = rightVal;
           break;
+        }
+        default:
+          return PdbE_SQL_CONDITION_EXPR_ERROR;
         }
       }
 
