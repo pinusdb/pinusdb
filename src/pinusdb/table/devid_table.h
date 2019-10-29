@@ -18,7 +18,6 @@
 #include "internal.h"
 #include "port/mem_map_file.h"
 #include "util/arena.h"
-#include "util/skip_list.h"
 #include "table/table_info.h"
 #include "query/dev_filter.h"
 #include "query/result_filter.h"

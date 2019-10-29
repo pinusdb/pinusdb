@@ -133,6 +133,7 @@ PdbErr_t DBImpl::Start()
 void DBImpl::Stop()
 {
   stopVariable_.notify_all();
+  pGlbPagePool->NotifyAll();
   pCompTask_->join();
   pSyncTask_->join();
   //CloseAllTable 会同步所有的数据页

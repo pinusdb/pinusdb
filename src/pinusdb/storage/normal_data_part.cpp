@@ -374,10 +374,6 @@ PdbErr_t NormalDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tst
     }
     else
     {
-      //如果原始页已经被分裂过，在同步完之前不允许分裂
-      if (PAGEHDR_GET_SPLIT_GRP(pPage) != 0)
-        return PdbE_RETRY;
-
       //分裂原来的数据页
       if (normalIdx_.GetNextIndex(devId, tstamp, &pageIdx) != PdbE_OK)
       {
@@ -1042,6 +1038,7 @@ PdbErr_t NormalDataPart::WritePages(const std::vector<PageHdr*>& hdrVec, OSFile*
     }
 
     partIdx = curIdx;
+    pGlbPagePool->NotifyAll();
   }
 
   return PdbE_OK;

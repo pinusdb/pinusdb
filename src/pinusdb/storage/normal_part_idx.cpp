@@ -41,7 +41,39 @@ typedef struct _NormalIdxItem
   uint32_t crc_;
 }NormalIdxItem;
 
-DataIdxComp dataIdxComp_;
+bool MemPageIdxSortComp(const MemPageIdx& idxA, const MemPageIdx& idxB)
+{
+  return idxA.tstamp_ < idxB.tstamp_;
+}
+
+size_t PageIdxBinarySearch(const std::vector<MemPageIdx>* pIdxVec, uint32_t ts)
+{
+  if (pIdxVec->empty())
+    return 0;
+
+  if (pIdxVec->begin()->tstamp_ >= ts)
+    return 0;
+
+  if (pIdxVec->back().tstamp_ <= ts)
+    return (pIdxVec->size() - 1);
+
+  int lwr = 0;
+  int upr = static_cast<int>(pIdxVec->size()) - 1;
+  int idx = 0;
+
+  while (lwr <= upr)
+  {
+    idx = (lwr + upr) / 2;
+    if ((*pIdxVec)[idx].tstamp_ > ts)
+      upr = idx - 1;
+    else if ((*pIdxVec)[idx + 1].tstamp_ > ts)
+      break;
+    else
+      lwr = idx + 1;
+  }
+
+  return idx;
+}
 
 NormalPartIdx::NormalPartIdx()
 {
@@ -157,6 +189,7 @@ PdbErr_t NormalPartIdx::Open(const char* pPath, bool readOnly)
   //2. 读取数据内容
   size_t readPos = 0;
   const char* pTmpItem = pTmpBuf;
+  MemPageIdx memPageIdx;
   while (true)
   {
     pTmpItem += sizeof(NormalIdxItem);
@@ -176,25 +209,37 @@ PdbErr_t NormalPartIdx::Open(const char* pPath, bool readOnly)
     const NormalIdxItem* pIdxItem = (const NormalIdxItem*)pTmpItem;
     if (pIdxItem->crc_ != 0 && pIdxItem->devId_ > 0)
     {
-      DataIdxSkipList* pIdxSk = nullptr;
-      auto idxIt = idxMap_.find(pIdxItem->devId_);
-      if (idxIt == idxMap_.end())
-      {
-        pIdxSk = new DataIdxSkipList(dataIdxComp_, &arena_);
-        idxMap_.insert(std::pair<int64_t, DataIdxSkipList*>(pIdxItem->devId_, pIdxSk));
-      }
-      else
-      {
-        pIdxSk = idxIt->second;
-      }
-
       if (pIdxItem->idxTs_ < bgDayTs_ || pIdxItem->idxTs_ >= edDayTs_)
       {
         LOG_ERROR("normal index file ({}), position ({}) error", pPath, curPos_);
         return PdbE_IDX_FILE_ERROR;
       }
 
-      pIdxSk->Insert(static_cast<uint32_t>(pIdxItem->idxTs_ - bgDayTs_), pIdxItem->pageNo_);
+      std::vector<MemPageIdx>* pIdxVec = nullptr;
+      auto idxIt = idxMap_.find(pIdxItem->devId_);
+      if (idxIt == idxMap_.end())
+      {
+        pIdxVec = new std::vector<MemPageIdx>();
+        pIdxVec->reserve(8);
+        idxMap_.insert(std::pair<int64_t, std::vector<MemPageIdx>*>(pIdxItem->devId_, pIdxVec));
+      }
+      else
+      {
+        pIdxVec = idxIt->second;
+      }
+
+      memPageIdx.pageNo_ = pIdxItem->pageNo_;
+      memPageIdx.tstamp_ = static_cast<uint32_t>(pIdxItem->idxTs_ - bgDayTs_);
+      if (pIdxVec->empty() || pIdxVec->back().tstamp_ < memPageIdx.tstamp_)
+      {
+        pIdxVec->push_back(memPageIdx);
+      }
+      else
+      {
+        pIdxVec->push_back(memPageIdx);
+        std::sort(pIdxVec->begin(), pIdxVec->end(), MemPageIdxSortComp);
+      }
+
       curPos_ += sizeof(NormalIdxItem);
 
       if (pIdxItem->pageNo_ > maxPageNo_)
@@ -229,22 +274,34 @@ PdbErr_t NormalPartIdx::AddIdx(int64_t devId, int64_t idxTs, int32_t pageNo)
   if (devId <= 0 || idxTs < bgDayTs_ || idxTs >= edDayTs_ || pageNo <= 0)
     return PdbE_INVALID_PARAM;
 
-  uint32_t partTs = static_cast<uint32_t>(idxTs - bgDayTs_);
+  MemPageIdx pageIdx;
+  pageIdx.tstamp_ = static_cast<uint32_t>(idxTs - bgDayTs_);
+  pageIdx.pageNo_ = pageNo;
 
   std::unique_lock<std::mutex> idxLock(idxMutex_);
-  DataIdxSkipList* pIdxSk = nullptr;
+  std::vector<MemPageIdx>* pIdxVec = nullptr;
   auto idxIt = idxMap_.find(devId);
   if (idxIt == idxMap_.end())
   {
-    pIdxSk = new DataIdxSkipList(dataIdxComp_, &arena_);
-    idxMap_.insert(std::pair<int64_t, DataIdxSkipList*>(devId, pIdxSk));
+    pIdxVec = new std::vector<MemPageIdx>();
+    pIdxVec->reserve(8);
+    idxMap_.insert(std::pair<int64_t, std::vector<MemPageIdx>*>(devId, pIdxVec));
   }
   else
   {
-    pIdxSk = idxIt->second;
+    pIdxVec = idxIt->second;
   }
 
-  pIdxSk->Insert(partTs, pageNo);
+  if (pIdxVec->empty() || pIdxVec->back().tstamp_ < pageIdx.tstamp_)
+  {
+    pIdxVec->push_back(pageIdx);
+  }
+  else
+  {
+    pIdxVec->push_back(pageIdx);
+    std::sort(pIdxVec->begin(), pIdxVec->end(), MemPageIdxSortComp);
+  }
+
   return PdbE_OK;
 }
 
@@ -305,17 +362,15 @@ PdbErr_t NormalPartIdx::GetIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx)
   auto devIt = idxMap_.find(devId);
   if (devIt != idxMap_.end())
   {
-    DataIdxSkipList::Iterator idxIter(devIt->second);
-    idxIter.Seek(partTs);
-    if (idxIter.Valid())
-    {
-      pIdx->devId_ = devId;
-      pIdx->pageNo_ = idxIter.GetVal();
-      pIdx->idxTs_ = bgDayTs_ + idxIter.GetKey();
-      return PdbE_OK;
-    }
+    if (devIt->second->empty())
+      return PdbE_IDX_NOT_FOUND;
 
-    return PdbE_IDX_NOT_FOUND;
+    std::vector<MemPageIdx>* pIdxVec = devIt->second;
+    size_t pos = PageIdxBinarySearch(pIdxVec, partTs);
+    pIdx->devId_ = devId;
+    pIdx->pageNo_ = (*pIdxVec)[pos].pageNo_;
+    pIdx->idxTs_ = bgDayTs_ + (*pIdxVec)[pos].tstamp_;
+    return PdbE_OK;
   }
 
   return PdbE_DEV_NOT_FOUND;
@@ -336,17 +391,16 @@ PdbErr_t NormalPartIdx::GetPrevIndex(int64_t devId, int64_t ts, NormalPageIdx* p
   auto devIt = idxMap_.find(devId);
   if (devIt != idxMap_.end())
   {
-    DataIdxSkipList::Iterator idxIter(devIt->second);
-    idxIter.Seek(partTs);
-    if (!idxIter.Valid())
+    if (devIt->second->empty())
       return PdbE_IDX_NOT_FOUND;
 
-    idxIter.Next();
-    if (idxIter.Valid())
+    std::vector<MemPageIdx>* pIdxVec = devIt->second;
+    size_t pos = PageIdxBinarySearch(pIdxVec, partTs);
+    if (pos > 0)
     {
       pIdx->devId_ = devId;
-      pIdx->pageNo_ = idxIter.GetVal();
-      pIdx->idxTs_ = bgDayTs_ + idxIter.GetKey();
+      pIdx->pageNo_ = (*pIdxVec)[pos - 1].pageNo_;
+      pIdx->idxTs_ = bgDayTs_ + (*pIdxVec)[pos - 1].tstamp_;
       return PdbE_OK;
     }
 
@@ -367,17 +421,16 @@ PdbErr_t NormalPartIdx::GetNextIndex(int64_t devId, int64_t ts, NormalPageIdx* p
   auto devIt = idxMap_.find(devId);
   if (devIt != idxMap_.end())
   {
-    DataIdxSkipList::Iterator idxIter(devIt->second);
-    idxIter.Seek(partTs);
-    if (!idxIter.Valid())
+    if (devIt->second->empty())
       return PdbE_IDX_NOT_FOUND;
 
-    idxIter.Prev();
-    if (idxIter.Valid())
+    std::vector<MemPageIdx>* pIdxVec = devIt->second;
+    size_t pos = PageIdxBinarySearch(pIdxVec, partTs);
+    if ((pos + 1) < pIdxVec->size())
     {
       pIdx->devId_ = devId;
-      pIdx->pageNo_ = idxIter.GetVal();
-      pIdx->idxTs_ = bgDayTs_ + idxIter.GetKey();
+      pIdx->pageNo_ = (*pIdxVec)[pos + 1].pageNo_;
+      pIdx->idxTs_ = bgDayTs_ + (*pIdxVec)[pos + 1].tstamp_;
       return PdbE_OK;
     }
 

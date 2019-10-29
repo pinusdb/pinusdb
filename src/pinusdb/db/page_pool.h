@@ -18,6 +18,7 @@
 #include "internal.h"
 
 #include <unordered_map>
+#include <condition_variable>
 #include <mutex>
 #include <vector>
 #include <list>
@@ -39,6 +40,7 @@ public:
   PdbErr_t GetPage(uint64_t pageCode, PageRef* pPageRef);
 
   void ClearPageForMask(uint64_t pageCode, uint64_t maskCode);
+  void NotifyAll() { poolVariable_.notify_all(); }
 
 private:
   PageHdr* _GetFreePage();
@@ -53,6 +55,7 @@ private:
 
 private:
   std::mutex poolMutex_;
+  std::condition_variable poolVariable_;
 
   struct list_head readList_;
   struct list_head freeList_;

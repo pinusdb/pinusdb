@@ -120,29 +120,34 @@ PdbErr_t PagePool::GetPage(uint64_t pageCode, PageRef* pPageRef)
   PageHdr* pTmpPage = nullptr;
   
   std::unique_lock<std::mutex> poolLock(poolMutex_);
-  auto pageIter = pageMap_.find(pageCode);
-  if (pageIter != pageMap_.end())
+  while (glbRunning)
   {
-    pTmpPage = pageIter->second;
-    pPageRef->Attach(pTmpPage);
-    list_move(&(pTmpPage->listHdr_), &readList_);
-    return PdbE_OK;
+    auto pageIter = pageMap_.find(pageCode);
+    if (pageIter != pageMap_.end())
+    {
+      pTmpPage = pageIter->second;
+      pPageRef->Attach(pTmpPage);
+      list_move(&(pTmpPage->listHdr_), &readList_);
+      return PdbE_OK;
+    }
+
+    pTmpPage = _GetFreePage();
+    if (pTmpPage != nullptr)
+    {
+      PAGEHDR_CLEAR(pTmpPage);
+      PAGEHDR_SET_PAGECODE(pTmpPage, pageCode);
+      list_add(&(pTmpPage->listHdr_), &readList_);
+
+      pPageRef->Attach(pTmpPage);
+      pageMap_.insert(std::pair<uint64_t, PageHdr*>(pageCode, pTmpPage));
+      return PdbE_OK;
+    }
+
+    poolVariable_.wait(poolLock);
   }
 
-  pTmpPage = _GetFreePage();
-  if (pTmpPage != nullptr)
-  {
-    PAGEHDR_CLEAR(pTmpPage);
-    PAGEHDR_SET_PAGECODE(pTmpPage, pageCode);
-    list_add(&(pTmpPage->listHdr_), &readList_);
-
-    pPageRef->Attach(pTmpPage);
-    pageMap_.insert(std::pair<uint64_t, PageHdr*>(pageCode, pTmpPage));
-    return PdbE_OK;
-  }
-
-  LOG_INFO("failed to get free page cache");
-  return PdbE_RETRY;
+  //LOG_INFO("failed to get free page cache");
+  return PdbE_TASK_CANCEL;
 }
 
 void PagePool::ClearPageForMask(uint64_t pageCode, uint64_t maskCode)
@@ -159,6 +164,8 @@ void PagePool::ClearPageForMask(uint64_t pageCode, uint64_t maskCode)
       pageMap_.erase(tmpCode);
     }
   }
+
+  poolVariable_.notify_all();
 }
 
 PageHdr* PagePool::_GetFreePage()

@@ -18,19 +18,14 @@
 #include "internal.h"
 #include "port/os_file.h"
 #include "util/arena.h"
-#include "util/skip_list.h"
 #include "util/date_time.h"
 #include <unordered_map>
 
-typedef struct _DataIdxComp
+typedef struct _MemPageIdx
 {
-  int operator()(uint32_t keyA, uint32_t keyB) const
-  {
-    return keyA == keyB ? 0 : (keyA > keyB ? -1 : 1);
-  }
-}DataIdxComp;
-
-typedef SkipList<uint32_t, int32_t, DataIdxComp> DataIdxSkipList;
+  uint32_t tstamp_;
+  int32_t pageNo_;
+}MemPageIdx;
 
 typedef struct _NormalPageIdx
 {
@@ -75,8 +70,7 @@ private:
 
   std::mutex idxMutex_;
   std::mutex fileMutex_;
-  Arena arena_;
-  std::unordered_map<int64_t, DataIdxSkipList*> idxMap_;
+  std::unordered_map<int64_t, std::vector<MemPageIdx>*> idxMap_;
 };
 
 

@@ -492,7 +492,7 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
   uint16_t recLen = 0;
   int curPartDay = -1;
   int curRecDay = 0;
-  while (!pInsertSql->IsEnd())
+  while (!pInsertSql->IsEnd() && glbRunning)
   {
     pValBuf = pRecBg + sizeof(uint16_t);
 
