@@ -161,6 +161,7 @@ cmd ::= SELECT target_list(T) SEMI.
 target_item(A) ::= STAR(S).         { A = ExprItem::MakeValue(TK_STAR, &S); }
 target_item(A) ::= ID(N).           { A = ExprItem::MakeValue(TK_ID, &N); }
 target_item(A) ::= ID(N) AS ID(X).  { A = ExprItem::MakeValue(TK_ID, &N, &X); }
+target_item(A) ::= STRING(N).       { A = ExprItem::MakeValue(TK_ID, &N); }
 target_item(A) ::= ID(N) LP arg_list(L) RP(R).       { A = ExprItem::MakeFunction(TK_FUNCTION, &N, L, &R); }
 target_item(A) ::= ID(N) LP arg_list(L) RP AS ID(X). { A = ExprItem::MakeFunction(TK_FUNCTION, &N, L, &X); }
 target_item(A) ::= ID(N) LP RP(R).       { A = ExprItem::MakeFunction(TK_FUNCTION, &N, nullptr, &R); }

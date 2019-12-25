@@ -85,33 +85,26 @@ public:
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    do {
-      if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) <= lastTStamp_)
-        break;
+    if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) <= lastTStamp_)
+      return PdbE_OK;
 
-      lastTStamp_ = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
-      if (DBVAL_ELE_GET_LEN(pVals, fieldPos_) > 0)
+    lastTStamp_ = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
+    if (DBVAL_ELE_GET_LEN(pVals, fieldPos_) > 0)
+    {
+      if (DBVAL_ELE_GET_LEN(pVals, fieldPos_) > bufLen_)
       {
-        if (DBVAL_ELE_GET_LEN(pVals, fieldPos_) > bufLen_)
-        {
-          size_t tmpLen = DBVAL_ELE_GET_LEN(pVals, fieldPos_) + 32;
-          pBuf_ = (uint8_t*)pArena_->Allocate(tmpLen);
-          if (pBuf_ == nullptr)
-            return PdbE_NOMEM;
+        size_t tmpLen = DBVAL_ELE_GET_LEN(pVals, fieldPos_) + 32;
+        pBuf_ = (uint8_t*)pArena_->Allocate(tmpLen);
+        if (pBuf_ == nullptr)
+          return PdbE_NOMEM;
 
-          bufLen_ = tmpLen;
-        }
-
-        memcpy(pBuf_, DBVAL_ELE_GET_BLOB(pVals, fieldPos_), DBVAL_ELE_GET_LEN(pVals, fieldPos_));
+        bufLen_ = tmpLen;
       }
 
-      if (ValType == PDB_FIELD_TYPE::TYPE_STRING)
-        DBVAL_SET_STRING(&lastVal_, pBuf_, DBVAL_ELE_GET_LEN(pVals, fieldPos_));
-      else if (ValType == PDB_FIELD_TYPE::TYPE_BLOB)
-        DBVAL_SET_BLOB(&lastVal_, pBuf_, DBVAL_ELE_GET_LEN(pVals, fieldPos_));
+      memcpy(pBuf_, DBVAL_ELE_GET_BLOB(pVals, fieldPos_), DBVAL_ELE_GET_LEN(pVals, fieldPos_));
+    }
 
-    } while (false);
-
+    DBVAL_SET_BLOCK_VALUE(&lastVal_, ValType, pBuf_, DBVAL_ELE_GET_LEN(pVals, fieldPos_));
     return PdbE_OK;
   }
 

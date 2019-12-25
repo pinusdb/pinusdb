@@ -23,8 +23,6 @@
 
 TStampFilter::TStampFilter()
 {
-  includeMinTimeStamp_ = true;
-  includeMaxTimeStamp_ = true;
   minTimeStamp_ = MinMillis;
   maxTimeStamp_ = MaxMillis;
 }
@@ -118,24 +116,24 @@ bool TStampFilter::_BuildFilter(const ExprItem* pExpr)
       {
       case TK_EQ:
       {
-        if (minTimeStamp_ == 0 || minTimeStamp_ <= timeStamp)
+        if (minTimeStamp_ <= timeStamp)
         {
           minTimeStamp_ = timeStamp;
-          includeMinTimeStamp_ = true;
         }
         else
         {
-          return false;
+          //empty set
+          maxTimeStamp_ = 0;
         }
 
-        if (maxTimeStamp_ == 0 || maxTimeStamp_ >= timeStamp)
+        if (maxTimeStamp_ >= timeStamp)
         {
           maxTimeStamp_ = timeStamp;
-          includeMaxTimeStamp_ = true;
         }
         else
         {
-          return false;
+          //empty set
+          maxTimeStamp_ = 0;
         }
 
         break;
@@ -143,28 +141,28 @@ bool TStampFilter::_BuildFilter(const ExprItem* pExpr)
       case TK_GT:
       case TK_GE:
       {
-        if (minTimeStamp_ == 0 || minTimeStamp_ <= timeStamp)
+        if (minTimeStamp_ <= timeStamp)
         {
           minTimeStamp_ = timeStamp;
-          includeMinTimeStamp_ = (op == TK_GE);
         }
         else
         {
-          return false;
+          //empty set
+          maxTimeStamp_ = 0;
         }
         break;
       }
       case TK_LT:
       case TK_LE:
       {
-        if (maxTimeStamp_ == 0 || maxTimeStamp_ >= timeStamp)
+        if (maxTimeStamp_ >= timeStamp)
         {
           maxTimeStamp_ = timeStamp;
-          includeMaxTimeStamp_ = (op == TK_LE);
         }
         else
         {
-          return false;
+          //empty set
+          maxTimeStamp_ = 0;
         }
         break;
       }

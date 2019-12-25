@@ -97,6 +97,13 @@ do { \
   (pVal)->val_.pData_ = (const uint8_t*)(pBlob); \
 } while(false)
 
+#define DBVAL_SET_BLOCK_VALUE(pVal, valType, pBlock, len) \
+do { \
+  (pVal)->dataType_ = valType;  \
+  (pVal)->dataLen_ = (int32_t)(len);  \
+  (pVal)->val_.pData_ = (const uint8_t*)(pBlock);  \
+} while(false)
+
 ///////////////////////////////////////////////////////////
 
 #define DBVAL_ELE_SET_NULL(pVal, idx)      \

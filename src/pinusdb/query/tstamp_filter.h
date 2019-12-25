@@ -33,8 +33,6 @@ private:
   bool _BuildFilter(const ExprItem* pExpr);
 
 private:
-  bool includeMinTimeStamp_;
-  bool includeMaxTimeStamp_;
   int64_t minTimeStamp_;
   int64_t maxTimeStamp_;
 };

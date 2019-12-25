@@ -19,130 +19,157 @@
 #include "internal.h"
 #include "query/result_field.h"
 
-template<int ValType>
-class MinNumFunc : public ResultField
+template<int CompareType>
+class MinValueFunc : public ResultField
 {
 public:
-  MinNumFunc(size_t fieldPos)
+  MinValueFunc(size_t comparePos, size_t targetPos, int32_t targetType)
   {
     haveVal_ = false;
-    fieldPos_ = fieldPos;
-    val_ = 0;
+    targetType_ = targetType;
+    targetPos_ = targetPos;
+    comparePos_ = comparePos;
+    compareIntVal_ = 0;
+    compareDoubleVal_ = 0;
+    DBVAL_SET_NULL(&targetVal_);
   }
 
-  virtual ~MinNumFunc() {}
+  virtual ~MinValueFunc() {}
 
-  virtual int32_t FieldType() { return ValType; }
+  virtual int32_t FieldType() { return targetType_; }
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    if (DBVAL_ELE_IS_NULL(pVals, fieldPos_))
+    if (DBVAL_ELE_IS_NULL(pVals, comparePos_))
       return PdbE_OK;
 
-    int64_t curVal = 0;
-    switch (ValType)
+    if (CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
     {
-    case PDB_VALUE_TYPE::VAL_INT64:
-      curVal = DBVAL_ELE_GET_INT64(pVals, fieldPos_);
-      break;
-    case PDB_VALUE_TYPE::VAL_DATETIME:
-      curVal = DBVAL_ELE_GET_DATETIME(pVals, fieldPos_);
-      break;
-    default:
-      return PdbE_INVALID_PARAM;
+      if (haveVal_ && DBVAL_ELE_GET_DOUBLE(pVals, comparePos_) >= compareDoubleVal_)
+        return PdbE_OK;
+
+      compareDoubleVal_ = DBVAL_ELE_GET_DOUBLE(pVals, comparePos_);
+    }
+    else
+    {
+      if (haveVal_ && DBVAL_ELE_GET_INT64(pVals, comparePos_) >= compareIntVal_)
+        return PdbE_OK;
+
+      compareIntVal_ = DBVAL_ELE_GET_INT64(pVals, comparePos_);
     }
 
-    if (!haveVal_ || curVal < val_)
-    {
-      haveVal_ = true;
-      val_ = curVal;
-    }
-
+    haveVal_ = true;
+    targetVal_ = pVals[targetPos_];
     return PdbE_OK;
   }
 
   virtual PdbErr_t GetResult(DBVal* pVal)
   {
-    if (haveVal_)
-    {
-      switch (ValType)
-      {
-      case PDB_VALUE_TYPE::VAL_INT64:
-        DBVAL_SET_INT64(pVal, val_);
-        break;
-      case PDB_VALUE_TYPE::VAL_DATETIME:
-        DBVAL_SET_DATETIME(pVal, val_);
-        break;
-      }
-    }
-    else
-    {
-      DBVAL_SET_NULL(pVal);
-    }
-
+    *pVal = targetVal_;
     return PdbE_OK;
   }
 
   virtual ResultField* NewField(int64_t devId, int64_t tstamp)
   {
-    return new MinNumFunc<ValType>(fieldPos_);
+    return new MinValueFunc<CompareType>(comparePos_, targetPos_, targetType_);
   }
 
 private:
   bool haveVal_;
-  size_t fieldPos_;
-  int64_t val_;
+  int targetType_;
+  size_t targetPos_;
+  size_t comparePos_;
+  int64_t compareIntVal_;
+  double compareDoubleVal_;
+  DBVal targetVal_;
 };
 
-class MinDoubleFunc : public ResultField
+template<int CompareType>
+class MinBlockFunc : public ResultField
 {
 public:
-  MinDoubleFunc(size_t fieldPos)
+  MinBlockFunc(size_t comparePos, size_t targetPos, int32_t targetType, Arena* pArena)
   {
     haveVal_ = false;
-    fieldPos_ = fieldPos;
-    val_ = 0;
+    targetType_ = targetType;
+    targetPos_ = targetPos;
+    comparePos_ = comparePos;
+    compareIntVal_ = 0;
+    compareDoubleVal_ = 0;
+    DBVAL_SET_NULL(&targetVal_);
+
+    pArena_ = pArena;
+    pBuf_ = nullptr;
+    bufLen_ = 0;
   }
 
-  virtual ~MinDoubleFunc() {}
+  virtual ~MinBlockFunc() {}
 
-  virtual int32_t FieldType() { return PDB_FIELD_TYPE::TYPE_DOUBLE; }
+  virtual int32_t FieldType() { return targetType_; }
 
   virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
   {
-    if (DBVAL_ELE_IS_NULL(pVals, fieldPos_))
+    if (DBVAL_ELE_IS_NULL(pVals, comparePos_))
       return PdbE_OK;
 
-    if (!haveVal_ || DBVAL_ELE_GET_DOUBLE(pVals, fieldPos_) < val_)
+    if (CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
     {
-      haveVal_ = true;
-      val_ = DBVAL_ELE_GET_DOUBLE(pVals, fieldPos_);
+      if (haveVal_ && DBVAL_ELE_GET_DOUBLE(pVals, comparePos_) >= compareDoubleVal_)
+        return PdbE_OK;
+
+      compareDoubleVal_ = DBVAL_ELE_GET_DOUBLE(pVals, comparePos_);
+    }
+    else
+    {
+      if (haveVal_ && DBVAL_ELE_GET_INT64(pVals, comparePos_) >= compareIntVal_)
+        return PdbE_OK;
+
+      compareIntVal_ = DBVAL_ELE_GET_INT64(pVals, comparePos_);
     }
 
+    haveVal_ = true;
+    if (DBVAL_ELE_IS_NULL(pVals, targetPos_))
+    {
+      DBVAL_SET_NULL(&targetVal_);
+      return PdbE_OK;
+    }
+
+    if (DBVAL_ELE_GET_LEN(pVals, targetPos_) > bufLen_)
+    {
+      size_t tmpLen = DBVAL_ELE_GET_LEN(pVals, targetPos_) + 32;
+      pBuf_ = (uint8_t*)pArena_->Allocate(tmpLen);
+      if (pBuf_ == nullptr)
+        return PdbE_NOMEM;
+
+      bufLen_ = tmpLen;
+    }
+
+    memcpy(pBuf_, DBVAL_ELE_GET_BLOB(pVals, targetPos_), DBVAL_ELE_GET_LEN(pVals, targetPos_));
+    DBVAL_SET_BLOCK_VALUE(&targetVal_, targetType_, pBuf_, DBVAL_ELE_GET_LEN(pVals, targetPos_));
     return PdbE_OK;
   }
 
   virtual PdbErr_t GetResult(DBVal* pVal)
   {
-    if (haveVal_)
-    {
-      DBVAL_SET_DOUBLE(pVal, val_);
-    }
-    else
-    {
-      DBVAL_SET_NULL(pVal);
-    }
-
+    *pVal = targetVal_;
     return PdbE_OK;
   }
 
   virtual ResultField* NewField(int64_t devId, int64_t tstamp)
   {
-    return new MinDoubleFunc(fieldPos_);
+    return new MinBlockFunc<CompareType>(comparePos_, targetPos_, targetType_, pArena_);
   }
 
 private:
   bool haveVal_;
-  size_t fieldPos_;
-  double val_;
+  int targetType_;
+  size_t targetPos_;
+  size_t comparePos_;
+  int64_t compareIntVal_;
+  double compareDoubleVal_;
+  DBVal targetVal_;
+
+  Arena* pArena_;
+  uint8_t* pBuf_;
+  size_t bufLen_;
 };

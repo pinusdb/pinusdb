@@ -54,6 +54,10 @@ public:
 
 protected:
   PdbErr_t AddCountField(const std::string& aliasName, size_t fieldPos);
+  PdbErr_t AddMinField(const std::string& aliasName, size_t comparePos, 
+    int32_t compareType, size_t targetPos, int32_t targetType, Arena* pArena);
+  PdbErr_t AddMaxField(const std::string& aliasName, size_t comparePos,
+    int32_t compareType, size_t targetPos, int32_t targetType, Arena* pArena);
 
   PdbErr_t AddAggField(int funcId, const std::string& aliasName,
     size_t fieldPos, int32_t fieldType, Arena* pArena);
@@ -64,6 +68,12 @@ protected:
   ResultField* AddAggDateTimeField(int funcId, size_t fieldPos);
   ResultField* AddAggStringField(int funcId, size_t fieldPos, Arena* pArena);
   ResultField* AddAggBlobField(int funcId, size_t fieldPos, Arena* pArena);
+
+  ResultField* AddAggMinField(size_t comparePos, 
+    int32_t compareType, size_t targetPos, int32_t targetType, Arena* pArena);
+  ResultField* AddAggMaxField(size_t comparePos,
+    int32_t compareType, size_t targetPos, int32_t targetType, Arena* pArena);
+
 
   int GetFuncIdByName(const std::string& funcName);
 

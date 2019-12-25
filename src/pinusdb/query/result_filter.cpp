@@ -130,7 +130,27 @@ PdbErr_t IResultFilter::AddCountField(const std::string& aliasName, size_t field
   return AddResultField(pRetField, aliasName);
 }
 
-PdbErr_t IResultFilter::AddAggField(int funcId, const std::string& aliasName, 
+PdbErr_t IResultFilter::AddMinField(const std::string& aliasName, size_t comparePos, 
+  int32_t compareType, size_t targetPos, int32_t targetType, Arena* pArena)
+{
+  ResultField* pRetField = AddAggMinField(comparePos, compareType, targetPos, targetType, pArena);
+  if (pRetField == nullptr)
+    return PdbE_SQL_RESULT_ERROR;
+
+  return AddResultField(pRetField, aliasName);
+}
+
+PdbErr_t IResultFilter::AddMaxField(const std::string& aliasName, size_t comparePos,
+  int32_t compareType, size_t targetPos, int32_t targetType, Arena* pArena)
+{
+  ResultField* pRetField = AddAggMaxField(comparePos, compareType, targetPos, targetType, pArena);
+  if (pRetField == nullptr)
+    return PdbE_SQL_RESULT_ERROR;
+
+  return AddResultField(pRetField, aliasName);
+}
+
+PdbErr_t IResultFilter::AddAggField(int funcId, const std::string& aliasName,
   size_t fieldPos, int32_t fieldType, Arena* pArena)
 {
   ResultField* pRetField = nullptr;
@@ -194,9 +214,9 @@ ResultField* IResultFilter::AddAggInt64Field(int funcId, size_t fieldPos)
   case PDB_SQL_FUNC::FUNC_AVG:
     return new AvgBigIntFunc(fieldPos);
   case PDB_SQL_FUNC::FUNC_MIN:
-    return new MinNumFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
+    return new MinValueFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos, fieldPos, PDB_FIELD_TYPE::TYPE_INT64);
   case PDB_SQL_FUNC::FUNC_MAX:
-    return new MaxNumFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos);
+    return new MaxValueFunc<PDB_FIELD_TYPE::TYPE_INT64>(fieldPos, fieldPos, PDB_FIELD_TYPE::TYPE_INT64);
   case PDB_SQL_FUNC::FUNC_SUM:
     return new SumNumFunc(fieldPos);
   }
@@ -217,9 +237,9 @@ ResultField* IResultFilter::AddAggDoubleField(int funcId, size_t fieldPos)
   case PDB_SQL_FUNC::FUNC_AVG:
     return new AvgDoubleFunc(fieldPos);
   case PDB_SQL_FUNC::FUNC_MIN:
-    return new MinDoubleFunc(fieldPos);
+    return new MinValueFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(fieldPos, fieldPos, PDB_FIELD_TYPE::TYPE_DOUBLE);
   case PDB_SQL_FUNC::FUNC_MAX:
-    return new MaxDoubleFunc(fieldPos);
+    return new MaxValueFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(fieldPos, fieldPos, PDB_FIELD_TYPE::TYPE_DOUBLE);
   case PDB_SQL_FUNC::FUNC_SUM:
     return new SumDoubleFunc(fieldPos);
   }
@@ -237,9 +257,9 @@ ResultField* IResultFilter::AddAggDateTimeField(int funcId, size_t fieldPos)
   case PDB_SQL_FUNC::FUNC_LAST:
     return new LastValFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
   case PDB_SQL_FUNC::FUNC_MIN:
-    return new MinNumFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
+    return new MinValueFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos, fieldPos, PDB_FIELD_TYPE::TYPE_DATETIME);
   case PDB_SQL_FUNC::FUNC_MAX:
-    return new MaxNumFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos);
+    return new MaxValueFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(fieldPos, fieldPos, PDB_FIELD_TYPE::TYPE_DATETIME);
   }
 
   return nullptr;
@@ -268,6 +288,84 @@ ResultField* IResultFilter::AddAggBlobField(int funcId, size_t fieldPos, Arena* 
     return new FirstBlockFunc<PDB_FIELD_TYPE::TYPE_BLOB>(fieldPos, pArena);
   case PDB_SQL_FUNC::FUNC_LAST:
     return new LastBlockFunc<PDB_FIELD_TYPE::TYPE_BLOB>(fieldPos, pArena);
+  }
+
+  return nullptr;
+}
+
+ResultField* IResultFilter::AddAggMinField(size_t comparePos, int32_t compareType, 
+  size_t targetPos, int32_t targetType, Arena* pArena)
+{
+  if (targetType == PDB_FIELD_TYPE::TYPE_STRING || targetType == PDB_FIELD_TYPE::TYPE_BLOB)
+  {
+    switch (compareType)
+    {
+    case PDB_FIELD_TYPE::TYPE_INT64:
+      return new MinBlockFunc<PDB_FIELD_TYPE::TYPE_INT64>(comparePos, targetPos, targetType, pArena);
+    case PDB_FIELD_TYPE::TYPE_DOUBLE:
+    case PDB_FIELD_TYPE::TYPE_REAL2:
+    case PDB_FIELD_TYPE::TYPE_REAL3:
+    case PDB_FIELD_TYPE::TYPE_REAL4:
+    case PDB_FIELD_TYPE::TYPE_REAL6:
+      return new MinBlockFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(comparePos, targetPos, targetType, pArena);
+    case PDB_FIELD_TYPE::TYPE_DATETIME:
+      return new MinBlockFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(comparePos, targetPos, targetType, pArena);
+    }
+  }
+  else
+  {
+    switch (compareType)
+    {
+    case PDB_FIELD_TYPE::TYPE_INT64:
+      return new MinValueFunc<PDB_FIELD_TYPE::TYPE_INT64>(comparePos, targetPos, targetType);
+    case PDB_FIELD_TYPE::TYPE_DOUBLE:
+    case PDB_FIELD_TYPE::TYPE_REAL2:
+    case PDB_FIELD_TYPE::TYPE_REAL3:
+    case PDB_FIELD_TYPE::TYPE_REAL4:
+    case PDB_FIELD_TYPE::TYPE_REAL6:
+      return new MinValueFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(comparePos, targetPos, targetType);
+    case PDB_FIELD_TYPE::TYPE_DATETIME:
+      return new MinValueFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(comparePos, targetPos, targetType);
+    }
+  }
+
+  return nullptr;
+}
+
+ResultField* IResultFilter::AddAggMaxField(size_t comparePos, int32_t compareType, 
+  size_t targetPos, int32_t targetType, Arena* pArena)
+{
+  if (targetType == PDB_FIELD_TYPE::TYPE_STRING || targetType == PDB_FIELD_TYPE::TYPE_BLOB)
+  {
+    switch (compareType)
+    {
+    case PDB_FIELD_TYPE::TYPE_INT64:
+      return new MaxBlockFunc<PDB_FIELD_TYPE::TYPE_INT64>(comparePos, targetPos, targetType, pArena);
+    case PDB_FIELD_TYPE::TYPE_DOUBLE:
+    case PDB_FIELD_TYPE::TYPE_REAL2:
+    case PDB_FIELD_TYPE::TYPE_REAL3:
+    case PDB_FIELD_TYPE::TYPE_REAL4:
+    case PDB_FIELD_TYPE::TYPE_REAL6:
+      return new MaxBlockFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(comparePos, targetPos, targetType, pArena);
+    case PDB_FIELD_TYPE::TYPE_DATETIME:
+      return new MaxBlockFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(comparePos, targetPos, targetType, pArena);
+    }
+  }
+  else
+  {
+    switch (compareType)
+    {
+    case PDB_FIELD_TYPE::TYPE_INT64:
+      return new MaxValueFunc<PDB_FIELD_TYPE::TYPE_INT64>(comparePos, targetPos, targetType);
+    case PDB_FIELD_TYPE::TYPE_DOUBLE:
+    case PDB_FIELD_TYPE::TYPE_REAL2:
+    case PDB_FIELD_TYPE::TYPE_REAL3:
+    case PDB_FIELD_TYPE::TYPE_REAL4:
+    case PDB_FIELD_TYPE::TYPE_REAL6:
+      return new MaxValueFunc<PDB_FIELD_TYPE::TYPE_DOUBLE>(comparePos, targetPos, targetType);
+    case PDB_FIELD_TYPE::TYPE_DATETIME:
+      return new MaxValueFunc<PDB_FIELD_TYPE::TYPE_DATETIME>(comparePos, targetPos, targetType);
+    }
   }
 
   return nullptr;
@@ -350,7 +448,9 @@ PdbErr_t IResultFilter::BuildGroupResultField(const std::vector<ExprItem*>& colI
 {
   PdbErr_t retVal = PdbE_OK;
   int32_t fieldType = 0;
+  int32_t targetType = 0;
   size_t fieldPos = 0;
+  size_t targetPos = 0;
 
   fieldVec_.clear();
 
@@ -394,6 +494,8 @@ PdbErr_t IResultFilter::BuildGroupResultField(const std::vector<ExprItem*>& colI
       //聚合函数
       const std::string& funcName = (*colItem)->GetFuncName();
       int funcId = GetFuncIdByName(funcName);
+      if (funcId < 0)
+        return PdbE_SQL_RESULT_ERROR;
 
       const std::string& aliasName = (*colItem)->GetAliasName();
       if (aliasName.size() == 0)
@@ -404,37 +506,56 @@ PdbErr_t IResultFilter::BuildGroupResultField(const std::vector<ExprItem*>& colI
         return PdbE_SQL_ERROR;
 
       const std::vector<ExprItem*> argList = pFuncArgs->GetExprList();
-      if (argList.size() != 1) //目前所有聚合函数只有一个参数
-        return PdbE_SQL_ERROR;
+      if (argList.size() != 1 && argList.size() != 2)
+      {
+        return PdbE_SQL_RESULT_ERROR;
+      }
 
-      const std::string& fieldName = argList[0]->GetValueStr();
-
-      if (fieldName.compare("*") == 0  && funcId == PDB_SQL_FUNC::FUNC_COUNT )
+      std::string fieldName = argList[0]->GetValueStr();
+      if (fieldName.compare("*") == 0 && funcId == PDB_SQL_FUNC::FUNC_COUNT && argList.size() == 1)
       {
         retVal = AddCountField(aliasName, 0);
         if (retVal != PdbE_OK)
           return retVal;
       }
+
+      retVal = pTabInfo->GetFieldInfo(fieldName.c_str(), &fieldPos, &fieldType);
+      if (retVal != PdbE_OK)
+        return retVal;
+
+      if (pGroup != nullptr)
+      {
+        //group by objectname 的查询，objectname不能出现在聚合函数中
+        if (fieldPos == PDB_DEVID_INDEX
+          && pGroup->IsDevIdGroup())
+          return PdbE_SQL_RESULT_ERROR;
+
+        //group by timestamp 的查询，timestamp不能出现在聚合函数中
+        if (fieldPos == PDB_TSTAMP_INDEX
+          && pGroup->IsTStampGroup())
+          return PdbE_SQL_RESULT_ERROR;
+      }
+
+      if (argList.size() == 1)
+      {
+        retVal = AddAggField(funcId, aliasName, fieldPos, fieldType, pArena);
+        if (retVal != PdbE_OK)
+          return retVal;
+      }
       else
       {
-        retVal = pTabInfo->GetFieldInfo(fieldName.c_str(), &fieldPos, &fieldType);
+        std::string targetName = argList[1]->GetValueStr();
+        retVal = pTabInfo->GetFieldInfo(targetName.c_str(), &targetPos, &targetType);
         if (retVal != PdbE_OK)
           return retVal;
 
-        if (pGroup != nullptr)
-        {
-          //group by objectname 的查询，objectname不能出现在聚合函数中
-          if (fieldPos == PDB_DEVID_INDEX
-            && pGroup->IsDevIdGroup())
-            return PdbE_SQL_RESULT_ERROR;
+        if (funcId == PDB_SQL_FUNC::FUNC_MIN)
+          retVal = AddMinField(aliasName, fieldPos, fieldType, targetPos, targetType, pArena);
+        else if (funcId == PDB_SQL_FUNC::FUNC_MAX)
+          retVal = AddMaxField(aliasName, fieldPos, fieldType, targetPos, targetType, pArena);
+        else
+          retVal = PdbE_SQL_RESULT_ERROR;
 
-          //group by timestamp 的查询，timestamp不能出现在聚合函数中
-          if (fieldPos == PDB_TSTAMP_INDEX
-            && pGroup->IsTStampGroup())
-            return PdbE_SQL_RESULT_ERROR;
-        }
-
-        retVal = AddAggField(funcId, aliasName, fieldPos, fieldType, pArena);
         if (retVal != PdbE_OK)
           return retVal;
       }
