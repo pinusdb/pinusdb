@@ -23,7 +23,7 @@
 
 #include "expr/sql_parser.h"
 #include "expr/tokenize.h"
-#include "expr/expr_item.h"
+#include "query/value_item.h"
 
 #include "db/db_impl.h"
 #include "global_variable.h"
@@ -50,16 +50,7 @@ EventHandle::EventHandle(int socket, const char* pRemoteIp, int remotePort)
 
   this->recvHeadLen_ = 0;
   this->recvBodyLen_ = 0;
-  this->totalRecvBodyLen_ = 0;
-
-  this->pRecvBuf_ = nullptr;
-  this->recvBufLen_ = 0;
-
   this->sendLen_ = 0;
-  this->totalSendLen_ = 0;
-
-  this->sendBufLen_ = 0;
-  this->pSendBuf_ = nullptr;
 }
 
 
@@ -70,12 +61,6 @@ EventHandle::~EventHandle()
 #ifndef _WIN32
   close(socket_);
 #endif
-
-  if (pRecvBuf_ != nullptr)
-    delete pRecvBuf_;
-
-  if (pSendBuf_ != nullptr)
-    delete pSendBuf_;
 }
 
 #ifdef _WIN32
@@ -132,28 +117,36 @@ bool EventHandle::RecvPostedEvent(const uint8_t* pBuf, size_t bytesTransfered)
     }
 
     if (bytesTransfered == 0)
+    {
+      if (recvBuf_.size() == 0)
+      {
+        //没有报文体
+        this->eventState_ = EventState::kExec;
+      }
       break;
+    }
 
     //接收报文体
-    if ((recvBodyLen_ + bytesTransfered) > totalRecvBodyLen_)
+    if ((recvBodyLen_ + bytesTransfered) > recvBuf_.size())
     {
       LOG_ERROR("connection ({}:{}) received overflow, received:({}) total:({})",
-        remoteIp_.c_str(), remotePort_, (recvBodyLen_ + bytesTransfered), totalRecvBodyLen_);
+        remoteIp_.c_str(), remotePort_, (recvBodyLen_ + bytesTransfered), recvBuf_.size());
       retVal = PdbE_PACKET_ERROR;
       break;
     }
 
+    uint8_t* pRecvBuf = (uint8_t*)&(recvBuf_[0]);
     //判断要不要拷贝
-    if (recvBodyLen_ != 0 || pRecvBuf_ != pTmpBuf)
+    if (recvBodyLen_ != 0 || pRecvBuf != pTmpBuf)
     {
       //需要拷贝
-      memcpy((pRecvBuf_ + recvBodyLen_), pTmpBuf, bytesTransfered);
+      memcpy((pRecvBuf + recvBodyLen_), pTmpBuf, bytesTransfered);
     }
     recvBodyLen_ += bytesTransfered;
 
-    if (recvBodyLen_ == totalRecvBodyLen_)
+    if (recvBodyLen_ == recvBuf_.size())
     {
-      uint32_t tmpCrc32 = StringTool::CRC32(pRecvBuf_, totalRecvBodyLen_);
+      uint32_t tmpCrc32 = StringTool::CRC32(pRecvBuf, recvBodyLen_);
       if (tmpCrc32 != dataCrc_)
       {
         LOG_ERROR("connection ({}:{}) packet body crc error",
@@ -204,26 +197,26 @@ bool EventHandle::SendPostedEvent(size_t bytesTransfered)
       break;
     }
 
-    if (sendLen_ + bytesTransfered > totalSendLen_)
+    if (sendLen_ + bytesTransfered > sendBuf_.size())
     {
       LOG_ERROR("failed to send packet, total length ({}),  sent length ({}) error",
-        totalSendLen_, (sendLen_ + bytesTransfered));
+        sendBuf_.size(), (sendLen_ + bytesTransfered));
       retVal = PdbE_PACKET_ERROR;
       break;
     }
 
     sendLen_ += bytesTransfered;
 
-    if (sendLen_ == totalSendLen_)
+    if (sendLen_ == sendBuf_.size())
     {
       this->eventState_ = EventState::kRecv;
 
       this->recvHeadLen_ = 0;
       this->recvBodyLen_ = 0;
-      this->totalRecvBodyLen_ = 0;
+      this->recvBuf_.resize(0);
 
       this->sendLen_ = 0;
-      this->totalSendLen_ = 0;
+      this->sendBuf_.resize(0);
 
       FreeSendBuf();
     }
@@ -271,8 +264,8 @@ bool EventHandle::GetRecvBuf(WSABUF* pWsaBuf)
   else if (recvBodyLen_ == 0)
   {
     //接收报文体，直接指向报文体的缓冲区
-    pWsaBuf->buf = (char*)pRecvBuf_;
-    pWsaBuf->len = static_cast<ULONG>(totalRecvBodyLen_);
+    pWsaBuf->buf = &(recvBuf_[0]);
+    pWsaBuf->len = static_cast<ULONG>(recvBuf_.size());
   }
   //其它清空使用默认的缓冲区空间及大小
 
@@ -304,13 +297,13 @@ bool EventHandle::GetSendBuf(WSABUF* pWsaBuf)
 
   if (sendLen_ == 0)
   {
-    pWsaBuf->buf = (char*)pSendBuf_;
-    pWsaBuf->len = static_cast<ULONG>(totalSendLen_);
+    pWsaBuf->buf = (char*)&(sendBuf_[0]);
+    pWsaBuf->len = static_cast<ULONG>(sendBuf_.size());
   }
   else
   {
-    size_t tmpLen = pWsaBuf->len > (totalSendLen_ - sendLen_) ? (totalSendLen_ - sendLen_) : pWsaBuf->len;
-    memcpy(pWsaBuf->buf, (pRecvBuf_ + sendLen_), tmpLen);
+    size_t tmpLen = pWsaBuf->len > (sendBuf_.size() - sendLen_) ? (sendBuf_.size() - sendLen_) : pWsaBuf->len;
+    memcpy(pWsaBuf->buf, (&(sendBuf_[0]) + sendLen_), tmpLen);
     pWsaBuf->len = static_cast<ULONG>(tmpLen);
   }
 
@@ -368,10 +361,12 @@ bool EventHandle::RecvData()
       }
     }
 
-    while (recvBodyLen_ < totalRecvBodyLen_)
+    uint8_t* pRecvBuf = (uint8_t*)&(recvBuf_[0]);
+
+    while (recvBodyLen_ < recvBuf_.size())
     {
-      int tmpLen = totalRecvBodyLen_ - recvBodyLen_;
-      nread = read(socket_, (pRecvBuf_ + recvBodyLen_), tmpLen);
+      int tmpLen = recvBuf_.size() - recvBodyLen_;
+      nread = read(socket_, (pRecvBuf + recvBodyLen_), tmpLen);
 
       if (nread <= 0)
       {
@@ -385,9 +380,9 @@ bool EventHandle::RecvData()
       recvBodyLen_ += nread;
     }
 
-    if (recvBodyLen_ == totalRecvBodyLen_)
+    if (recvBodyLen_ == recvBuf_.size())
     {
-      uint32_t tmpCrc32 = StringTool::CRC32(pRecvBuf_, totalRecvBodyLen_);
+      uint32_t tmpCrc32 = StringTool::CRC32(pRecvBuf, recvBuf_.size());
       if (tmpCrc32 != dataCrc_)
       {
         LOG_ERROR("recv socket data, protocal body crc error");
@@ -420,9 +415,10 @@ bool EventHandle::_SendData()
 {
   if (eventState_ == EventState::kSend)
   {
-    while (sendLen_ < totalSendLen_)
+    char* pSendBuf = (&(sendBuf_[0]));
+    while (sendLen_ < sendBuf_.size())
     {
-      int nwrite = write(socket_, (pSendBuf_ + sendLen_), (totalSendLen_ - sendLen_));
+      int nwrite = write(socket_, (pSendBuf + sendLen_), (sendBuf_.size() - sendLen_));
       if (nwrite <= 0)
       {
         if (nwrite < 0 && errno != EAGAIN)
@@ -436,16 +432,16 @@ bool EventHandle::_SendData()
       sendLen_ += nwrite;
     }
 
-    if (sendLen_ == totalSendLen_)
+    if (sendLen_ == sendBuf_.size())
     {
       this->eventState_ = EventState::kRecv;
 
       this->recvHeadLen_ = 0;
       this->recvBodyLen_ = 0;
-      this->totalRecvBodyLen_ = 0;
+      this->recvBuf_.resize(0);
 
       this->sendLen_ = 0;
-      this->totalSendLen_ = 0;
+      this->sendBuf_.resize(0);
 
       FreeSendBuf();
     }
@@ -461,9 +457,11 @@ bool EventHandle::ExecTask()
   PdbErr_t retVal = PdbE_OK;
 
   int32_t successCnt = 0;
-  DataTable resultTable;
   uint32_t repMethodId = METHOD_ERROR_REP;
   std::list<PdbErr_t> insertRet;
+
+  uint32_t fieldCount = 0;
+  uint32_t recordCount = 0;
 
 #ifndef _WIN32
   std::unique_lock<std::mutex> eventLock(eventMutex_);
@@ -485,7 +483,7 @@ bool EventHandle::ExecTask()
   }
   case METHOD_CMD_QUERY_REQ:
   {
-    retVal = ExecQuery(&resultTable);
+    retVal = ExecQuery(sendBuf_, &fieldCount, &recordCount);
     repMethodId = METHOD_CMD_QUERY_REP;
     break;
   }
@@ -516,7 +514,7 @@ bool EventHandle::ExecTask()
 
   if (method_ == METHOD_CMD_QUERY_REQ)
   {
-    EncodeQueryPacket(retVal, &resultTable);
+    EncodeQueryPacket(retVal, fieldCount, recordCount);
   }
   else if (method_ == METHOD_CMD_INSERT_REQ)
   {
@@ -529,21 +527,20 @@ bool EventHandle::ExecTask()
   else
   {
     //其它报文
-    AllocSendBuf(ProtoHeader::kProtoHeadLength);
+    sendBuf_.resize(ProtoHeader::kProtoHeadLength);
     ProtoHeader proHdr;
-    proHdr.Load(pSendBuf_);
+    proHdr.Load(&(sendBuf_[0]));
     proHdr.InitHeader(repMethodId, 0, retVal, 0);
-    this->totalSendLen_ = ProtoHeader::kProtoHeadLength;
   }
-
-  //如果接收缓冲大于某个值，则释放
-  FreeRecvBuf();
 
   this->sendLen_ = 0;
   this->recvHeadLen_ = 0;
   this->recvBodyLen_ = 0;
-  this->totalRecvBodyLen_ = 0;
+  this->recvBuf_.resize(0);
   this->eventState_ = EventState::kSend;
+
+  //如果接收缓冲大于某个值，则释放
+  FreeRecvBuf();
 
 #ifdef _WIN32
   return true;
@@ -570,7 +567,6 @@ PdbErr_t EventHandle::DecodeHead()
   method_ = proHdr.GetMethod();
   fieldCnt_ = proHdr.GetFieldCnt();
   recCnt_ = proHdr.GetRecordCnt();
-  totalRecvBodyLen_ = proHdr.GetBodyLen();
   dataCrc_ = proHdr.GetBodyCrc();
   //验证头部CRC是否正确
   {
@@ -585,18 +581,13 @@ PdbErr_t EventHandle::DecodeHead()
 
   //验证是否支持该版本的报文
 
-  if (totalRecvBodyLen_ < 0
-    || totalRecvBodyLen_ > PDB_MAX_PACKET_BODY_LEN
-    || recCnt_ > PDB_MAX_PACKET_REC_CNT)
+  if (proHdr.GetBodyLen() > PDB_MAX_PACKET_BODY_LEN)
   {
-    LOG_ERROR("packet length ({}) error", totalRecvBodyLen_);
+    LOG_ERROR("packet length ({}) error", proHdr.GetBodyLen());
     return PdbE_PACKET_ERROR;
   }
   //分配空间
-  retVal = AllocRecvBuf(totalRecvBodyLen_);
-  if (retVal != PdbE_OK)
-    return retVal;
-
+  recvBuf_.resize(proHdr.GetBodyLen());
   recvBodyLen_ = 0;
 
   return PdbE_OK;
@@ -618,14 +609,14 @@ PdbErr_t EventHandle::DecodeSqlPacket(const char** ppSql, size_t* pSqlLen)
   }
 
   *pSqlLen = recvBodyLen_;
-  *ppSql = (const char*)pRecvBuf_;
+  *ppSql = &(recvBuf_[0]);
   return PdbE_OK;
 }
 
 PdbErr_t EventHandle::DecodeInsertTable(InsertSql* pInsertSql)
 {
-  const uint8_t* pTmp = pRecvBuf_;
-  const uint8_t* pBufLimit = pRecvBuf_ + recvBodyLen_;
+  const char* pTmp = &(recvBuf_[0]);
+  const char* pBufLimit = pTmp + recvBodyLen_;
   DBVal dbVal;
   uint32_t vType = 0;
   uint32_t v32 = 0;
@@ -641,6 +632,7 @@ PdbErr_t EventHandle::DecodeInsertTable(InsertSql* pInsertSql)
   pInsertSql->SetFieldCnt(fieldCnt_);
   pInsertSql->SetRecCnt(recCnt_);
 
+  //包括表名和字段名，所以此处为 idx <= fieldCnt_
   for (uint32_t idx = 0; idx <= fieldCnt_ && pTmp < pBufLimit; idx++)
   {
     vType = *pTmp++;
@@ -732,9 +724,9 @@ PdbErr_t EventHandle::DecodeInsertTable(InsertSql* pInsertSql)
 PdbErr_t EventHandle::DecodeInsertSql(InsertSql* pInsertSql, Arena* pArena)
 {
   PdbErr_t retVal = PdbE_OK;
-  DBVal val;
   const char* pSql = nullptr;
   size_t sqlLen = 0;
+  TableInfo nonTab;
   retVal = DecodeSqlPacket(&pSql, &sqlLen);
   if (retVal != PdbE_OK)
     return retVal;
@@ -748,95 +740,128 @@ PdbErr_t EventHandle::DecodeInsertSql(InsertSql* pInsertSql, Arena* pArena)
     return PdbE_SQL_ERROR;
 
   const InsertParam* pInsertParam = sqlParser.GetInsertParam();
-  pInsertSql->SetTableName(pInsertParam->tabName_);
-  const std::vector<ExprItem*>& colVec = pInsertParam->pColList_->GetExprList();
-  pInsertSql->SetFieldCnt(colVec.size());
+  pInsertSql->SetTableName(sqlParser.GetTableName());
+  const std::vector<TargetItem>* pColVec = pInsertParam->pTagList_->GetTargetList();
+  pInsertSql->SetFieldCnt(pColVec->size());
 
-  for (auto colIt = colVec.begin(); colIt != colVec.end(); colIt++)
+  DBVal colNameVal;
+  for (auto colIt = pColVec->begin(); colIt != pColVec->end(); colIt++)
   {
-    if ((*colIt)->GetOp() != TK_ID)
+    if ((*colIt).first->GetValueType() != TK_ID)
       return PdbE_SQL_ERROR;
 
-    pInsertSql->AppendFieldName((*colIt)->GetValueStr());
+    colNameVal = (*colIt).first->GetValue();
+    if (!DBVAL_IS_STRING(&colNameVal))
+      return PdbE_SQL_ERROR;
+
+    pInsertSql->AppendFieldName(DBVAL_GET_STRING(&colNameVal), DBVAL_GET_LEN(&colNameVal));
   }
 
-  const std::list<ExprList*>& recList = pInsertParam->pValRecList_->GetRecList();
+  int64_t nowMillis = DateTime::NowMilliseconds();
+  ValueItem* pTmpValItem = nullptr;
+  int valType = 0;
+  DBVal val;
+  const std::vector<ExprValueList*>& recList = pInsertParam->pValRecList_->GetRecList();
   pInsertSql->SetRecCnt(recList.size());
   for (auto recIt = recList.begin(); recIt != recList.end(); recIt++)
   {
-    const std::vector<ExprItem*>& valVec = (*recIt)->GetExprList();
-    if (valVec.size() != colVec.size())
+    const std::vector<ExprValue*>* pValVec  = (*recIt)->GetValueList();
+    if (pValVec->size() != pColVec->size())
       return PdbE_SQL_ERROR;
 
-    for (auto valIt = valVec.begin(); valIt != valVec.end(); valIt++)
+    for (auto valIt = pValVec->begin(); valIt != pValVec->end(); valIt++)
     {
-      if (!(*valIt)->GetDBVal(&val))
-        return PdbE_SQL_ERROR;
+      valType = (*valIt)->GetValueType();
+      val = (*valIt)->GetValue();
+      do {
+        if (valType == TK_TRUE
+          || valType == TK_FALSE
+          || valType == TK_INTEGER
+          || valType == TK_DOUBLE
+          || valType == TK_STRING
+          || valType == TK_BLOB)
+        {
+          retVal = pInsertSql->AppendVal(&val);
+        }
+        else
+        {
+          pTmpValItem = BuildGeneralValueItem(&nonTab, (*valIt), nowMillis);
+          if (pTmpValItem == nullptr)
+          {
+            retVal = PdbE_SQL_ERROR;
+            break;
+          }
 
-      pInsertSql->AppendVal(&val);
+          if (!pTmpValItem->IsValid())
+          {
+            retVal = PdbE_SQL_ERROR;
+            break;
+          }
+
+          if (!pTmpValItem->IsConstValue())
+          {
+            retVal = PdbE_SQL_ERROR;
+            break;
+          }
+
+          if (pTmpValItem->GetValue(nullptr, &val) != PdbE_OK)
+          {
+            retVal = PdbE_SQL_ERROR;
+            break;
+          }
+
+          pInsertSql->AppendVal(&val);
+        }
+      } while (false);
+
+      if (pTmpValItem != nullptr)
+      {
+        delete pTmpValItem;
+        pTmpValItem = nullptr;
+      }
     }
   }
 
   return PdbE_OK;
 }
 
-PdbErr_t EventHandle::EncodeQueryPacket(PdbErr_t retVal, DataTable* pTable)
+PdbErr_t EventHandle::EncodeQueryPacket(PdbErr_t retVal, uint32_t fieldCnt, uint32_t recordCnt)
 {
-  do {
-    if (retVal != PdbE_OK)
-      break;
+  if (retVal == PdbE_OK)
+  {
+    char* pSendBuf = (&(sendBuf_[0]));
+    size_t bodyLen = sendBuf_.size() - ProtoHeader::kProtoHeadLength;
 
-    uint32_t fieldCnt = static_cast<uint32_t>(pTable->GetColumnCnt());
-    uint32_t recCnt = static_cast<uint32_t>(pTable->GetRecordCnt());
-
-    size_t tmpLen = 0;
-    retVal = pTable->GetSerializeLen(&tmpLen);
-    if (retVal != PdbE_OK)
-      break;
-
-    retVal = AllocSendBuf((ProtoHeader::kProtoHeadLength + tmpLen));
-    if (retVal != PdbE_OK)
-      break;
-
-    size_t bodyLen = 0;
-    uint8_t* pTmpBodyBuf = pSendBuf_ + ProtoHeader::kProtoHeadLength;
-    retVal = pTable->Serialize(pTmpBodyBuf, &bodyLen);
-    if (retVal != PdbE_OK)
-      break;
-
-    uint32_t bodyCrc = StringTool::CRC32(pTmpBodyBuf, bodyLen);
+    uint32_t bodyCrc = StringTool::CRC32((pSendBuf + ProtoHeader::kProtoHeadLength), bodyLen);
 
     ProtoHeader proHdr;
-    proHdr.Load(pSendBuf_);
+    proHdr.Load(pSendBuf);
     proHdr.InitHeader(METHOD_CMD_QUERY_REP, static_cast<int32_t>(bodyLen), PdbE_OK, bodyCrc);
-    proHdr.SetRecordCnt(recCnt);
+    proHdr.SetRecordCnt(recordCnt);
     proHdr.SetFieldCnt(fieldCnt);
     proHdr.UpdateHeadCrc();
-    
-    totalSendLen_ = (bodyLen + ProtoHeader::kProtoHeadLength);
-    return PdbE_OK;
-  } while (false);
+  }
+  else
+  {
+    sendBuf_.resize(ProtoHeader::kProtoHeadLength);
+    ProtoHeader proHdr;
+    proHdr.Load((&(sendBuf_[0])));
+    proHdr.InitHeader(METHOD_CMD_QUERY_REP, 0, retVal, 0);
+  }
 
-  AllocSendBuf(ProtoHeader::kProtoHeadLength);
-  ProtoHeader proHdr;
-  proHdr.Load(pSendBuf_);
-  proHdr.InitHeader(METHOD_CMD_QUERY_REP, 0, retVal, 0);
-  this->totalSendLen_ = ProtoHeader::kProtoHeadLength;
-  
   return PdbE_OK;
 }
 
 PdbErr_t EventHandle::EncodeInsertPacket(PdbErr_t retVal, int32_t successCnt)
 {
-  AllocSendBuf(ProtoHeader::kProtoHeadLength);
   ProtoHeader proHdr;
-  proHdr.Load(pSendBuf_);
+  sendBuf_.resize(ProtoHeader::kProtoHeadLength);
+  proHdr.Load(&(sendBuf_[0]));
   proHdr.InitHeader(METHOD_CMD_INSERT_REP, 0, retVal, 0);
   proHdr.SetRecordCnt(successCnt);
   proHdr.SetErrPos(0);
   proHdr.UpdateHeadCrc();
 
-  this->totalSendLen_ = ProtoHeader::kProtoHeadLength;
   return PdbE_OK;
 }
 
@@ -846,12 +871,11 @@ PdbErr_t EventHandle::EncodeInsertTablePacket(PdbErr_t retVal, const std::list<P
   
   if (retVal == PdbE_OK)
   {
-    AllocSendBuf(ProtoHeader::kProtoHeadLength);
-    proHdr.Load(pSendBuf_);
+    sendBuf_.resize(ProtoHeader::kProtoHeadLength);
+    proHdr.Load(&(sendBuf_[0]));
     proHdr.InitHeader(METHOD_CMD_INSERT_TABLE_REP, 0, PdbE_OK, 0);
     proHdr.SetRecordCnt(static_cast<uint32_t>(insertRet.size()));
     proHdr.UpdateHeadCrc();
-    this->totalSendLen_ = ProtoHeader::kProtoHeadLength;
     return PdbE_OK;
   }
 
@@ -860,12 +884,10 @@ PdbErr_t EventHandle::EncodeInsertTablePacket(PdbErr_t retVal, const std::list<P
       break;
 
     size_t tmpLen = insertRet.size() * 9;
-    retVal = AllocSendBuf((ProtoHeader::kProtoHeadLength + tmpLen));
-    if (retVal != PdbE_OK)
-      break;
+    sendBuf_.resize((ProtoHeader::kProtoHeadLength + tmpLen));
 
     size_t bodyLen = 0;
-    uint8_t* pBodyBuf = pSendBuf_ + ProtoHeader::kProtoHeadLength;
+    uint8_t* pBodyBuf = (uint8_t*)&(sendBuf_[0]) + ProtoHeader::kProtoHeadLength;
     uint8_t* pTmpBody = pBodyBuf;
     for (auto retIt = insertRet.begin(); retIt != insertRet.end(); retIt++)
     {
@@ -875,21 +897,19 @@ PdbErr_t EventHandle::EncodeInsertTablePacket(PdbErr_t retVal, const std::list<P
     bodyLen = pTmpBody - pBodyBuf;
     uint32_t bodyCrc = StringTool::CRC32(pBodyBuf, bodyLen);
 
-    proHdr.Load(pSendBuf_);
+    proHdr.Load(&(sendBuf_[0]));
     proHdr.InitHeader(METHOD_CMD_INSERT_TABLE_REP, static_cast<int32_t>(bodyLen), PdbE_INSERT_PART_ERROR, bodyCrc);
     proHdr.SetRecordCnt(static_cast<uint32_t>(insertRet.size()));
     proHdr.UpdateHeadCrc();
 
-    totalSendLen_ = (bodyLen + ProtoHeader::kProtoHeadLength);
+    sendBuf_.resize(bodyLen + ProtoHeader::kProtoHeadLength);
     return PdbE_OK;
   } while (false);
 
-  AllocSendBuf(ProtoHeader::kProtoHeadLength);
-  proHdr.Load(pSendBuf_);
+  sendBuf_.resize(ProtoHeader::kProtoHeadLength);
+  proHdr.Load(&(sendBuf_[0]));
   proHdr.InitHeader(METHOD_CMD_INSERT_TABLE_REP, 0, retVal, 0);
   proHdr.UpdateHeadCrc();
-
-  this->totalSendLen_ = ProtoHeader::kProtoHeadLength;
   return PdbE_OK;
 }
 
@@ -906,7 +926,7 @@ PdbErr_t EventHandle::ExecLogin()
     return PdbE_PACKET_ERROR;
   }
 
-  uint8_t* pTmp = pRecvBuf_;
+  const char* pTmp = &(recvBuf_[0]);
 
   uint32_t pwd = Coding::FixedDecode32((pTmp + PDB_USER_NAME_LEN));
   int32_t role = 0;
@@ -919,7 +939,7 @@ PdbErr_t EventHandle::ExecLogin()
     nameLen++;
   }
 
-  retVal = pGlbUser->Login((const char*)pTmp, pwd, &role);
+  retVal = pGlbUser->Login(pTmp, pwd, &role);
   if (retVal != PdbE_OK)
   {
     LOG_DEBUG("login failed ({}:{}), ret: ({})", 
@@ -930,23 +950,17 @@ PdbErr_t EventHandle::ExecLogin()
   userRole_ = role;
   userName_ = (char*)pTmp;
 
-  pGlbServerConnction->ConnectionLogin((uint64_t)this, (const char*)pTmp, role);
+  pGlbServerConnction->ConnectionLogin((uint64_t)this, pTmp, role);
   LOG_INFO("login successed, client:({}:{}), user:({}), role:({})", 
     remoteIp_.c_str(), remotePort_, userName_, userRole_);
   return PdbE_OK;
 }
 
 
-PdbErr_t EventHandle::ExecQuery(DataTable* pResultTable)
+PdbErr_t EventHandle::ExecQuery(std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
-
-  if (pResultTable == nullptr)
-  {
-    return PdbE_INVALID_PARAM;
-  }
-
   if (userRole_ != PDB_ROLE::ROLE_ADMIN
     && userRole_ != PDB_ROLE::ROLE_READ_ONLY
     && userRole_ != PDB_ROLE::ROLE_READ_WRITE)
@@ -960,6 +974,8 @@ PdbErr_t EventHandle::ExecQuery(DataTable* pResultTable)
   if (retVal != PdbE_OK)
     return retVal;
 
+  LOG_DEBUG(pSql);
+
   SQLParser sqlParser;
   Tokenize::RunParser(&arena, &sqlParser, pSql, sqlLen);
   if (sqlParser.GetError())
@@ -972,7 +988,7 @@ PdbErr_t EventHandle::ExecQuery(DataTable* pResultTable)
     return PdbE_SQL_ERROR;
   }
 
-  retVal = pGlbTableSet->ExecuteQuery(pResultTable, &sqlParser, userRole_);
+  retVal = pGlbTableSet->ExecuteQuery(&sqlParser, userRole_, resultData, pFieldCnt, pRecordCnt);
   return retVal;
 }
 
@@ -1042,43 +1058,43 @@ PdbErr_t EventHandle::ExecNonQuery()
   switch (cmdType)
   {
     case SQLParser::CmdType::CT_DropTable: // 需要管理员权限
-      retVal = _DropTable(sqlParser.GetDropTableParam());
+      retVal = _DropTable(sqlParser.GetTableName());
       break;
     case SQLParser::CmdType::CT_Delete: // 需要管理员权限
-      retVal = _DeleteDev(sqlParser.GetDeleteParam());
+      retVal = _DeleteDev(sqlParser.GetTableName(), sqlParser.GetDeleteParam());
       break;
     case SQLParser::CmdType::CT_AttachTable: // 需要管理员权限
-      retVal = _AttachTable(sqlParser.GetAttachTableParam());
+      retVal = _AttachTable(sqlParser.GetTableName());
       break;
     case SQLParser::CmdType::CT_DetachTable:
-      retVal = _DetachTable(sqlParser.GetDetachTableParam());
+      retVal = _DetachTable(sqlParser.GetTableName());
       break;
     case SQLParser::CmdType::CT_AttachFile:
-      retVal = _AttachFile(sqlParser.GetAttachFileParam());
+      retVal = _AttachFile(sqlParser.GetTableName(), sqlParser.GetDataFileParam());
       break;
     case SQLParser::CmdType::CT_DetachFile:
-      retVal = _DetachFile(sqlParser.GetDetachFileParam());
+      retVal = _DetachFile(sqlParser.GetTableName(), sqlParser.GetDataFileParam());
       break;
     case SQLParser::CmdType::CT_DropFile:
-      retVal = _DropDataFile(sqlParser.GetDropFileParam());
+      retVal = _DropDataFile(sqlParser.GetTableName(), sqlParser.GetDataFileParam());
       break;
     case SQLParser::CmdType::CT_CreateTable: // 必须要Admin权限
-      retVal = _CreateTable(sqlParser.GetCreateTableParam());
+      retVal = _CreateTable(sqlParser.GetTableName(), sqlParser.GetCreateTableParam());
       break;
     case SQLParser::CmdType::CT_AddUser: // 必须要Admin权限
-      retVal = _AddUser(sqlParser.GetAddUserParam());
+      retVal = _AddUser(sqlParser.GetUserParam());
       break;
     case SQLParser::CmdType::CT_ChangePwd:
-      retVal = _ChangePwd(sqlParser.GetChangePwdParam());
+      retVal = _ChangePwd(sqlParser.GetUserParam());
       break;
     case SQLParser::CmdType::CT_ChangeRole: // 必须要Admin权限
-      retVal = _ChangeRole(sqlParser.GetChangeRoleParam());
+      retVal = _ChangeRole(sqlParser.GetUserParam());
       break;
     case SQLParser::CmdType::CT_DropUser:
-      retVal = _DropUser(sqlParser.GetDropUserParam());
+      retVal = _DropUser(sqlParser.GetUserParam());
       break;
     case SQLParser::CmdType::CT_AlterTable:
-      retVal = _AlterTable(sqlParser.GetCreateTableParam());
+      retVal = _AlterTable(sqlParser.GetTableName(), sqlParser.GetCreateTableParam());
       break;
     default:
     {
@@ -1090,34 +1106,37 @@ PdbErr_t EventHandle::ExecNonQuery()
   return retVal;
 }
 
-PdbErr_t EventHandle::_DropTable(const DropTableParam* pDropTableParam)
+PdbErr_t EventHandle::_DropTable(const char* pTabName)
 {
   PdbErr_t retVal = PdbE_OK;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  retVal = pGlbTableSet->DropTable(pDropTableParam->tabName_.c_str());
+  retVal = pGlbTableSet->DropTable(pTabName);
   if (retVal == PdbE_OK)
   {
     LOG_INFO("user ({}), drop table ({}) successed",
-      userName_.c_str(), pDropTableParam->tabName_.c_str());
+      userName_.c_str(), pTabName);
   }
   else
   {
     LOG_INFO("user ({}), drop table ({}) failed, err: {}", 
-      userName_.c_str(), pDropTableParam->tabName_.c_str(), retVal);
+      userName_.c_str(), pTabName, retVal);
   }
 
   return retVal;
 }
 
-PdbErr_t EventHandle::_DeleteDev(const DeleteParam* pDeleteParam)
+PdbErr_t EventHandle::_DeleteDev(const char* pTabName, const DeleteParam* pDeleteParam)
 {
   PdbErr_t retVal = PdbE_OK;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  retVal = pGlbTableSet->DeleteDev(pDeleteParam);
+  if (pTabName == nullptr || pDeleteParam == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  retVal = pGlbTableSet->DeleteDev(pTabName, pDeleteParam);
   if (retVal == PdbE_OK)
   {
     LOG_INFO("user ({}), delete device successed", userName_.c_str());
@@ -1131,355 +1150,339 @@ PdbErr_t EventHandle::_DeleteDev(const DeleteParam* pDeleteParam)
   return retVal;
 }
 
-PdbErr_t EventHandle::_AttachTable(const AttachTableParam* pAttachTableParam)
+PdbErr_t EventHandle::_AttachTable(const char* pTabName)
 {
   PdbErr_t retVal = PdbE_OK;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  retVal = pGlbTableSet->AttachTable(pAttachTableParam->tabName_.c_str());
+  retVal = pGlbTableSet->AttachTable(pTabName);
   if (retVal != PdbE_OK)
   {
     LOG_INFO("user ({}) attach table ({}) successful",
-      userName_.c_str(), pAttachTableParam->tabName_.c_str());
+      userName_.c_str(), pTabName);
   }
   else
   {
     LOG_INFO("user ({}) attach table ({}) failed, err: {}",
-      userName_.c_str(), pAttachTableParam->tabName_.c_str(), retVal);
+      userName_.c_str(), pTabName, retVal);
   }
 
   return retVal;
 }
 
-PdbErr_t EventHandle::_DetachTable(const DetachTableParam* pDetachTableParam)
+PdbErr_t EventHandle::_DetachTable(const char* pTabName)
 {
   PdbErr_t retVal = PdbE_OK;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  retVal = pGlbTableSet->DetachTable(pDetachTableParam->tabName_.c_str());
+  retVal = pGlbTableSet->DetachTable(pTabName);
   if (retVal != PdbE_OK)
   {
     LOG_INFO("user ({}) detach table ({}) successful",
-      userName_.c_str(), pDetachTableParam->tabName_.c_str());
+      userName_.c_str(), pTabName);
   }
   else
   {
     LOG_INFO("user ({}) detach table ({}) failed, err: {}",
-      userName_.c_str(), pDetachTableParam->tabName_.c_str(), retVal);
+      userName_.c_str(), pTabName, retVal);
   }
 
   return retVal;
 }
 
-PdbErr_t EventHandle::_AttachFile(const AttachFileParam* pAttachFileParam)
+PdbErr_t EventHandle::_AttachFile(const char* pTabName, const DataFileParam* pDataFile)
 {
   PdbErr_t retVal = PdbE_OK;
   int32_t fileType = PDB_PART_TYPE_NORMAL_VAL;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  if (StringTool::ComparyNoCase(pAttachFileParam->fileType_.c_str(), PDB_PART_TYPE_NORMAL_STR))
+  if (pTabName == nullptr || pDataFile == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  if (StringTool::ComparyNoCase(pDataFile->fileType_.c_str(), PDB_PART_TYPE_NORMAL_STR))
     fileType = PDB_PART_TYPE_NORMAL_VAL;
-  else if (StringTool::ComparyNoCase(pAttachFileParam->fileType_.c_str(), PDB_PART_TYPE_COMPRESS_STR))
+  else if (StringTool::ComparyNoCase(pDataFile->fileType_.c_str(), PDB_PART_TYPE_COMPRESS_STR))
     fileType = PDB_PART_TYPE_COMPRESS_VAL;
   else
   {
     LOG_INFO("user ({}) attach data file ({}) for table ({}) failed, unknown data file type",
-      userName_.c_str(), pAttachFileParam->dateStr_.c_str(), pAttachFileParam->tabName_.c_str());
+      userName_.c_str(), pDataFile->dateStr_.c_str(), pTabName);
     return PdbE_INVALID_PARAM;
   }
 
-  retVal = pGlbTableSet->AttachFile(pAttachFileParam->tabName_.c_str(), 
-    pAttachFileParam->dateStr_.c_str(), fileType);
+  retVal = pGlbTableSet->AttachFile(pTabName,
+    pDataFile->dateStr_.c_str(), fileType);
   if (retVal != PdbE_OK)
   {
     LOG_INFO("user ({}) attach data file ({}) for table ({}) failed, err: {}",
-      userName_.c_str(), pAttachFileParam->dateStr_.c_str(), pAttachFileParam->tabName_.c_str(), retVal);
+      userName_.c_str(), pDataFile->dateStr_.c_str(), pTabName, retVal);
   }
   else
   {
     LOG_INFO("user ({}) attach data file ({}) for table ({}) successful",
-      userName_.c_str(), pAttachFileParam->dateStr_.c_str(), pAttachFileParam->tabName_.c_str());
+      userName_.c_str(), pDataFile->dateStr_.c_str(), pTabName);
   }
 
   return retVal;
 }
 
-PdbErr_t EventHandle::_DetachFile(const DetachFileParam* pDetachFileParam)
+PdbErr_t EventHandle::_DetachFile(const char* pTabName, const DataFileParam* pDataFile)
 {
   PdbErr_t retVal = PdbE_OK;
   int32_t partCode = 0;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  if (!DateTime::ParseDate(pDetachFileParam->dateStr_.c_str(),
-    pDetachFileParam->dateStr_.size(), &partCode))
+  if (pTabName == nullptr || pDataFile == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  if (!DateTime::ParseDate(pDataFile->dateStr_.c_str(),
+    pDataFile->dateStr_.size(), &partCode))
   {
     LOG_INFO("user ({}) detach data file ({}) for table ({}) failed, invalid date param",
-      userName_.c_str(), pDetachFileParam->dateStr_.c_str(), pDetachFileParam->tabName_.c_str());
+      userName_.c_str(), pDataFile->dateStr_.c_str(), pTabName);
     return PdbE_INVALID_PARAM;
   }
 
-  retVal = pGlbTableSet->DetachFile(pDetachFileParam->tabName_.c_str(), partCode);
+  retVal = pGlbTableSet->DetachFile(pTabName, partCode);
   if (retVal != PdbE_OK)
   {
     LOG_INFO("user ({}) detach data file ({}) for table ({}) failed, err: {}",
-      userName_.c_str(), pDetachFileParam->dateStr_.c_str(), 
-      pDetachFileParam->tabName_.c_str(), retVal);
+      userName_.c_str(), pDataFile->dateStr_.c_str(), pTabName, retVal);
   }
   else
   {
     LOG_INFO("user ({}) detach data file ({}) for table ({}) successful",
-      userName_.c_str(), pDetachFileParam->dateStr_.c_str(),
-      pDetachFileParam->tabName_.c_str());
+      userName_.c_str(), pDataFile->dateStr_.c_str(), pTabName);
   }
 
   return retVal;
 }
 
-PdbErr_t EventHandle::_DropDataFile(const DropFileParam* pDropFileParam)
+PdbErr_t EventHandle::_DropDataFile(const char* pTabName, const DataFileParam* pDataFile)
 {
   PdbErr_t retVal = PdbE_OK;
   int32_t partCode = 0;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  if (!DateTime::ParseDate(pDropFileParam->dateStr_.c_str(),
-    pDropFileParam->dateStr_.size(), &partCode))
+  if (pTabName == nullptr || pDataFile == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  if (!DateTime::ParseDate(pDataFile->dateStr_.c_str(),
+    pDataFile->dateStr_.size(), &partCode))
   {
     LOG_INFO("user ({}) drop data file ({}) for table ({}) failed, invalid date param",
-      userName_.c_str(), pDropFileParam->dateStr_.c_str(), 
-      pDropFileParam->dateStr_.c_str(), pDropFileParam->tabName_.c_str());
+      userName_.c_str(), pDataFile->dateStr_.c_str(),
+      pDataFile->dateStr_.c_str(), pTabName);
     return PdbE_INVALID_PARAM;
   }
 
-  retVal = pGlbTableSet->DropFile(pDropFileParam->tabName_.c_str(), partCode);
+  retVal = pGlbTableSet->DropFile(pTabName, partCode);
   if (retVal != PdbE_OK)
   {
     LOG_INFO("user ({}) drop data file ({}) for table ({}) failed, err: {}",
-      userName_.c_str(), pDropFileParam->dateStr_.c_str(), pDropFileParam->tabName_.c_str(),  retVal);
+      userName_.c_str(), pDataFile->dateStr_.c_str(), pTabName,  retVal);
   }
   else
   {
     LOG_INFO("user ({}) drop data file ({}) for table ({}) successful",
-      userName_.c_str(), pDropFileParam->dateStr_.c_str(), pDropFileParam->tabName_.c_str());
+      userName_.c_str(), pDataFile->dateStr_.c_str(), pTabName);
   }
 
   return retVal;
 }
 
-PdbErr_t EventHandle::_CreateTable(const CreateTableParam* pCreateTableParam)
+PdbErr_t EventHandle::_CreateTable(const char* pTabName, const CreateTableParam* pCreateTableParam)
 {
   PdbErr_t retVal = PdbE_OK;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  retVal = pGlbTableSet->CreateTable(pCreateTableParam);
+  if (pTabName == nullptr || pCreateTableParam == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  retVal = pGlbTableSet->CreateTable(pTabName, pCreateTableParam->pColList_);
   if (retVal != PdbE_OK)
   {
     LOG_INFO("user ({}) create table ({}) failed, err: {}",
-      userName_.c_str(), pCreateTableParam->tabName_.c_str(), retVal);
+      userName_.c_str(), pTabName, retVal);
   }
   else
   {
     LOG_INFO("user ({}) create table ({}) successful",
-      userName_.c_str(), pCreateTableParam->tabName_.c_str());
+      userName_.c_str(), pTabName);
   }
 
   return retVal;
 }
 
-PdbErr_t EventHandle::_AddUser(const AddUserParam* pAddUserParam)
-{
-  if (userRole_ != PDB_ROLE::ROLE_ADMIN)
-    return PdbE_OPERATION_DENIED; //判断是否有添加用户的权限
-
-  uint32_t pwd32 = StringTool::CRC32(pAddUserParam->pwd_.c_str());
-  PdbErr_t retVal = pGlbUser->AddUser(pAddUserParam->userName_.c_str(),
-    pwd32, "readwrite");
-  if (retVal == PdbE_OK)
-  {
-    LOG_INFO("user ({}) add user ({}:readwrite) successful",
-      userName_.c_str(), pAddUserParam->userName_.c_str());
-  }
-  else
-  {
-    LOG_INFO("user ({}) add user ({}:readwrite) failed, err: {}",
-      userName_.c_str(), pAddUserParam->userName_.c_str(), retVal);
-  }
-
-  return retVal;
-}
-
-PdbErr_t EventHandle::_ChangePwd(const ChangePwdParam* pChangePwdParam)
-{
-  if (!StringTool::ComparyNoCase(pChangePwdParam->userName_, userName_.c_str(), userName_.size())
-    && userRole_ != PDB_ROLE::ROLE_ADMIN)
-  {
-    //如果不是管理员，并且不是修改自己的密码
-    LOG_INFO("user ({}) change user ({}) password failed, operation denied",
-      userName_.c_str(), pChangePwdParam->userName_.c_str());
-    return PdbE_OPERATION_DENIED;
-  }
-
-  uint32_t pwd32 = StringTool::CRC32(pChangePwdParam->newPwd_.c_str());
-  PdbErr_t retVal = pGlbUser->ChangePwd(pChangePwdParam->userName_, pwd32);
-  if (retVal == PdbE_OK)
-  {
-    LOG_INFO("user ({}) change user ({}) password successful",
-      userName_.c_str(), pChangePwdParam->userName_.c_str());
-  }
-  else
-  {
-    LOG_INFO("user ({}) change user ({}) password failed, err: {}",
-      userName_.c_str(), pChangePwdParam->userName_.c_str(), retVal);
-  }
-
-  return retVal;
-}
-
-PdbErr_t EventHandle::_ChangeRole(const ChangeRoleParam* pChangeRoleParam)
-{
-  if (userRole_ != PDB_ROLE::ROLE_ADMIN)
-    return PdbE_OPERATION_DENIED;
-
-  PdbErr_t retVal =  pGlbUser->ChangeRole(pChangeRoleParam->userName_.c_str(),
-    pChangeRoleParam->roleName_.c_str());
-  if (retVal == PdbE_OK)
-  {
-    LOG_INFO("user ({}) change user ({}) role to ({}) successful", userName_.c_str(),
-      pChangeRoleParam->userName_.c_str(), pChangeRoleParam->roleName_.c_str());
-  }
-  else
-  {
-    LOG_INFO("user ({}) change user ({}) role to ({}) failed, err: {}", userName_.c_str(),
-      pChangeRoleParam->userName_.c_str(), pChangeRoleParam->roleName_.c_str(), retVal);
-  }
-
-  return retVal;
-}
-
-PdbErr_t EventHandle::_DropUser(const DropUserParam* pDropUserParam)
-{
-  if (userRole_ != PDB_ROLE::ROLE_ADMIN)
-    return PdbE_OPERATION_DENIED;
-
-  PdbErr_t retVal = pGlbUser->DropUser(pDropUserParam->userName_);
-  if (retVal == PdbE_OK)
-  {
-    LOG_INFO("user ({}) drop user ({}) successful",
-      userName_.c_str(), pDropUserParam->userName_.c_str());
-  }
-  else
-  {
-    LOG_INFO("user ({}) drop user ({}) failed, err: {}", userName_.c_str(),
-      pDropUserParam->userName_.c_str(), retVal);
-  }
-
-  return retVal;
-}
-
-PdbErr_t EventHandle::_AlterTable(const CreateTableParam* pCreateTableParam)
+PdbErr_t EventHandle::_CreateTable(const SQLParser* pParser)
 {
   PdbErr_t retVal = PdbE_OK;
   if (userRole_ != PDB_ROLE::ROLE_ADMIN)
     return PdbE_OPERATION_DENIED;
 
-  retVal = pGlbTableSet->AlterTable(pCreateTableParam);
+  const char* pTableName = pParser->GetTableName();
+  const CreateTableParam* pParam = pParser->GetCreateTableParam();
+  retVal = pGlbTableSet->CreateTable(pTableName, pParam->pColList_);
   if (retVal != PdbE_OK)
   {
-    LOG_INFO("user ({}) alter table ({}) failed, err: {}",
-      userName_.c_str(), pCreateTableParam->tabName_.c_str(), retVal);
+    LOG_INFO("user ({}) create table ({}) failed, err: {}",
+      userName_.c_str(), pTableName, retVal);
   }
   else
   {
-    LOG_INFO("user ({}) alter table ({}) successful",
-      userName_.c_str(), pCreateTableParam->tabName_.c_str());
+    LOG_INFO("user ({}) create table ({}) successful",
+      userName_.c_str(), pTableName);
   }
 
   return retVal;
 }
 
-PdbErr_t EventHandle::AllocRecvBuf(size_t bufLen)
+PdbErr_t EventHandle::_AddUser(const UserParam* pUserParam)
 {
-  const size_t bufAlign = 1024;
+  if (userRole_ != PDB_ROLE::ROLE_ADMIN)
+    return PdbE_OPERATION_DENIED; //判断是否有添加用户的权限
 
-  if (pRecvBuf_ != nullptr && recvBufLen_ >= bufLen)
-    return PdbE_OK;
-
-  if (pRecvBuf_ != nullptr)
-    delete[] pRecvBuf_;
-
-  pRecvBuf_ = nullptr;
-  recvBufLen_ = 0;
-
-  if (bufLen <= 0)
+  if (pUserParam == nullptr)
     return PdbE_INVALID_PARAM;
 
-  bufLen = (bufLen + bufAlign - 1) & (~(bufAlign - 1));
+  uint32_t pwd32 = StringTool::CRC32(pUserParam->pwd_.c_str());
+  PdbErr_t retVal = pGlbUser->AddUser(pUserParam->userName_.c_str(),
+    pwd32, "readwrite");
+  if (retVal == PdbE_OK)
+  {
+    LOG_INFO("user ({}) add user ({}:readwrite) successful",
+      userName_.c_str(), pUserParam->userName_.c_str());
+  }
+  else
+  {
+    LOG_INFO("user ({}) add user ({}:readwrite) failed, err: {}",
+      userName_.c_str(), pUserParam->userName_.c_str(), retVal);
+  }
 
-  pRecvBuf_ = new (std::nothrow) uint8_t[bufLen];
-  if (pRecvBuf_ == nullptr)
-    return PdbE_NOMEM;
+  return retVal;
+}
 
-  recvBufLen_ = bufLen;
+PdbErr_t EventHandle::_ChangePwd(const UserParam* pUserParam)
+{
+  if (pUserParam == nullptr)
+    return PdbE_INVALID_PARAM;
 
-  return PdbE_OK;
+  if (!StringTool::ComparyNoCase(pUserParam->userName_, userName_.c_str(), userName_.size())
+    && userRole_ != PDB_ROLE::ROLE_ADMIN)
+  {
+    //如果不是管理员，并且不是修改自己的密码
+    LOG_INFO("user ({}) change user ({}) password failed, operation denied",
+      userName_.c_str(), pUserParam->userName_.c_str());
+    return PdbE_OPERATION_DENIED;
+  }
+
+  uint32_t pwd32 = StringTool::CRC32(pUserParam->pwd_.c_str());
+  PdbErr_t retVal = pGlbUser->ChangePwd(pUserParam->userName_, pwd32);
+  if (retVal == PdbE_OK)
+  {
+    LOG_INFO("user ({}) change user ({}) password successful",
+      userName_.c_str(), pUserParam->userName_.c_str());
+  }
+  else
+  {
+    LOG_INFO("user ({}) change user ({}) password failed, err: {}",
+      userName_.c_str(), pUserParam->userName_.c_str(), retVal);
+  }
+
+  return retVal;
+}
+
+PdbErr_t EventHandle::_ChangeRole(const UserParam* pUserParam)
+{
+  if (pUserParam == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  if (userRole_ != PDB_ROLE::ROLE_ADMIN)
+    return PdbE_OPERATION_DENIED;
+
+  PdbErr_t retVal =  pGlbUser->ChangeRole(pUserParam->userName_.c_str(),
+    pUserParam->roleName_.c_str());
+  if (retVal == PdbE_OK)
+  {
+    LOG_INFO("user ({}) change user ({}) role to ({}) successful", userName_.c_str(),
+      pUserParam->userName_.c_str(), pUserParam->roleName_.c_str());
+  }
+  else
+  {
+    LOG_INFO("user ({}) change user ({}) role to ({}) failed, err: {}", userName_.c_str(),
+      pUserParam->userName_.c_str(), pUserParam->roleName_.c_str(), retVal);
+  }
+
+  return retVal;
+}
+
+PdbErr_t EventHandle::_DropUser(const UserParam* pUserParam)
+{
+  if (pUserParam == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  if (userRole_ != PDB_ROLE::ROLE_ADMIN)
+    return PdbE_OPERATION_DENIED;
+
+  PdbErr_t retVal = pGlbUser->DropUser(pUserParam->userName_);
+  if (retVal == PdbE_OK)
+  {
+    LOG_INFO("user ({}) drop user ({}) successful",
+      userName_.c_str(), pUserParam->userName_.c_str());
+  }
+  else
+  {
+    LOG_INFO("user ({}) drop user ({}) failed, err: {}", userName_.c_str(),
+      pUserParam->userName_.c_str(), retVal);
+  }
+
+  return retVal;
+}
+
+PdbErr_t EventHandle::_AlterTable(const char* pTabName, const CreateTableParam* pCreateTableParam)
+{
+  PdbErr_t retVal = PdbE_OK;
+  if (userRole_ != PDB_ROLE::ROLE_ADMIN)
+    return PdbE_OPERATION_DENIED;
+
+  if (pTabName == nullptr || pCreateTableParam == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  retVal = pGlbTableSet->AlterTable(pTabName, pCreateTableParam->pColList_);
+  if (retVal != PdbE_OK)
+  {
+    LOG_INFO("user ({}) alter table ({}) failed, err: {}",
+      userName_.c_str(), pTabName, retVal);
+  }
+  else
+  {
+    LOG_INFO("user ({}) alter table ({}) successful", userName_.c_str(), pTabName);
+  }
+
+  return retVal;
 }
 
 void EventHandle::FreeRecvBuf()
 {
-  const int32_t maxRecvBuf = static_cast<int32_t>(PDB_MB_BYTES(1));  // 1M 最大读缓冲
-
-  if (pRecvBuf_ != nullptr && recvBufLen_ > maxRecvBuf)
+  std::string tmp;
+  if (recvBuf_.capacity() > PDB_KB_BYTES(32))
   {
-    delete[] pRecvBuf_;
-
-    pRecvBuf_ = nullptr;
-    recvBufLen_ = 0;
+    recvBuf_.swap(tmp);
   }
-}
-
-
-PdbErr_t EventHandle::AllocSendBuf(size_t bufLen)
-{
-  const size_t bufAlign = 1024;
-
-  if (pSendBuf_ != nullptr && sendBufLen_ >= bufLen)
-    return PdbE_OK;
-
-  if (pSendBuf_ != nullptr)
-    delete[] pSendBuf_;
-
-  pSendBuf_ = nullptr;
-  sendBufLen_ = 0;
-
-  if (bufLen <= 0)
-    return PdbE_INVALID_PARAM;
-
-  bufLen = (bufLen + bufAlign - 1) & (~(bufAlign - 1));
-
-  pSendBuf_ = new (std::nothrow) uint8_t[bufLen];
-  if (pSendBuf_ == nullptr)
-    return PdbE_NOMEM;
-
-  sendBufLen_ = bufLen;
-
-  return PdbE_OK;
 }
 
 void EventHandle::FreeSendBuf()
 {
-  const int maxSendBuf = (64 * 1024); // 发送缓存超过64K会被释放
-
-  if (pSendBuf_ != nullptr && sendBufLen_ > maxSendBuf)
+  std::string tmp;
+  if (sendBuf_.capacity() > PDB_KB_BYTES(32))
   {
-    delete []pSendBuf_;
-
-    pSendBuf_ = nullptr;
-    sendBufLen_ = 0;
+    sendBuf_.swap(tmp);
   }
 }
 

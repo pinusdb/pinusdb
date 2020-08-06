@@ -44,7 +44,10 @@ public class PDBResultSetMetaData implements ResultSetMetaData {
 
 	@Override
 	public String getColumnLabel(int column) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		if (column < 1 || column > colInfoList_.size())
+			throw new SQLException("参数错误");
+		
+		return colInfoList_.get((column - 1)).getColName();
 	}
 
 	@Override
@@ -93,12 +96,10 @@ public class PDBResultSetMetaData implements ResultSetMetaData {
 		case 3:
 			return "timestamp";
 		case 4:
-			return "float";
-		case 5:
 			return "double";
-		case 6:
+		case 5:
 			return "string";
-		case 7:
+		case 6:
 			return "blob";
 		}
 		
@@ -107,12 +108,18 @@ public class PDBResultSetMetaData implements ResultSetMetaData {
 
 	@Override
 	public int getPrecision(int column) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		if (column < 1 || column > colInfoList_.size())
+			throw new SQLException("参数错误");
+		
+		return 0;
 	}
 
 	@Override
 	public int getScale(int column) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		if (column < 1 || column > colInfoList_.size())
+			throw new SQLException("参数错误");
+		
+		return 0;
 	}
 
 	@Override
@@ -162,7 +169,12 @@ public class PDBResultSetMetaData implements ResultSetMetaData {
 
 	@Override
 	public boolean isSigned(int column) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		if (column < 1 || column > colInfoList_.size())
+			throw new SQLException("参数错误");
+
+		PDBDataType colType = colInfoList_.get((column - 1)).getColType();
+		int colTypeVal = colType.getTypeVal();
+		return (colTypeVal == 2 || colTypeVal == 4);
 	}
 
 	@Override

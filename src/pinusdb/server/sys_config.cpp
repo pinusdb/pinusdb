@@ -22,10 +22,12 @@
 #include "util/string_tool.h"
 #include "util/log_util.h"
 #include "port/os_file.h"
+#include "global_variable.h"
 
 #define SYSCFG_ADDRESS_NAME           "address"
 #define SYSCFG_PORT_NAME              "port"
 #define SYSCFG_CACHE_SIZE_NAME        "cacheSize"
+#define SYSCFG_WRITE_CACHE_SIZE_NAME  "writeCache"
 #define SYSCFG_QUERY_TIMEOUT_NAME     "queryTimeOut"
 #define SYSCFG_INSERT_VALID_DAY_NAME  "insertValidDay"
 #define SYSCFG_TABLEPATH_NAME         "tabPath"
@@ -46,8 +48,9 @@ SysConfig::SysConfig()
 {
   port_ = 8105;
   logLevel_ = LOG_LEVEL_INFO;
-  queryTimeOut_ = 60;
+  queryTimeOut_ = 300;
   cacheSize_ = 0;
+  writeCache_ = 0;
   insertValidDay_ = 1;
   compressFlag_ = true;
 }
@@ -55,6 +58,7 @@ SysConfig::SysConfig()
 SysConfig::~SysConfig()
 {
 }
+
 
 bool SysConfig::LoadConfig()
 {
@@ -73,92 +77,106 @@ bool SysConfig::LoadConfig()
     return false;
 
   try {
+    int64_t tmpInt64 = 0;
     boost::property_tree::ptree pt;
     boost::property_tree::ini_parser::read_ini(cfgPath.c_str(), pt);
 
-    boost::property_tree::ptree items = pt.get_child("server");
-    int64_t tmpInt64 = 0;
-
-    for (boost::property_tree::ptree::iterator it = items.begin();
-      it != items.end(); it++)
+    for (boost::property_tree::ptree::iterator secIt = pt.begin(); secIt != pt.end(); secIt++)
     {
-      std::string name = it->first;
-      std::string value = it->second.data();
+      std::string secName = secIt->first;
+      if (StringTool::ComparyNoCase(secName.c_str(), "server"))
+      {
+        for (boost::property_tree::ptree::iterator it = secIt->second.begin(); it != secIt->second.end(); it++)
+        {
+          std::string name = it->first;
+          std::string value = it->second.data();
 
-      if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_ADDRESS_NAME))
-      {
-        this->address_ = value;
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_PORT_NAME))
-      {
-        if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
-          return false;
+          if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_ADDRESS_NAME))
+          {
+            this->address_ = value;
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_PORT_NAME))
+          {
+            if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
+              return false;
 
-        this->port_ = static_cast<int>(tmpInt64);
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_QUERY_TIMEOUT_NAME))
-      {
-        if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
-          return false;
+            this->port_ = static_cast<int>(tmpInt64);
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_QUERY_TIMEOUT_NAME))
+          {
+            if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
+              return false;
 
-        this->queryTimeOut_ = static_cast<int32_t>(tmpInt64);
-        if (this->queryTimeOut_ < 0)
-          return false;
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_CACHE_SIZE_NAME))
-      {
-        if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
-          return false;
+            this->queryTimeOut_ = static_cast<int32_t>(tmpInt64);
+            if (this->queryTimeOut_ < 0)
+              return false;
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_CACHE_SIZE_NAME))
+          {
+            if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
+              return false;
 
-        this->cacheSize_ = static_cast<int32_t>(tmpInt64);
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_INSERT_VALID_DAY_NAME))
-      {
-        if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
-          return false;
+            this->cacheSize_ = static_cast<int32_t>(tmpInt64);
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_WRITE_CACHE_SIZE_NAME))
+          {
+            if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
+              return false;
 
-        this->insertValidDay_ = static_cast<int32_t>(tmpInt64);
+            this->writeCache_ = static_cast<int32_t>(tmpInt64);
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_INSERT_VALID_DAY_NAME))
+          {
+            if (!StringTool::StrToInt64(value.c_str(), value.size(), &tmpInt64))
+              return false;
+
+            this->insertValidDay_ = static_cast<int32_t>(tmpInt64);
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_LOG_LEVEL_NAME))
+          {
+            if (StringTool::ComparyNoCase(value.c_str(), LOG_LEVEL_DEBUG_STR))
+              this->logLevel_ = LOG_LEVEL_DEBUG;
+            else if (StringTool::ComparyNoCase(value.c_str(), LOG_LEVEL_INFO_STR))
+              this->logLevel_ = LOG_LEVEL_INFO;
+            else if (StringTool::ComparyNoCase(value.c_str(), LOG_LEVEL_WARNING_STR))
+              this->logLevel_ = LOG_LEVEL_WARNING;
+            else if (StringTool::ComparyNoCase(value.c_str(), LOG_LEVEL_ERROR_STR))
+              this->logLevel_ = LOG_LEVEL_ERROR;
+            else
+              return false;
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_SYSLOGPATH_NAME))
+          {
+            this->sysLogPath_ = value;
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_NORMAL_DATAPATH_NAME))
+          {
+            this->normalDataPath_ = value;
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_COMPRESS_DATAPATH_NAME))
+          {
+            this->compressDataPath_ = value;
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_COMPRESSFLAG_NAME))
+          {
+            this->compressFlag_ = StringTool::ComparyNoCase(value.c_str(), "true");
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_TABLEPATH_NAME))
+          {
+            this->tabPath_ = value;
+          }
+          else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_COMMITLOGPATH_NAME))
+          {
+            this->commitLogPath_ = value;
+          }
+
+        }
       }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_LOG_LEVEL_NAME))
+      else
       {
-        if (StringTool::ComparyNoCase(value.c_str(), LOG_LEVEL_DEBUG_STR))
-          this->logLevel_ = LOG_LEVEL_DEBUG;
-        else if (StringTool::ComparyNoCase(value.c_str(), LOG_LEVEL_INFO_STR))
-          this->logLevel_ = LOG_LEVEL_INFO;
-        else if (StringTool::ComparyNoCase(value.c_str(), LOG_LEVEL_WARNING_STR))
-          this->logLevel_ = LOG_LEVEL_WARNING;
-        else if (StringTool::ComparyNoCase(value.c_str(), LOG_LEVEL_ERROR_STR))
-          this->logLevel_ = LOG_LEVEL_ERROR;
-        else
-          return false;
+        return false;
       }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_SYSLOGPATH_NAME))
-      {
-        this->sysLogPath_ = value;
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_NORMAL_DATAPATH_NAME))
-      {
-        this->normalDataPath_ = value;
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_COMPRESS_DATAPATH_NAME))
-      {
-        this->compressDataPath_ = value;
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_COMPRESSFLAG_NAME))
-      {
-        this->compressFlag_ = StringTool::ComparyNoCase(value.c_str(), "true");
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_TABLEPATH_NAME))
-      {
-        this->tabPath_ = value;
-      }
-      else if (StringTool::ComparyNoCase(name.c_str(), SYSCFG_COMMITLOGPATH_NAME))
-      {
-        this->commitLogPath_ = value;
-      }
-   
     }
-
   }
   catch (std::runtime_error err)
   {
@@ -199,12 +217,12 @@ bool SysConfig::LoadConfig()
 }
 
 #define APPEND_DATA_CFG   do {                          \
-  retVal = pFilter->AppendData(vals, valCnt, nullptr);  \
+  retVal = pQuery->AppendData(vals, valCnt, nullptr);  \
   if (retVal != PdbE_OK) return retVal;                 \
-  if (pFilter->GetIsFullFlag()) return PdbE_OK;         \
+  if (pQuery->GetIsFullFlag()) return PdbE_OK;         \
 }while(false)
 
-PdbErr_t SysConfig::Query(IResultFilter* pFilter)
+PdbErr_t SysConfig::Query(IQuery* pQuery)
 {
   PdbErr_t retVal = PdbE_OK;
   const int valCnt = 2;
@@ -228,6 +246,13 @@ PdbErr_t SysConfig::Query(IResultFilter* pFilter)
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_CACHE_SIZE_NAME, strlen(SYSCFG_CACHE_SIZE_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
+  //////////////////////////////////////////////////////////////////////
+
+  sprintf(dataBuf, "%d", writeCache_);
+  DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_WRITE_CACHE_SIZE_NAME, strlen(SYSCFG_WRITE_CACHE_SIZE_NAME));
+  DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
+  APPEND_DATA_CFG;
+
   //////////////////////////////////////////////////////////////////////
 
   sprintf(dataBuf, "%d", queryTimeOut_);
@@ -307,7 +332,7 @@ PdbErr_t SysConfig::Query(IResultFilter* pFilter)
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_BUILDVER_NAME, strlen(SYSCFG_BUILDVER_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));
   APPEND_DATA_CFG;
-  
+
   sprintf(dataBuf, "%d", PDB_SYS_DEV_CNT);
   DBVAL_ELE_SET_STRING(vals, 0, SYSCFG_DEV_CNT_NAME, strlen(SYSCFG_DEV_CNT_NAME));
   DBVAL_ELE_SET_STRING(vals, 1, dataBuf, strlen(dataBuf));

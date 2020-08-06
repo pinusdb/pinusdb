@@ -8,8 +8,9 @@ include_directories(
 )
 
 IF (CMAKE_SYSTEM_NAME MATCHES "Linux")
-  add_definitions(-std=c++11 -Wall)
+  add_definitions(-std=c++17 -Wall -O2)
 ELSEIF (CMAKE_SYSTEM_NAME MATCHES "Windows")
+  add_compile_options("/std:c++17")
 	include_directories(${BOOST_INC_PATH})
 	link_directories(${BOOST_LIB_PATH} ${ZLIB_LIB_PATH})
 	add_definitions(-D_WINSOCK_DEPRECATED_NO_WARNINGS -D_CRT_SECURE_NO_WARNINGS)

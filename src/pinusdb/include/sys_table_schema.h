@@ -66,3 +66,6 @@
 #define SYSCOL_SYSUSER_PASSWORD        "pwd"
 #define SYSCOL_SYSUSER_ROLE            "userrole"
 
+
+
+

@@ -270,7 +270,7 @@ const std::vector<TableItem*>& TableConfig::GetTables()
   return tabVec_;
 }
 
-PdbErr_t TableConfig::QueryTable(IResultFilter* pFilter)
+PdbErr_t TableConfig::QueryTable(IQuery* pQuery)
 {
   PdbErr_t retVal = PdbE_OK;
   const int valCnt = 1;
@@ -281,11 +281,11 @@ PdbErr_t TableConfig::QueryTable(IResultFilter* pFilter)
   {
     DBVAL_ELE_SET_STRING(vals, 0, sysTabNames[sysTabIdx], strlen(sysTabNames[sysTabIdx]));
 
-    retVal = pFilter->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendData(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
 
-    if (pFilter->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       return PdbE_OK;
 
     sysTabIdx++;
@@ -298,18 +298,18 @@ PdbErr_t TableConfig::QueryTable(IResultFilter* pFilter)
 
     DBVAL_ELE_SET_STRING(vals, 0, tabName.c_str(), tabName.size());
 
-    retVal = pFilter->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendData(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
 
-    if (pFilter->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       return PdbE_OK;
   }
 
   return retVal;
 }
 
-PdbErr_t TableConfig::QueryPart(IResultFilter* pFilter)
+PdbErr_t TableConfig::QueryPart(IQuery* pQuery)
 {
   PdbErr_t retVal = PdbE_OK;
   const int valCnt = 3;
@@ -341,11 +341,11 @@ PdbErr_t TableConfig::QueryPart(IResultFilter* pFilter)
         DBVAL_ELE_SET_STRING(vals, 2, nullptr, 0);
       }
 
-      retVal = pFilter->AppendData(vals, valCnt, nullptr);
+      retVal = pQuery->AppendData(vals, valCnt, nullptr);
       if (retVal != PdbE_OK)
         return retVal;
 
-      if (pFilter->GetIsFullFlag())
+      if (pQuery->GetIsFullFlag())
         return PdbE_OK;
     }
   }

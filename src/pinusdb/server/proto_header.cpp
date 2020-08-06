@@ -40,7 +40,7 @@ ProtoHeader::~ProtoHeader()
 {
 }
 
-void ProtoHeader::Load(uint8_t* pHead)
+void ProtoHeader::Load(char* pHead)
 {
   this->pHead_ = pHead;
 }

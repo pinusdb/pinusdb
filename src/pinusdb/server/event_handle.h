@@ -19,8 +19,8 @@
 #include <string>
 #include <mutex>
 #include "pdb.h"
+#include "internal.h"
 #include "server/proto_header.h"
-#include "query/data_table.h"
 #include "expr/sql_parser.h"
 #include "util/arena.h"
 #include "expr/insert_sql.h"
@@ -62,42 +62,39 @@ public:
     kEnd = 4,   //全部数据已提交
   };
 protected:
-
   PdbErr_t DecodeHead();
 
   PdbErr_t DecodeSqlPacket(const char** ppSql, size_t* pSqlLen);
   PdbErr_t DecodeInsertTable(InsertSql* pInsertSql);
   PdbErr_t DecodeInsertSql(InsertSql* pInsertSql, Arena* pArena);
 
-  PdbErr_t EncodeQueryPacket(PdbErr_t retVal, DataTable* pTable);
+  PdbErr_t EncodeQueryPacket(PdbErr_t retVal, uint32_t fieldCnt, uint32_t recordCnt);
   PdbErr_t EncodeInsertPacket(PdbErr_t retVal, int32_t successCnt);
   PdbErr_t EncodeInsertTablePacket(PdbErr_t retVal, const std::list<PdbErr_t>& insertRet);
 
   PdbErr_t ExecLogin();
 
-  PdbErr_t ExecQuery(DataTable* pResultTable);
+  PdbErr_t ExecQuery(std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
   PdbErr_t ExecInsertSql(int32_t* pSuccessCnt);
   PdbErr_t ExecInsertTable(std::list<PdbErr_t>& resultList);
   PdbErr_t ExecNonQuery();
 
-  PdbErr_t _DropTable(const DropTableParam* pDropTableParam);
-  PdbErr_t _DeleteDev(const DeleteParam* pDeleteParam);
-  PdbErr_t _AttachTable(const AttachTableParam* pAttachTableParam);
-  PdbErr_t _DetachTable(const DetachTableParam* pDetachTableParam);
-  PdbErr_t _AttachFile(const AttachFileParam* pAttachFileParam);
-  PdbErr_t _DetachFile(const DetachFileParam* pDetachFileParam);
-  PdbErr_t _DropDataFile(const DropFileParam* pDropFileParam);
-  PdbErr_t _CreateTable(const CreateTableParam* pCreateTableParam);
-  PdbErr_t _AddUser(const AddUserParam* pAddUserParam);
-  PdbErr_t _ChangePwd(const ChangePwdParam* pChangePwdParam);
-  PdbErr_t _ChangeRole(const ChangeRoleParam* pChangeRoleParam);
-  PdbErr_t _DropUser(const DropUserParam* pDropUserParam);
-  PdbErr_t _AlterTable(const CreateTableParam* pCreateTableParam);
+  PdbErr_t _DropTable(const char* pTabName);
+  PdbErr_t _DeleteDev(const char* pTabName, const DeleteParam* pDeleteParam);
+  PdbErr_t _AttachTable(const char* pTabName);
+  PdbErr_t _DetachTable(const char* pTabName);
+  PdbErr_t _AttachFile(const char* pTabName, const DataFileParam* pDataFile);
+  PdbErr_t _DetachFile(const char* pTabName, const DataFileParam* pDataFile);
+  PdbErr_t _DropDataFile(const char* pTabName, const DataFileParam* pDataFile);
+  PdbErr_t _CreateTable(const char* pTabName, const CreateTableParam* pCreateTableParam);
+  PdbErr_t _CreateTable(const SQLParser* pParser);
+  PdbErr_t _AddUser(const UserParam* pUserParam);
+  PdbErr_t _ChangePwd(const UserParam* pUserParam);
+  PdbErr_t _ChangeRole(const UserParam* pUserParam);
+  PdbErr_t _DropUser(const UserParam* pUserParam);
+  PdbErr_t _AlterTable(const char* pTabName, const CreateTableParam* pCreateTableParam);
 
-  PdbErr_t AllocRecvBuf(size_t bufLen);
   void FreeRecvBuf();
-
-  PdbErr_t AllocSendBuf(size_t bufLen);
   void FreeSendBuf();
 
 protected:
@@ -120,19 +117,12 @@ protected:
   uint32_t dataCrc_;                       //数据的CRC
 
   size_t   recvHeadLen_;                    //接收到的报文头长度
-  uint8_t  recvHead_[ProtoHeader::kProtoHeadLength];   //报文头内容
+  char     recvHead_[ProtoHeader::kProtoHeadLength];   //报文头内容
   size_t   recvBodyLen_;                    //接收到的报文体长度
-  size_t   totalRecvBodyLen_;               //报文体的总长度
-
-  uint8_t* pRecvBuf_;                      //接收缓存
-  size_t   recvBufLen_;                    //接收缓存大小
-
   size_t   sendLen_;                        //已发送报文长度
-  size_t   totalSendLen_;                   //发送报文总长度
 
-  size_t   sendBufLen_;                     //发送缓存大小
-  uint8_t* pSendBuf_;                      //发送缓存
-
+  std::string recvBuf_;  //接收报文缓冲区
+  std::string sendBuf_;  //发送报文缓冲区
 };
 
 

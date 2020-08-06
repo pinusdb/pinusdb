@@ -22,9 +22,9 @@
 #include "db/page_pool.h"
 #include "db/db_impl.h"
 #include "util/date_time.h"
-#include "boost/filesystem.hpp"
 #include "global_variable.h"
 #include "util/dbg.h"
+#include "port/env.h"
 
 #ifndef _WIN32
 
@@ -77,8 +77,6 @@ ServerPDB::~ServerPDB()
 
 #endif
 }
-
-namespace bfs = boost::filesystem;
 
 bool ServerPDB::Start()
 {
@@ -152,7 +150,7 @@ void ServerPDB::Stop()
   LOG_INFO("beging flush page cache to disk ...");
   pDB->Stop();
   LOG_INFO("flush page cache to disk finished");
-  LOG_INFO("normal cessation of database service");
+  LOG_INFO("service was stopped gracefully");
 }
 
 EventHandle* ServerPDB::NewEvent(int socket, const char* pRemoteIp, int remotePort)
@@ -188,23 +186,22 @@ void ServerPDB::RemoveEvent(EventHandle* pEvent)
 
 bool ServerPDB::InitLog()
 {
-  bfs::path logPath = pGlbSysCfg->GetSysLogPath();
-
-  if (!bfs::exists(logPath))
+  Env* pEnv = Env::Default();
+  std::string logPath = pGlbSysCfg->GetSysLogPath();
+  if (!pEnv->PathExists(logPath.c_str()))
   {
-    bfs::create_directories(logPath);
-  }
-  else
-  {
-    if (!bfs::is_directory(logPath))
+    if (pEnv->CreateDir(logPath.c_str()) != PdbE_OK)
       return false;
   }
 
+  int logLevel = pGlbSysCfg->GetLogLevel();
   size_t logSize = PDB_MB_BYTES(5);
   int maxFile = 100;
-  std::string filePath = logPath.string() + "/pdb.log";
+  std::string filePath = logPath + "/pdb.log";
 
-  spd::rotating_logger_mt("pdb", filePath, logSize, maxFile);
+  std::string logName = "pdb";
+  spd::rotating_logger_mt(logName, filePath, logSize, maxFile);
+  spd::get(logName)->set_level(static_cast<spdlog::level::level_enum>(logLevel));
 
   LOG_INFO("init system log successful");
   return true;
@@ -236,7 +233,7 @@ bool ServerPDB::InitTable()
 bool ServerPDB::InitCommitLog()
 {
   std::string commitLogPath = pGlbSysCfg->GetCommitLogPath();
-  if (!pGlbCommitLog->Init(commitLogPath.c_str(), false))
+  if (pGlbCommitLog->Init(commitLogPath.c_str()) != PdbE_OK)
   {
     LOG_ERROR("failed to load datalog");
     return false;

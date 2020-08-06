@@ -20,7 +20,6 @@
 #include "port/os_file.h"
 #include "util/arena.h"
 #include "util/ker_list.h"
-#include "query/result_filter.h"
 #include "storage/normal_part_idx.h"
 #include "storage/normal_data_page.h"
 #include "storage/comp_part_builder.h"
@@ -44,23 +43,24 @@ public:
   virtual void Close();
   virtual PdbErr_t RecoverDW(const char* pPageBuf);
   virtual PdbErr_t InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp,
-    bool replace, const uint8_t* pRec, size_t recLen);
+    bool replace, const char* pRec, size_t recLen);
 
   virtual PdbErr_t DumpToCompPart(const char* pDataPath);
   virtual bool SwitchToReadOnly();
   virtual bool IsPartReadOnly() const { return readOnly_; }
   virtual bool IsNormalPart() const { return true; }
+  virtual uint32_t GetMetaCode() const { return partMetaCode_; }
   virtual PdbErr_t SyncDirtyPages(bool syncAll, OSFile* pDwFile);
   virtual PdbErr_t AbandonDirtyPages();
   virtual size_t GetDirtyPageCnt() { return dirtyList_.size(); }
 
 protected:
   virtual PdbErr_t QueryDevAsc(int64_t devId, void* pQueryParam,
-    IResultFilter* pResult, uint64_t timeOut, bool queryFirst, bool* pIsAdd);
+    IQuery* pQuery, uint64_t timeOut, bool queryFirst, bool* pIsAdd);
   virtual PdbErr_t QueryDevDesc(int64_t devId, void* pQueryParam,
-    IResultFilter* pResult, uint64_t timeOut, bool queryLast, bool* pIsAdd);
+    IQuery* pQuery, uint64_t timeOut, bool queryLast, bool* pIsAdd);
   virtual PdbErr_t QueryDevSnapshot(int64_t devId, void* pQueryParam,
-    ISnapshotResultFilter* pResult, uint64_t timeOut, bool* pIsAdd);
+    IQuery* pQuery, uint64_t timeOut, bool* pIsAdd);
 
   PdbErr_t GetPage(int32_t pageNo, PageRef* pPageRef);
   PdbErr_t AllocPage(PageRef* pPageRef);

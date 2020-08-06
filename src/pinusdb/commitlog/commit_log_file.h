@@ -16,45 +16,36 @@
 
 #pragma once
 
-#include "port/os_file.h"
-#include "commitlog/commit_log_block.h"
+#include "port/env.h"
+#include "pdb.h"
+#include "internal.h"
+#include <vector>
+#include <mutex>
 
-#define BLKTYPE_FILE_HEAD      1  //文件头信息
-#define BLKTYPE_SYNC_INFO      2
-#define BLKTYPE_INSERT_CLI     3  // 数据插入由客户端发起，需要同步到同组的数据库
-#define BLKTYPE_INSERT_REP     4  // 数据插入由同组数据库发起，不需要同步到同组的数据库
+#define CMTLOG_TYPE_FILE_HEAD            1  //文件头信息
+#define CMTLOG_TYPE_SYNC_INFO            2  //同步信息
+#define CMTLOG_TYPE_INSERT_CLIENT        3  // 数据由客户端写入，需要同步到同组的数据库，需要再次镜像
+#define CMTLOG_TYPE_INSERT_REPLICATE     4  // 数据由同组数据库写入，不需要同步到同组的数据库，不需要再次镜像
+#define CMTLOG_TYPE_INSERT_MIRROR        5  // 数据由镜像写入， 需要同步到同组数据库，需要再次镜像
 
-#define DATA_LOG_FILE_VER      2
-#define DATA_LOG_FILE_SIZE     (512 * 1024 * 1024)  //每个日志文件最大512M
+#define CMTLOG_FILE_VER      3
 
-typedef struct _BlkHdr
+//crc, type, length
+constexpr const size_t kRecHead = (4 + 1 + 2);
+//fileVer, fileCode, syncPos, repPos, mirrorPos
+constexpr const size_t kRecFileInfoLen = (kRecHead + 1 + 4 + 8 + 8 + 8);
+//tabCrc, metaCode, devid
+constexpr const size_t kRecDataLen = (kRecHead + 8 + 4 + 8);
+//syncPos, repPos, mirrorPos
+constexpr const size_t kRecSyncLen = (kRecHead + 8 + 8 + 8);
+constexpr const uint64_t kCmtLogFileSize = (512 * 1024 * 1024);
+
+typedef struct _CacheBlock
 {
-  int32_t  blkType_;         // 块类型
-  uint32_t hdrCrc_;          // 头部校验
-}BlkHdr;
-
-typedef struct _LogFileHdr {
-  uint32_t logFileVer_;      // 文件版本
-  uint32_t logFileCode_;     // 文件编号
-  char padding_[16];
-  BlkHdr blkHdr_;
-}LogFileHdr;
-
-typedef struct _LogBlkHdr {
-  uint64_t tabCrc_;          // 表
-  uint32_t metaCode_;         // 字段校验
-  int32_t  recCnt_;          // 记录条数
-  int32_t  dataLen_;         // 数据长度
-  uint32_t dataCrc_;         // 数据校验
-  BlkHdr   blkHdr_;          // 块头部信息
-}LogBlkHdr;
-
-typedef struct _SyncBlkHdr {
-  uint64_t repPos_;      // 组文件位置
-  uint64_t syncPos_;     // 数据同步位置
-  uint64_t padding_;
-  BlkHdr   blkHdr_;      // 块头部信息
-}SyncBlkHdr;
+  size_t cacheSize_;
+  size_t cacheOffset_;
+  char* pCache_;
+}CacheBlock;
 
 class CommitLogFile
 {
@@ -62,24 +53,42 @@ public:
   CommitLogFile();
   ~CommitLogFile();
 
-  PdbErr_t OpenLog(uint32_t fileCode, const char* pPath);
-  PdbErr_t NewLog(uint32_t fileCode, const char* pPath, uint64_t grpPos, uint64_t syncPos);
-  PdbErr_t Close();
-  void Sync();
-  uint32_t GetFileCode() const { return fileCode_; }
-  uint64_t GetCurPos() const { return curPos_; }
-  std::string GetFilePath() const { return filePath_; }
+  PdbErr_t OpenLogFile(uint32_t fileCode, const char* pPath);
+  PdbErr_t CreateLogFile(uint32_t fileCode, const char* pPath, uint64_t syncPos);
+  PdbErr_t CloseWrite();
+  void FreeCache();
 
-  PdbErr_t AppendData(const LogBlkHdr* pLogHdr, const CommitLogBlock* pLogBlock);
-  PdbErr_t AppendSync(uint64_t repPos, uint64_t syncPos);
-  PdbErr_t ReadBuf(uint8_t* pBuf, int readLen, int64_t offset);
-  PdbErr_t RecoverPoint(uint64_t* pRepPos, uint64_t* pSyncPos);
+  uint32_t GetFileCode() const { return fileCode_; }
+  const char* GetFilePath() const { return filePath_.c_str(); }
+  size_t GetFileSize() const { return (fileSize_ + pos_); }
+  bool GetFileReadOnly() const { return readOnly_; }
+  uint64_t GetFileBeginPos() const;
+  uint64_t GetFileEndPos() const;
+  
+  PdbErr_t ReadRecList(uint64_t* pOffset, char* pBuf, size_t bufSize,
+    std::vector<LogRecInfo>& recList);
+
+  PdbErr_t AppendRecord(const char* pRecHead, const char* pRec, size_t recLen);
+  PdbErr_t AppendSync(uint64_t syncPos);
+  PdbErr_t RecoverPoint(uint64_t* pSyncPos);
+
+  PdbErr_t Sync();
 
 private:
-  std::string filePath_;
-  OSFile logFile_;
-  uint64_t curPos_;
-  uint64_t syncLen_;
-  uint64_t syncTime_;
+  PdbErr_t Read(size_t offset, char* pBuf, size_t* pBytes);
+  PdbErr_t Append(const char* pBuf, size_t bytes);
+  PdbErr_t FlushBuffer();
+
+private:
+  std::mutex fileMutex_;
+  bool readOnly_;
   uint32_t fileCode_;
+  std::string filePath_;
+  NormalFile* pFile_;
+
+  volatile size_t fileSize_;
+  std::vector<CacheBlock> cacheVec_;
+
+  volatile size_t pos_;
+  char* pWriteBuf_;
 };

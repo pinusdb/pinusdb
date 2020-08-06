@@ -161,10 +161,10 @@ PdbErr_t InsertSql::InitTableInfo(const TableInfo* pTabInfo)
   
   for (auto nameIt = colNameVec_.begin(); nameIt != colNameVec_.end(); nameIt++)
   {
-    retVal = pTabInfo->GetFieldInfo(nameIt->c_str(), &fieldPos, &fieldType);
+    retVal = pTabInfo->GetFieldRealInfo(nameIt->c_str(), &fieldPos, &fieldType);
     if (retVal != PdbE_OK)
       return retVal;
-  
+
     posVec_.push_back(fieldPos);
     typeVec_.push_back(fieldType);
   }

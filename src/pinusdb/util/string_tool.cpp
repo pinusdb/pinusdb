@@ -256,8 +256,8 @@ bool StringTool::ValidColumnName(const char* pColName, size_t nameLen)
 
 bool StringTool::ComparyNoCase(const char* pStr1, const char* pStr2)
 {
-  register const unsigned char * s1 = (const unsigned char *)pStr1;
-  register const unsigned char * s2 = (const unsigned char *)pStr2;
+  const unsigned char * s1 = (const unsigned char *)pStr1;
+  const unsigned char * s2 = (const unsigned char *)pStr2;
 
   unsigned char c1, c2;
 
@@ -279,8 +279,8 @@ bool StringTool::ComparyNoCase(const char* pStr1, size_t len1, const char* pStr2
   if (len1 != len2)
     return false;
 
-  register const unsigned char * s1 = (const unsigned char *)pStr1;
-  register const unsigned char * s2 = (const unsigned char *)pStr2;
+  const unsigned char * s1 = (const unsigned char *)pStr1;
+  const unsigned char * s2 = (const unsigned char *)pStr2;
 
   unsigned char c1, c2;
 
@@ -378,8 +378,8 @@ bool StringTool::StartWith(const char* pStr, const char* pStartPart)
   if (pStr == nullptr || pStartPart == nullptr)
     return false;
 
-  register const char* s1 = pStr;
-  register const char* s2 = pStartPart;
+  const char* s1 = pStr;
+  const char* s2 = pStartPart;
 
   char c1, c2;
 
@@ -400,8 +400,8 @@ bool StringTool::StartWithNoCase(const char* pStr, const char* pStartPart)
   if (pStr == nullptr || pStartPart == nullptr)
     return false;
 
-  register const unsigned char* s1 = (const unsigned char*)pStr;
-  register const unsigned char* s2 = (const unsigned char*)pStartPart;
+  const unsigned char* s1 = (const unsigned char*)pStr;
+  const unsigned char* s2 = (const unsigned char*)pStartPart;
 
   unsigned char c1, c2;
 

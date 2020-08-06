@@ -60,13 +60,13 @@ public:
 
 private:
 
-  PdbErr_t DecodePacket(uint8_t* pPacket, size_t packetLen, PDBDataTable* pTable);
+  PdbErr_t DecodePacket(char* pPacket, size_t packetLen, PDBDataTable* pTable);
   PdbErr_t InitColumnInfo(const DBObj* pObj, PDBDataTable* pTable);
   PdbErr_t MakeRequestPacket(Arena& arena, const char* pSql, 
-    uint32_t method, uint8_t** ppPacketBuf, size_t* pPacketLen);
+    uint32_t method, char** ppPacketBuf, size_t* pPacketLen);
 
-  PdbErr_t Request(const uint8_t* pBuf, size_t len);
-  PdbErr_t Recv(Arena& arena, uint8_t** ppDataBuf, size_t* pDataLen);
+  PdbErr_t Request(const char* pBuf, size_t len);
+  PdbErr_t Recv(Arena& arena, char** ppDataBuf, size_t* pDataLen);
 
 private:
   bool connected_;

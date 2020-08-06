@@ -17,7 +17,7 @@
 #pragma once
 
 #include "internal.h"
-#include "query/result_filter.h"
+#include "query/iquery.h"
 
 class SysConfig
 {
@@ -30,19 +30,20 @@ public:
   int32_t GetLogLevel() const { return logLevel_; }
   int32_t GetQueryTimeOut() const { return queryTimeOut_; }
   int32_t GetCacheSize() const { return cacheSize_; }
+  int32_t GetWriteCache() const { return writeCache_; }
   void UpdateCacheSize(int32_t cacheSize) { cacheSize_ = cacheSize; }
+  void UpdateWriteCache(int32_t writeCache) { writeCache_ = writeCache; }
   int32_t GetInsertValidDay() const { return insertValidDay_; }
   std::string GetSysLogPath() const { return sysLogPath_; }
   std::string GetNormalDataPath() const { return normalDataPath_; }
   std::string GetCompressDataPath() const { return compressDataPath_; }
   std::string GetTablePath() const { return tabPath_; }
   std::string GetCommitLogPath() const { return commitLogPath_; }
-  int32_t GetDevCnt() const { return PDB_SYS_DEV_CNT; }
   bool GetCompressFlag() const { return compressFlag_; }
 
   bool LoadConfig();
 
-  PdbErr_t Query(IResultFilter* pFilter);
+  PdbErr_t Query(IQuery* pQuery);
 
 private:
   std::mutex sysCfgMutex_;
@@ -51,6 +52,7 @@ private:
   int32_t logLevel_;             // 日志级别
   int32_t queryTimeOut_;         // 查询超时时间
   int32_t cacheSize_;            // 缓存大小
+  int32_t writeCache_;           // 写缓存大小
   int32_t insertValidDay_;       // 插入有效时间
   std::string tabPath_;          // 表目录
   std::string normalDataPath_;   // 正常数据目录

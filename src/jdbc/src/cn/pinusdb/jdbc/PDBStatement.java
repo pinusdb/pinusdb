@@ -12,6 +12,16 @@ public class PDBStatement implements java.sql.Statement {
 	private int updateCnt_;
 	private PDBConnection conn_;
 	private PDBCommand cmd_;
+
+	/**
+	 * Maximum number of rows to return, 0 = unlimited.
+	 */
+	protected int maxrows = 0;
+
+	/**
+	 * Number of rows to get in a batch.
+	 */
+	protected int fetchSize = 0;
 	
 	public PDBStatement(PDBConnection conn) {
 		this.resultSet_ = null;
@@ -309,8 +319,11 @@ public class PDBStatement implements java.sql.Statement {
 	}
 
 	@Override
-	public void setFetchSize(int arg0) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+	public void setFetchSize(int rows) throws SQLException {
+		if (rows < 0) {
+			throw new SQLException("Invalid fetch param", "58005", PDBErrCode.PdbE_SQL_ERROR);
+		}
+		fetchSize = rows;
 	}
 
 	@Override
@@ -330,7 +343,7 @@ public class PDBStatement implements java.sql.Statement {
 
 	@Override
 	public void setQueryTimeout(int arg0) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法");
+		
 	}
 	
 }

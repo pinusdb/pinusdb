@@ -17,11 +17,7 @@
 #include "server/server_connection.h"
 #include "util/date_time.h"
 #include "util/log_util.h"
-
 #include "expr/sql_parser.h"
-#include "query/data_table.h"
-
-#include "table/db_obj.h"
 
 inline void SetRemoteInfo(ConnInfo* pConnInfo, const char* pRemoteHost, int remotePort)
 {
@@ -113,7 +109,7 @@ void ServerConnection::DelConnection(uint64_t connKey)
   }
 }
 
-PdbErr_t ServerConnection::QueryConn(IResultFilter* pFilter)
+PdbErr_t ServerConnection::QueryConn(IQuery* pQuery)
 {
   PdbErr_t retVal = PdbE_OK;
 
@@ -156,11 +152,11 @@ PdbErr_t ServerConnection::QueryConn(IResultFilter* pFilter)
 
     DBVAL_ELE_SET_DATETIME(vals, 4, connIt->second->connTime_);
     
-    retVal = pFilter->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendData(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       break;
 
-    if (pFilter->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       break;
 
   }

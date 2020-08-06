@@ -32,8 +32,8 @@
 #define METHOD_CMD_NONQUERY_REQ        0x010007    //执行其他功能 请求报文（一条执行语句）
 #define METHOD_CMD_NONQUERY_REP        0x010008    //执行其他功能 回复报文（回复执行结果）
 
-#define METHOD_CMD_INSERT_TABLE_REQ   0x010009    //插入 请求报文(二进制格式)
-#define METHOD_CMD_INSERT_TABLE_REP   0x01000A    //插入 回复报文(二进制格式)
+#define METHOD_CMD_INSERT_TABLE_REQ    0x010009    //插入 请求报文(二进制格式)
+#define METHOD_CMD_INSERT_TABLE_REP    0x01000A    //插入 回复报文(二进制格式)
 
 /*
 ** |------4-----|------4-----|------4-----|------4-----|
@@ -52,7 +52,7 @@ public:
   ProtoHeader();
   ~ProtoHeader();
 
-  void Load(uint8_t* pHead);
+  void Load(char* pHead);
 
   uint32_t GetVersion();
   uint32_t GetMethod();
@@ -84,5 +84,5 @@ public:
   };
 
 private:
-  uint8_t* pHead_;
+  char* pHead_;
 };

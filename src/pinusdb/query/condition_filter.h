@@ -17,10 +17,9 @@
 #pragma once
 
 #include "internal.h"
-#include "table/db_obj.h"
 #include "table/db_value.h"
-#include "expr/expr_item.h"
-#include "query/condition_item.h"
+#include "table/table_info.h"
+#include "query/value_item.h"
 
 //////////////////////////////////////////////////////////////////////////////
 class ConditionFilter
@@ -29,28 +28,20 @@ public:
   ConditionFilter();
   ~ConditionFilter();
 
-  PdbErr_t BuildCondition(const ExprItem* pExpr, const TableInfo* pTabInfo);
+  PdbErr_t BuildCondition(const TableInfo* pTabInfo, 
+    const ExprValue* pCondition, int64_t nowMillis);
   PdbErr_t RunCondition(const DBVal* pVals, size_t valCnt, bool& resultVal) const;
-  bool AlwaysFalse() const { return alwaysFalse_; }
-
-private:
-  PdbErr_t _BuildCondition(const ExprItem* pExpr, const TableInfo* pTabInfo);
-
-  ConditionItem* BuildLtCondition(size_t fieldPos, DBVal* pVal);
-
-  ConditionItem* BuildLeCondition(size_t fieldPos, DBVal* pVal);
-
-  ConditionItem* BuildGtCondition(size_t fieldPos, DBVal* pVal);
-
-  ConditionItem* BuildGeCondition(size_t fieldPos, DBVal* pVal);
-
-  ConditionItem* BuildNeCondition(size_t fieldPos, DBVal* pVal);
-
-  ConditionItem* BuildEqCondition(size_t fieldPos, DBVal* pVal);
-
-  ConditionItem* BuildLikeCondition(size_t fieldPos, DBVal* pVal);
+  bool AlwaysFalse() const { return alwaysFalse_ || minDevId_ > maxDevId_ || minTstamp_ > maxTstamp_; }
+  void GetDevIdRange(int64_t* pMinDevId, int64_t* pMaxDevId) const;
+  void GetTstampRange(int64_t* pMinTstamp, int64_t* pMaxTstamp) const;
+  bool FilterDevId(int64_t devId) const;
 
 private:
   bool alwaysFalse_;
-  std::vector<ConditionItem*> conditionVec_;
+  int64_t minDevId_;
+  int64_t maxDevId_;
+  int64_t minTstamp_;
+  int64_t maxTstamp_;
+  std::vector<ValueItem*> conditionVec_;
+  std::vector<ValueItem*> devIdCondiVec_;
 };

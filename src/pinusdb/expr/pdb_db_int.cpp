@@ -19,7 +19,8 @@
 #include <stack>
 #include <vector>
 #include "expr/sql_parser.h"
-#include "expr/expr_item.h"
+#include "expr/expr_value.h"
+#include "expr/target_list.h"
 #include "expr/column_item.h"
 #include "expr/group_opt.h"
 #include "expr/orderby_opt.h"
@@ -34,7 +35,7 @@ void pdbSetError(SQLParser* pParse, const char* pErrMsg)
   }
 }
 
-void pdbDelete(SQLParser* pParse, Token* pTabName, ExprItem* pWhere)
+void pdbDelete(SQLParser* pParse, Token* pTabName, ExprValue* pWhere)
 {
   if (pParse != nullptr)
   {
@@ -90,14 +91,64 @@ void pdbDropFile(SQLParser* pParse, Token* pTabName, Token* pDate)
   }
 }
 
-void pdbSelect(SQLParser* pParse, ExprList* pSelList, Token* pSrcTab, 
-  ExprItem* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit)
+void pdbSelect(SQLParser* pParse, TargetList* pTagList, Token* pSrcTab,
+  ExprValue* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit)
 {
   if (pParse != nullptr)
   {
-    pParse->SetQuery(pSelList, pSrcTab, pWhere, pGroup, pOrderBy, pLimit);
+    pParse->SetQuery(pTagList, pSrcTab, pWhere, pGroup, pOrderBy, pLimit);
   }
 }
+
+/*
+void pdbSelect2(SQLParser* pParse, TargetList* pTagList1, Token* pSrcTab, ExprValue* pWhere1,
+  GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit, TargetList* pTagList2, ExprValue* pWhere2)
+{
+  if (pParse != nullptr)
+  {
+    ExprValueList* pWhere = pWhere1;
+    if (pWhere2 != nullptr)
+    {
+      if (pWhere == nullptr)
+      {
+        pWhere = pWhere2;
+      }
+      else
+      {
+        const std::vector<ExprValue*>* pExprList = pWhere2->GetValueList();
+        for (size_t i = 0; i < pExprList->size(); i++)
+        {
+          ExprValueList::AppendExprValue(pWhere, (*pExprList)[i]);
+        }
+
+        pWhere2->Clear();
+        delete pWhere2;
+      }
+    }
+
+    TargetList* pTagList = pTagList2;
+    const std::vector<TargetItem>* pTList = pTagList->GetTargetList();
+    if (pTList->size() == 1)
+    {
+      if ((*pTList)[0].first->GetValueType() == TK_STAR)
+      {
+        pTagList = pTagList1;
+      }
+    }
+
+    if (pTagList == pTagList1)
+    {
+      delete pTagList2;
+    }
+    else
+    {
+      delete pTagList1;
+    }
+
+    pParse->SetQuery(pTagList, pSrcTab, pWhere, pGroup, pOrderBy, pLimit);
+  }
+}
+*/
 
 void pdbCreateTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList)
 {
@@ -147,10 +198,10 @@ void pdbDropUser(SQLParser* pParse, Token* pNameToken)
   }
 }
 
-void pdbInsert(SQLParser* pParse, Token* pTabName, ExprList* pColList, RecordList* pRecList)
+void pdbInsert(SQLParser* pParse, Token* pTabName, TargetList* pTagList, RecordList* pRecList)
 {
   if (pParse != nullptr)
   {
-    pParse->SetInsert(pTabName, pColList, pRecList);
+    pParse->SetInsert(pTabName, pTagList, pRecList);
   }
 }

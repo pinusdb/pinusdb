@@ -73,7 +73,7 @@ PdbErr_t NormalDataPart::Create(const char* pIdxPath, const char* pDataPath,
   const char* pFieldName = nullptr;
   for (size_t i = 0; i < fieldCnt; i++)
   {
-    pTabInfo->GetFieldInfo(i, &fieldType);
+    pTabInfo->GetFieldRealInfo(i, &fieldType);
     pFieldName = pTabInfo->GetFieldName(i);
 
     strncpy(pMeta->fieldRec_[i].fieldName_, pFieldName, PDB_FILED_NAME_LEN);
@@ -240,7 +240,7 @@ PdbErr_t NormalDataPart::RecoverDW(const char* pPageBuf)
 }
 
 PdbErr_t NormalDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp,
-  bool replace, const uint8_t* pRec, size_t recLen)
+  bool replace, const char* pRec, size_t recLen)
 {
   PdbErr_t retVal = PdbE_OK;
   if (readOnly_)
@@ -332,7 +332,7 @@ PdbErr_t NormalDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tst
       LOG_ERROR("failed to insert record, err:{}", retVal);
       return retVal;
     }
-
+    
     //分裂旧页或直接插入新页
     int64_t lastTs = 0;
     retVal = dataPage.GetLastTstamp(&lastTs);
@@ -367,7 +367,7 @@ PdbErr_t NormalDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tst
         return retVal;
 
       //如果旧页未同步,设置旧页为页满
-      if (oldPageDirty && PAGEHDR_GET_SPLIT_GRP(pPage) == 0)
+      if (oldPageDirty)
       {
         PAGEHDR_SET_IS_FULL(pPage);
       }
@@ -379,10 +379,6 @@ PdbErr_t NormalDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tst
       {
         //如果是最后一个页，将少部分分裂到新页
         retVal = dataPage.SplitMost(&newDataPage, (24 * 1024));
-        if (retVal == PdbE_OK && PAGEHDR_ONLY_MEM(pPage))
-        {
-          PAGEHDR_SET_IS_FULL(pPage); //设置旧页已满， 加快写盘
-        }
       }
       else
       {
@@ -410,6 +406,10 @@ PdbErr_t NormalDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tst
         PAGEHDR_SET_SPLIT_GRP(pPage, PAGEHDR_GET_PAGENO(pPage));
         PAGEHDR_SET_SPLIT_GRP(pNewPage, PAGEHDR_GET_PAGENO(pPage));
       }
+      
+      //设置分裂后的页面，尽量快的刷盘
+      PAGEHDR_SET_IS_FULL(pPage);
+      PAGEHDR_SET_IS_FULL(pNewPage);
 
       normalIdx_.AddIdx(devId, newDataPage.GetIdxTs(), newPageNo);
       
@@ -578,7 +578,7 @@ PdbErr_t NormalDataPart::AbandonDirtyPages()
 }
 
 PdbErr_t NormalDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
-  IResultFilter* pResult, uint64_t timeOut, bool queryFirst, bool* pIsAdd)
+  IQuery* pQuery, uint64_t timeOut, bool queryFirst, bool* pIsAdd)
 {
   PdbErr_t retVal = PdbE_OK;
   NormalPageIdx pageIdx;
@@ -639,7 +639,7 @@ PdbErr_t NormalDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
     while (pDataIter->Valid())
     {
       DBVal* pVals = pDataIter->GetRecord();
-      retVal = pResult->AppendData(pVals, fieldCnt, &isAdd);
+      retVal = pQuery->AppendData(pVals, fieldCnt, &isAdd);
       if (retVal != PdbE_OK)
         return retVal;
 
@@ -651,7 +651,7 @@ PdbErr_t NormalDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
         return PdbE_OK;
       }
 
-      if (pResult->GetIsFullFlag())
+      if (pQuery->GetIsFullFlag())
         return PdbE_OK;
 
       curTs = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
@@ -674,7 +674,7 @@ PdbErr_t NormalDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
 }
 
 PdbErr_t NormalDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
-  IResultFilter* pResult, uint64_t timeOut, bool queryLast, bool* pIsAdd)
+  IQuery* pQuery, uint64_t timeOut, bool queryLast, bool* pIsAdd)
 {
   PdbErr_t retVal = PdbE_OK;
   NormalPageIdx pageIdx;
@@ -735,7 +735,7 @@ PdbErr_t NormalDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
     while (pDataIter->Valid())
     {
       DBVal* pVals = pDataIter->GetRecord();
-      retVal = pResult->AppendData(pVals, fieldCnt, &isAdd);
+      retVal = pQuery->AppendData(pVals, fieldCnt, &isAdd);
       if (retVal != PdbE_OK)
         return retVal;
 
@@ -747,7 +747,7 @@ PdbErr_t NormalDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
         return PdbE_OK;
       }
 
-      if (pResult->GetIsFullFlag())
+      if (pQuery->GetIsFullFlag())
         return PdbE_OK;
 
       curTs = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
@@ -771,7 +771,7 @@ PdbErr_t NormalDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
 }
 
 PdbErr_t NormalDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
-  ISnapshotResultFilter* pResult, uint64_t timeOut, bool* pIsAdd)
+  IQuery* pQuery, uint64_t timeOut, bool* pIsAdd)
 {
   PdbErr_t retVal = PdbE_OK;
   NormalPageIdx pageIdx;
@@ -820,7 +820,7 @@ PdbErr_t NormalDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
   if (pDataIter->Valid())
   {
     DBVal* pVals = pDataIter->GetRecord();
-    retVal = pResult->AppendData(pVals, fieldCnt, nullptr);
+    retVal = pQuery->AppendData(pVals, fieldCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
   }
@@ -1068,9 +1068,6 @@ void* NormalDataPart::InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, 
       int32_t tmpType = fieldVec_[idx].GetFieldType();
       if (PDB_TYPE_IS_REAL(tmpType))
         tmpType = PDB_FIELD_TYPE::TYPE_DOUBLE;
-      
-      if (PDB_TYPE_IS_REAL(queryType))
-        queryType = PDB_FIELD_TYPE::TYPE_DOUBLE;
 
       if (tmpType == queryType)
         fieldPosVec[idx] = static_cast<int>(queryPos);
@@ -1250,9 +1247,9 @@ PdbErr_t NormalDataPart::PageDataIter::Prev()
 
 DBVal* NormalDataPart::PageDataIter::GetRecord()
 {
-  const PdbByte* pRecBg = nullptr;
-  const PdbByte* pRecLimit = nullptr;
-  const PdbByte* pRecVal = nullptr;
+  const char* pRecBg = nullptr;
+  const char* pRecLimit = nullptr;
+  const char* pRecVal = nullptr;
   DBVal tmpVal;
   int64_t tstamp = 0;
   uint64_t u64val = 0;

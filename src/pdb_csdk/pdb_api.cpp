@@ -4,7 +4,7 @@
 #include <mutex>
 #include <unordered_set>
 #include <unordered_map>
-#include "table/db_obj.h"
+#include "db_obj.h"
 
 std::mutex handleMutex_;
 int32_t maxHandle_ = 1;

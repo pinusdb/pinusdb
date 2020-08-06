@@ -54,8 +54,8 @@ public:
 
   void UpdateCrc();
 
-  PdbErr_t InsertRec(int64_t ts, const PdbByte* pRec, size_t recLen, bool replace);
-  PdbErr_t GetRecData(size_t idx, const PdbByte** ppRec);
+  PdbErr_t InsertRec(int64_t ts, const char* pRec, size_t recLen, bool replace);
+  PdbErr_t GetRecData(size_t idx, const char** ppRec);
   PdbErr_t GetRecTstamp(size_t idx, int64_t* pTstamp);
   PdbErr_t GetLastTstamp(int64_t* pTstamp);
 

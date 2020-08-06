@@ -21,6 +21,7 @@
 #include "util/log_util.h"
 #include "util/string_tool.h"
 #include "util/coding.h"
+#include "global_variable.h"
 
 //文件块大小 1M
 #define DEVID_FILE_BLOCK_SIZE  (PDB_MB_BYTES(1))
@@ -84,7 +85,7 @@ PdbErr_t DevIDTable::Create(const char* pDevPath, const TableInfo* pTabInfo)
 
   for (uint32_t i = 0; i < pMeta->fieldCnt_; i++)
   {
-    pTabInfo->GetFieldInfo(i, &fieldType);
+    pTabInfo->GetFieldRealInfo(i, &fieldType);
     pFieldName = pTabInfo->GetFieldName(i);
 
     strncpy(pMeta->fieldRec_[i].fieldName_, pFieldName, PDB_FILED_NAME_LEN);
@@ -228,7 +229,7 @@ PdbErr_t DevIDTable::Alter(const TableInfo* pTabInfo)
 
   for (uint32_t i = 0; i < pMeta->fieldCnt_; i++)
   {
-    pTabInfo->GetFieldInfo(i, &fieldType);
+    pTabInfo->GetFieldRealInfo(i, &fieldType);
     pFieldName = pTabInfo->GetFieldName(i);
 
     strncpy(pMeta->fieldRec_[i].fieldName_, pFieldName, PDB_FILED_NAME_LEN);
@@ -324,16 +325,21 @@ PdbErr_t DevIDTable::AddDev(int64_t devId, PdbStr devName, PdbStr expand)
   return PdbE_OK;
 }
 
-PdbErr_t DevIDTable::QueryDevId(const DevFilter* pDevFilter, std::list<int64_t>& devIdVec)
+PdbErr_t DevIDTable::QueryDevId(const IQuery* pQuery, std::list<int64_t>& devIdVec)
 {
-  return QueryDevId(pDevFilter, devIdVec, 0, INT64_MAX);
+  return QueryDevId(pQuery, devIdVec, 0, INT64_MAX);
 }
 
-PdbErr_t DevIDTable::QueryDevId(const DevFilter* pDevFilter, std::list<int64_t>& devIdList,
+PdbErr_t DevIDTable::QueryDevId(const IQuery* pQuery, std::list<int64_t>& devIdList,
   size_t queryOffset, size_t queryRecord)
 {
-  int64_t minDevId = pDevFilter->GetMinDevId();
-  int64_t maxDevId = pDevFilter->GetMaxDevId();
+  int64_t minDevId = 0;
+  int64_t maxDevId = INT64_MAX;
+
+  if (pQuery == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  pQuery->GetDevIdRange(&minDevId, &maxDevId);
 
   std::unique_lock<std::mutex> queryLock(queryIdMutex_);
   if (!isSortId_)
@@ -362,7 +368,7 @@ PdbErr_t DevIDTable::QueryDevId(const DevFilter* pDevFilter, std::list<int64_t>&
 
   for (; idx < static_cast<int>(devIdVec_.size()); idx++)
   {
-    if (pDevFilter->Filter(devIdVec_[idx]))
+    if (pQuery->FilterDevId(devIdVec_[idx]))
     {
       if (queryOffset > 0)
       {
@@ -384,7 +390,7 @@ PdbErr_t DevIDTable::QueryDevId(const DevFilter* pDevFilter, std::list<int64_t>&
   return PdbE_OK;
 }
 
-PdbErr_t DevIDTable::QueryDevInfo(const std::string& tabName, IResultFilter* pFilter)
+PdbErr_t DevIDTable::QueryDevInfo(const std::string& tabName, IQuery* pQuery)
 {
   PdbErr_t retVal = PdbE_OK;
   const int valCnt = 4;
@@ -406,11 +412,11 @@ PdbErr_t DevIDTable::QueryDevInfo(const std::string& tabName, IResultFilter* pFi
     DBVAL_ELE_SET_STRING(vals, 2, pDevItem->devName_, strlen(pDevItem->devName_));
     DBVAL_ELE_SET_STRING(vals, 3, pDevItem->expand_, strlen(pDevItem->expand_));
 
-    retVal = pFilter->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendData(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
 
-    if (pFilter->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       return PdbE_OK;
   }
 

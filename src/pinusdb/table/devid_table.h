@@ -19,8 +19,7 @@
 #include "port/mem_map_file.h"
 #include "util/arena.h"
 #include "table/table_info.h"
-#include "query/dev_filter.h"
-#include "query/result_filter.h"
+#include "query/iquery.h"
 
 typedef struct _DevIdPos
 {
@@ -43,10 +42,10 @@ public:
   size_t GetDevCnt() const;
   PdbErr_t DevExist(int64_t devId);
   PdbErr_t AddDev(int64_t devId, PdbStr devName, PdbStr expand);
-  PdbErr_t QueryDevId(const DevFilter* pDevFilter, std::list<int64_t>& devIdList);
-  PdbErr_t QueryDevId(const DevFilter* pDevFilter, std::list<int64_t>& devIdList,
+  PdbErr_t QueryDevId(const IQuery* pQuery, std::list<int64_t>& devIdList);
+  PdbErr_t QueryDevId(const IQuery* pQuery, std::list<int64_t>& devIdList,
     size_t queryOffset, size_t queryRecord);
-  PdbErr_t QueryDevInfo(const std::string& tabName, IResultFilter* pFilter);
+  PdbErr_t QueryDevInfo(const std::string& tabName, IQuery* pFilter);
   PdbErr_t DelDev(const std::string& tabName, const ConditionFilter* pCondition);
   void Flush();
 

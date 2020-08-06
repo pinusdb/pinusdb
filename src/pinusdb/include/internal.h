@@ -34,7 +34,6 @@
 #include "pdb_error.h"
 
 #define PDB_SYS_DEV_CNT   100000
-
 #define IP_ADDR_STR_LEN   16      //IP地址字符串长度，目前只考虑IPv4
 
 
@@ -51,10 +50,9 @@
 #define COMPRESS_DATA_FILE_HEAD_STR "PDB COMPRESS 1"
 
 #define PDB_MAJOR_VER_VAL        1
-#define PDB_MINOR_VER_VAL        4
-#define PDB_BUILD_VER_VAL        0
+#define PDB_MINOR_VER_VAL        5
+#define PDB_BUILD_VER_VAL        2
 
-#define PDB_VERSION_STR          "1.4.0"
 
 #define PDB_BOOL_FALSE           0
 #define PDB_BOOL_TRUE            1
@@ -70,6 +68,7 @@
 #define TSTAMP_FIELD_NAME           "tstamp"
 
 #define DOUBLE_PRECISION         ((double)0.0000000001)
+#define DOUBLE_EQUAL_ZERO(val)   (((val) < ((double)0.0000000001)) && ((val) > ((double)-0.0000000001)))
 
 #define NORMAL_IDX_FILE_EXTEND               ".idx"       // 通用索引文件扩展名
 #define NORMAL_DATA_FILE_EXTEND              ".dat"       // 通用数据文件扩展名
@@ -100,7 +99,6 @@
 #define PDB_TABLE_MAX_FIELD_COUNT          (860)         // 一个表最大的列数
 
 #define PDB_MAX_PACKET_BODY_LEN      (4 * 1024 * 1024)  //每个报文最大长度
-#define PDB_MAX_PACKET_REC_CNT       (1000)             //一个报文最多包含的记录条数
 
 //每条记录最长 8K
 #define PDB_MAX_REC_LEN              8192
@@ -130,41 +128,40 @@ typedef struct _FieldInfoFormat
   char padding_[12];
 }FieldInfoFormat;
 
-#define PDB_SQL_FUNC_COUNT_NAME          "COUNT"
-#define PDB_SQL_FUNC_COUNT_NAME_LEN      (sizeof(PDB_SQL_FUNC_COUNT_NAME) - 1)
-
-#define PDB_SQL_FUNC_FIRST_NAME          "FIRST"
-#define PDB_SQL_FUNC_FIRST_NAME_LEN      (sizeof(PDB_SQL_FUNC_FIRST_NAME) - 1)
-
-#define PDB_SQL_FUNC_LAST_NAME           "LAST"
-#define PDB_SQL_FUNC_LAST_NAME_LEN       (sizeof(PDB_SQL_FUNC_LAST_NAME) - 1)
-
-#define PDB_SQL_FUNC_AVG_NAME            "AVG"
-#define PDB_SQL_FUNC_AVG_NAME_LEN        (sizeof(PDB_SQL_FUNC_AVG_NAME) - 1)
-
-#define PDB_SQL_FUNC_MIN_NAME            "MIN"
-#define PDB_SQL_FUNC_MIN_NAME_LEN        (sizeof(PDB_SQL_FUNC_MIN_NAME) - 1)
-
-#define PDB_SQL_FUNC_MAX_NAME            "MAX"
-#define PDB_SQL_FUNC_MAX_NAME_LEN        (sizeof(PDB_SQL_FUNC_MAX_NAME) - 1)
-
-#define PDB_SQL_FUNC_SUM_NAME            "SUM"
-#define PDB_SQL_FUNC_SUM_NAME_LEN        (sizeof(PDB_SQL_FUNC_SUM_NAME) - 1)
-
-#define PDB_SQL_FUNC_NOW_NAME            "NOW"
-#define PDB_SQL_FUNC_NOW_NAME_LEN        (sizeof(PDB_SQL_FUNC_NOW_NAME) - 1)
-
-#define PDB_SQL_FUNC_VERSION_NAME        "VERSION"
-#define PDB_SQL_FUNC_VERSION_NAME_LEN    (sizeof(PDB_SQL_FUNC_VERSION_NAME) - 1)
-
 enum PDB_SQL_FUNC{
-  FUNC_COUNT = 1,
-  FUNC_FIRST = 2,
-  FUNC_LAST = 3,
-  FUNC_AVG = 4,
-  FUNC_MIN = 5,
-  FUNC_MAX = 6,
-  FUNC_SUM = 7,
-
-  FUNC_NOW = 8,
+  FUNC_AGG_COUNT = 1,
+  FUNC_AGG_FIRST,
+  FUNC_AGG_LAST,
+  FUNC_AGG_AVG,
+  FUNC_AGG_MIN,
+  FUNC_AGG_MAX,
+  FUNC_AGG_SUM,
+  FUNC_AGG_COUNT_IF,
+  FUNC_AGG_AVG_IF,
+  FUNC_AGG_MIN_IF,
+  FUNC_AGG_MAX_IF,
+  FUNC_AGG_SUM_IF,
+  FUNC_ADD,
+  FUNC_SUB,
+  FUNC_MUL,
+  FUNC_DIV,
+  FUNC_MOD,
+  FUNC_DATETIMEADD,
+  FUNC_DATETIMEDIFF,
+  FUNC_DATETIMEFLOOR,
+  FUNC_DATETIMECEIL,
+  FUNC_IF,
+  FUNC_ABS,
+  FUNC_NOW
 };
+
+
+typedef struct _LogRecInfo
+{
+  uint64_t tabCrc;
+  uint32_t metaCrc;
+  uint16_t recType;
+  uint16_t recLen;
+  int64_t devId;
+  const char* pRec;
+}LogRecInfo;

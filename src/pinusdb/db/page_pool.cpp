@@ -37,6 +37,7 @@ PagePool::PagePool()
 
   totalCacheSize_ = 0;
   useCacheSize_ = 0;
+  writeCacheSize_ = 0;
 
   lastAllocErrorTime_ = 0;
 }
@@ -85,12 +86,14 @@ bool PagePool::InitPool()
 
   if (cacheSize == 0)
   {
-    if (totalPhyMem < PDB_GB_BYTES(4))
-      cacheSize = (totalPhyMem / 8); // 内存小于4G时，推荐为物理内存的1/8
-    else if (totalPhyMem < PDB_GB_BYTES(8))
+    if (totalPhyMem < PDB_GB_BYTES(8))
       cacheSize = (totalPhyMem / 4); // 内存小于8G时，推荐为物理内存的1/4
     else
       cacheSize = (totalPhyMem / 2); // 使用推荐值, 物理内存的1/2
+
+    //如果推荐值大于32GB，则调整为32GB, 若需要使用超过32GB的缓存，则需要配置文件中设置固定的值
+    if (cacheSize > PDB_GB_BYTES(32))
+      cacheSize = PDB_GB_BYTES(32);
   }
   else if (cacheSize < minCacheSize)
     cacheSize = minCacheSize; // 使用最小缓存
@@ -103,8 +106,31 @@ bool PagePool::InitPool()
 
   cacheSize = ((cacheSize + (kAllocSize - 1))) & (~(kAllocSize - 1));
   totalCacheSize_ = cacheSize;
-  LOG_INFO("set database cache ({}M)", (cacheSize / PDB_MB_BYTES(1)));
   pGlbSysCfg->UpdateCacheSize(static_cast<int32_t>(cacheSize / PDB_MB_BYTES(1)));
+
+  size_t writeSize = PDB_MB_BYTES(pGlbSysCfg->GetWriteCache()); // 从配置文件中读取出来的单位是MB
+  size_t maxWriteSize = ((cacheSize * 3) / 4); //最大为缓存的75%
+  size_t minWriteSize = PDB_MB_BYTES(128); //写缓存最小为128MB
+
+  if (writeSize == 0)
+  {
+    if (cacheSize < PDB_GB_BYTES(24))
+      writeSize = ((cacheSize * 5) / 10);  //小于24GB，推荐为缓存的 50%
+    else
+      writeSize = PDB_GB_BYTES(12);        //大于24GB，推荐为12GB
+  }
+  
+  if (writeSize < minWriteSize)
+    writeSize = minWriteSize; // 使用最小写缓存
+  else if (writeSize > maxWriteSize)
+    writeSize = maxWriteSize; // 使用最大写缓存
+
+  //以1MB，向上取整
+  writeSize = ((writeSize + PDB_MB_BYTES(1) - 1) / PDB_MB_BYTES(1)) * PDB_MB_BYTES(1);
+  pGlbSysCfg->UpdateWriteCache(static_cast<int32_t>(writeSize / PDB_MB_BYTES(1)));
+
+  LOG_INFO("set database cache ({}MB), write cache ({}MB), total ({}MB)", 
+    (cacheSize / PDB_MB_BYTES(1)), (writeSize / PDB_MB_BYTES(1)), (totalPhyMem / PDB_MB_BYTES(1)));
 
   if (_AllocCache() != PdbE_OK)
   {
@@ -264,7 +290,7 @@ PdbErr_t PagePool::_AllocCache()
   }
 
   PageHdr* pHdrItem = (PageHdr*)pHdrBuf;
-  uint8_t* pDataItem = (uint8_t*)pTmpMem;
+  char* pDataItem = (char*)pTmpMem;
   for (size_t i = 0; i < pageCnt; i++)
   {
     PAGEHDR_INIT(pHdrItem, pDataItem);
@@ -302,7 +328,7 @@ PdbErr_t PagePool::_AllocCache()
   }
 
   PageHdr* pHdrItem = (PageHdr*)pHdrBuf;
-  uint8_t* pDataItem = (uint8_t*)pTmpMem;
+  char* pDataItem = (char*)pTmpMem;
   size_t dataMod = reinterpret_cast<uintptr_t>(pTmpMem) & (NORMAL_PAGE_SIZE - 1);
   size_t slop = (dataMod == 0 ? 0 : NORMAL_PAGE_SIZE - dataMod);
   pDataItem += slop;

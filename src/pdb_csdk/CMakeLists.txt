@@ -16,4 +16,4 @@ ELSE ()
 
 ENDIF (CMAKE_SYSTEM_NAME MATCHES "Linux")
 
-add_library(pdb_csdk SHARED pdb_api.cpp pdb_client.cpp pdb_datatable.cpp pdb_error_msg.cpp ../pinusdb/util/arena.cpp ../pinusdb/table/db_obj.cpp ../pinusdb/table/field_info.cpp ../pinusdb/server/proto_header.cpp ../pinusdb/util/string_tool.cpp ../pinusdb/table/table_info.cpp)
+add_library(pdb_csdk SHARED pdb_api.cpp pdb_client.cpp pdb_datatable.cpp pdb_error_msg.cpp db_obj.cpp ../pinusdb/util/arena.cpp  ../pinusdb/table/field_info.cpp ../pinusdb/server/proto_header.cpp ../pinusdb/util/string_tool.cpp ../pinusdb/table/table_info.cpp)

@@ -21,39 +21,26 @@
 #include "expr/group_opt.h"
 #include "expr/orderby_opt.h"
 #include "expr/limit_opt.h"
-#include "expr/expr_item.h"
+#include "expr/expr_value.h"
+#include "expr/target_list.h"
 #include "expr/parse.h"
 #include "expr/record_list.h"
+#include "table/table_info.h"
 #include "pdb.h"
 #include <string>
 
 class QueryParam
 {
 public:
-  ExprList* pSelList_;
-  std::string srcTab_;
-  ExprItem* pWhere_;
+  TargetList* pTagList_;
+  ExprValue* pWhere_;
   GroupOpt* pGroup_;
   OrderByOpt* pOrderBy_;
   LimitOpt* pLimit_;
 
-  bool IsQueryRaw() const
-  {
-    const std::vector<ExprItem*>& colItemVec = pSelList_->GetExprList();
-    for (auto colIt = colItemVec.begin(); colIt != colItemVec.end(); colIt++)
-    {
-      if ((*colIt)->GetOp() != TK_ID && (*colIt)->GetOp() != TK_STAR)
-      {
-        return false;
-      }
-    }
-
-    return true;
-  }
-
   QueryParam()
   {
-    pSelList_ = nullptr;
+    pTagList_ = nullptr;
     pWhere_ = nullptr;
     pGroup_ = nullptr;
     pOrderBy_ = nullptr;
@@ -62,8 +49,8 @@ public:
 
   ~QueryParam()
   {
-    if (pSelList_ != nullptr)
-      delete pSelList_;
+    if (pTagList_ != nullptr)
+      delete pTagList_;
 
     if (pWhere_ != nullptr)
       delete pWhere_;
@@ -82,8 +69,7 @@ public:
 class DeleteParam
 {
 public:
-  std::string tabName_;
-  ExprItem* pWhere_;
+  ExprValue* pWhere_;
 
   DeleteParam()
   {
@@ -98,72 +84,32 @@ public:
 
 };
 
-class DropTableParam
+class DataFileParam
 {
 public:
-  std::string tabName_;
-};
-
-class AttachTableParam
-{
-public:
-  std::string tabName_;
-};
-
-class DetachTableParam
-{
-public:
-  std::string tabName_;
-};
-
-class AttachFileParam
-{
-public:
-  std::string tabName_;
   std::string dateStr_;
   std::string fileType_;
 
-  AttachFileParam() {}
-  ~AttachFileParam() {}
-};
-
-class DetachFileParam
-{
-public:
-  std::string tabName_;
-  std::string dateStr_;
-
-  DetachFileParam() {}
-  ~DetachFileParam() {}
-};
-
-class DropFileParam
-{
-public:
-  std::string tabName_;
-  std::string dateStr_;
-
-  DropFileParam() {}
-  ~DropFileParam() {}
+  DataFileParam() {}
+  ~DataFileParam() {}
 };
 
 class InsertParam
 {
 public:
-  std::string tabName_;
-  ExprList* pColList_;
+  TargetList* pTagList_;
   RecordList* pValRecList_;
 
   InsertParam()
   {
-    this->pColList_ = nullptr;
+    this->pTagList_ = nullptr;
     this->pValRecList_ = nullptr;
   }
 
   ~InsertParam()
   {
-    if (this->pColList_ != nullptr)
-      delete pColList_;
+    if (this->pTagList_ != nullptr)
+      delete pTagList_;
 
     if (this->pValRecList_ != nullptr)
       delete pValRecList_;
@@ -173,7 +119,6 @@ public:
 class CreateTableParam
 {
 public:
-  std::string tabName_;
   ColumnList* pColList_;
 
   CreateTableParam()
@@ -188,31 +133,12 @@ public:
   }
 };
 
-class AddUserParam
+class UserParam
 {
 public:
   std::string userName_;
   std::string pwd_;
-};
-
-class ChangePwdParam
-{
-public:
-  std::string userName_;
-  std::string newPwd_;
-};
-
-class ChangeRoleParam
-{
-public:
-  std::string userName_;
   std::string roleName_;
-};
-
-class DropUserParam
-{
-public:
-  std::string userName_;
 };
 
 class SQLParser
@@ -221,9 +147,10 @@ public:
   SQLParser();
   ~SQLParser();
 
-  void SetQuery(ExprList* pSelList, Token* pSrcTab, ExprItem* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit);
-  void SetInsert(Token* pTabName, ExprList* pColList, RecordList* pRecList);
-  void SetDelete(Token* pTabToken, ExprItem* pWhere);
+  void SetQuery(TargetList* pTagList, Token* pSrcTab, ExprValue* pWhere,
+    GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit);
+  void SetInsert(Token* pTabName, TargetList* pTagList, RecordList* pRecList);
+  void SetDelete(Token* pTabToken, ExprValue* pWhere);
   void SetCreateTable(Token* pTabName, ColumnList* pColList);
   void SetAlterTable(Token* pTabName, ColumnList* pColList);
   void SetDropTable(Token* pTabName);
@@ -241,24 +168,16 @@ public:
   bool GetError();
   void SetError();
 
-  int32_t GetCmdType() const;
+  int32_t GetCmdType() const { return cmdType_; }
+  const char* GetTableName() const { return tableName_.c_str(); }
 
-  const QueryParam* GetQueryParam() const;
-  const DeleteParam* GetDeleteParam() const { return &deleteParam_; }
-  const DropTableParam* GetDropTableParam() const;
-  const InsertParam* GetInsertParam() const;
-  const CreateTableParam* GetCreateTableParam() const;
-  const AddUserParam* GetAddUserParam() const;
-  const ChangePwdParam* GetChangePwdParam() const;
-  const ChangeRoleParam* GetChangeRoleParam() const;
-  const DropUserParam* GetDropUserParam() const;
+  const QueryParam* GetQueryParam() const { return pQueryParam_; }
+  const DeleteParam* GetDeleteParam() const { return pDeleteParam_; }
+  const InsertParam* GetInsertParam() const { return pInsertParam_; }
+  const CreateTableParam* GetCreateTableParam() const { return pCreateTableParam_; }
+  const UserParam* GetUserParam() const { return pUserParam_; }
+  const DataFileParam* GetDataFileParam() const { return pDataFileParam_; }
 
-  const AttachTableParam* GetAttachTableParam() const;
-  const DetachTableParam* GetDetachTableParam() const;
-  const AttachFileParam* GetAttachFileParam() const { return &attachFileParam_; }
-  const DetachFileParam* GetDetachFileParam() const { return &detachFileParam_; }
-  const DropFileParam* GetDropFileParam() const { return &dropFileParam_; }
-  
   enum CmdType
   {
     CT_None = 0,            // Пе
@@ -282,22 +201,15 @@ public:
 private:
   int32_t cmdType_;
   bool isError_;
+  std::string tableName_;
 
-  QueryParam queryParam_;
-  DeleteParam deleteParam_;
-  DropTableParam dropTableParam_;
-  InsertParam insertParam_;
-  CreateTableParam createTableParam_;
-  AddUserParam addUserParam_;
-  ChangePwdParam changePwdParam_;
-  ChangeRoleParam changeRoleParam_;
-  DropUserParam dropUserParam_;
+  QueryParam* pQueryParam_;
+  DeleteParam* pDeleteParam_;
+  InsertParam* pInsertParam_;
+  CreateTableParam* pCreateTableParam_;
+  UserParam* pUserParam_;
 
-  AttachTableParam attachTabParam_;
-  DetachTableParam detachTabParam_;
-  AttachFileParam attachFileParam_;
-  DetachFileParam detachFileParam_;
-  DropFileParam   dropFileParam_;
+  DataFileParam* pDataFileParam_;
 };
 
 

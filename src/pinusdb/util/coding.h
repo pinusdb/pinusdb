@@ -17,6 +17,7 @@
 #pragma once
 #include <stdint.h>
 #include <string.h>
+#include <string>
 
 #define PLATFORM_LITTLE_ENDIAN
 
@@ -33,7 +34,6 @@
   //        >> encode >>
   //        << decode <<
 
-
 class Coding
 {
 public:
@@ -41,17 +41,17 @@ public:
   {
     return static_cast<uint32_t>((n << 1) ^ (n >> 31));
   }
-
+  
   static int32_t ZigzagDecode32(uint32_t n)
   {
     return static_cast<int32_t>(n >> 1) ^ -static_cast<int32_t>(n & 1);
   }
-
+  
   static uint64_t ZigzagEncode64(int64_t n)
   {
     return static_cast<uint64_t>((n << 1) ^ (n >> 63));
   }
-
+  
   static int64_t ZigzagDecode64(uint64_t n)
   {
     return static_cast<int64_t>(n >> 1) ^ -static_cast<int64_t>(n & 1);
@@ -99,7 +99,7 @@ public:
     return dst;
   }
 
-  static const uint8_t* VarintDecode64(const uint8_t* p, const uint8_t* limit, uint64_t* value) {
+  static const char* VarintDecode64(const char* p, const char* limit, uint64_t* value) {
     uint64_t result = 0;
     for (uint32_t shift = 0; shift <= 63 && p < limit; shift += 7)
     {
@@ -118,11 +118,11 @@ public:
     return nullptr;
   }
 
-  static const uint8_t* VarintDecode32(const uint8_t* p, const uint8_t* limit, uint32_t* value) {
+  static const char* VarintDecode32(const char* p, const char* limit, uint32_t* value) {
     uint32_t result = 0;
     for (uint32_t shift = 0; shift <= 28 && p < limit; shift += 7)
     {
-      uint32_t byte = *p;
+      uint32_t byte = *(reinterpret_cast<const unsigned char*>(p));
       p++;
       if (byte & 128) {
         result |= ((byte & 127) << shift);
@@ -138,6 +138,64 @@ public:
   }
 
   ///////////////////////////////////////////////////////////////////////
+
+  static void PutVarint64(std::string* pDstStr, uint64_t value)
+  {
+    static const int B = 128;
+    char buf[10];
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(buf);
+    while (value >= B) {
+      *(ptr++) = (value & (B - 1)) | B;
+      value >>= 7;
+    }
+    *ptr = static_cast<uint8_t>(value);
+    ptr++;
+    pDstStr->append(buf, (ptr - reinterpret_cast<uint8_t*>(buf)));
+  }
+
+  static void PutFixed16(std::string* pDstStr, uint16_t value)
+  {
+    uint8_t buf[2];
+#ifdef PLATFORM_LITTLE_ENDIAN
+    memcpy(buf, &value, 2);
+#else
+    buffer[0] = static_cast<uint8_t>(value);
+    buffer[1] = static_cast<uint8_t>(value >> 8);
+#endif
+    pDstStr->append(reinterpret_cast<char*>(buf), 2);
+  }
+
+  static void PutFixed32(std::string* pDstStr, uint32_t value)
+  {
+    uint8_t buf[4];
+#ifdef PLATFORM_LITTLE_ENDIAN
+    memcpy(buf, &value, 4);
+#else
+    buffer[0] = static_cast<uint8_t>(value);
+    buffer[1] = static_cast<uint8_t>(value >> 8);
+    buffer[2] = static_cast<uint8_t>(value >> 16);
+    buffer[3] = static_cast<uint8_t>(value >> 24);
+#endif
+    pDstStr->append(reinterpret_cast<char*>(buf), 4);
+  }
+
+  static void PutFixed64(std::string* pDstStr, uint64_t value)
+  {
+    uint8_t buf[8];
+#ifdef PLATFORM_LITTLE_ENDIAN
+    memcpy(buf, &value, 8);
+#else
+    buffer[0] = static_cast<uint8_t>(value);
+    buffer[1] = static_cast<uint8_t>(value >> 8);
+    buffer[2] = static_cast<uint8_t>(value >> 16);
+    buffer[3] = static_cast<uint8_t>(value >> 24);
+    buffer[4] = static_cast<uint8_t>(value >> 32);
+    buffer[5] = static_cast<uint8_t>(value >> 40);
+    buffer[6] = static_cast<uint8_t>(value >> 48);
+    buffer[7] = static_cast<uint8_t>(value >> 56);
+#endif
+    pDstStr->append(reinterpret_cast<char*>(buf), 8);
+  }
 
   inline static uint32_t EncodeFloat(float val)
   {
@@ -169,7 +227,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////
 
-  static void FixedEncode16(uint8_t* dst, uint16_t value)
+  static void FixedEncode16(char* dst, uint16_t value)
   {
 #ifdef PLATFORM_LITTLE_ENDIAN
     memcpy(dst, &value, sizeof(value));
@@ -179,7 +237,7 @@ public:
 #endif
   }
 
-  static void FixedEncode32(uint8_t* dst, uint32_t value)
+  static void FixedEncode32(char* dst, uint32_t value)
   {
 #ifdef PLATFORM_LITTLE_ENDIAN
     memcpy(dst, &value, sizeof(value));
@@ -191,7 +249,7 @@ public:
 #endif
   }
 
-  static void FixedEncode64(uint8_t* dst, uint64_t value)
+  static void FixedEncode64(char* dst, uint64_t value)
   {
 #ifdef PLATFORM_LITTLE_ENDIAN
     memcpy(dst, &value, sizeof(value));
@@ -207,7 +265,7 @@ public:
 #endif
   }
 
-  static uint16_t FixedDecode16(const uint8_t* p)
+  static uint16_t FixedDecode16(const char* p)
   {
 #ifdef PLATFORM_LITTLE_ENDIAN
     uint16_t result;
@@ -219,7 +277,7 @@ public:
 #endif
   }
 
-  static uint32_t FixedDecode32(const uint8_t* p)
+  static uint32_t FixedDecode32(const char* p)
   {
 #ifdef PLATFORM_LITTLE_ENDIAN
     uint32_t result;
@@ -232,7 +290,7 @@ public:
       | (static_cast<uint32_t>(static_cast<unsigned char>(p[3])) << 24));
 #endif
   }
-  static uint64_t FixedDecode64(const uint8_t* p)
+  static uint64_t FixedDecode64(const char* p)
   {
 #ifdef PLATFORM_LITTLE_ENDIAN
     uint64_t result;

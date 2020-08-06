@@ -18,7 +18,7 @@
 
 #include "internal.h"
 #include "util/ker_list.h"
-#include "query/result_filter.h"
+#include "query/iquery.h"
 
 typedef struct _ConnInfo
 {
@@ -30,7 +30,6 @@ typedef struct _ConnInfo
 }ConnInfo;
 
 class QueryParam;
-class DataTable;
 
 class ServerConnection
 {
@@ -43,7 +42,7 @@ public:
 
   void DelConnection(uint64_t connKey);
 
-  PdbErr_t QueryConn(IResultFilter* pFilter);
+  PdbErr_t QueryConn(IQuery* pQuery);
 
 private:
   enum {

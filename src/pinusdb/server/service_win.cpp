@@ -53,7 +53,8 @@ PagePool* pGlbPagePool = nullptr;
 TableSet* pGlbTableSet = nullptr;
 CommitLogList* pGlbCommitLog = nullptr;
 bool glbCancelCompTask = false;
-bool glbRunning = true;
+bool glbRunning = true; 
+bool glbRepStates = false;
 
 void ReportSvcStatus(DWORD dwCurrentState, DWORD dwWin32ExitCode, DWORD dwWaitHint);
 
@@ -90,6 +91,7 @@ void ServiceMain()
   //释放全局变量
   delete pGlbCommitLog;
   delete pGlbTableSet;
+  delete pGlbPagePool;
   delete pGlbTabCfg;
   delete pGlbSysCfg;
   delete pGlbUser;

@@ -100,7 +100,7 @@ void NormalDataPage::UpdateCrc()
   UPDATE_NORMAL_DATA_PAGE_CRC(pHead);
 }
 
-PdbErr_t NormalDataPage::InsertRec(int64_t ts, const PdbByte* pRec, size_t recLen, bool replace)
+PdbErr_t NormalDataPage::InsertRec(int64_t ts, const char* pRec, size_t recLen, bool replace)
 {
   PdbErr_t retVal = PdbE_OK;
   assert(pPage_ != nullptr);
@@ -159,7 +159,7 @@ PdbErr_t NormalDataPage::InsertRec(int64_t ts, const PdbByte* pRec, size_t recLe
   {
     //替换
     uint16_t oldRecLen = 0;
-    const uint8_t* pOldRec = nullptr;
+    const char* pOldRec = nullptr;
     retVal = GetRecData(insertPos, &pOldRec);
     if (retVal != PdbE_OK)
       return retVal;
@@ -189,10 +189,10 @@ PdbErr_t NormalDataPage::InsertRec(int64_t ts, const PdbByte* pRec, size_t recLe
   return PdbE_OK;
 }
 
-PdbErr_t NormalDataPage::GetRecData(size_t idx, const PdbByte** ppRec)
+PdbErr_t NormalDataPage::GetRecData(size_t idx, const char** ppRec)
 {
   assert(pPage_ != nullptr);
-  const PdbByte* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
+  const char* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
   const uint16_t* pPageIdxs = (uint16_t*)(pPageData + sizeof(NormalDataHead));
   const NormalDataHead* pHead = (NormalDataHead*)pPageData;
   if (idx >= pHead->recCnt_)
@@ -207,8 +207,8 @@ PdbErr_t NormalDataPage::GetRecData(size_t idx, const PdbByte** ppRec)
 PdbErr_t NormalDataPage::GetRecTstamp(size_t idx, int64_t* pTstamp)
 {
   assert(pPage_ != nullptr);
-  const PdbByte* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
-  const PdbByte* pPageEd = pPageData + NORMAL_PAGE_SIZE;
+  const char* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
+  const char* pPageEd = pPageData + NORMAL_PAGE_SIZE;
   const uint16_t* pPageIdxs = (uint16_t*)(pPageData + sizeof(NormalDataHead));
   const NormalDataHead* pHead = (NormalDataHead*)pPageData;
   if (idx >= pHead->recCnt_)
@@ -216,7 +216,7 @@ PdbErr_t NormalDataPage::GetRecTstamp(size_t idx, int64_t* pTstamp)
 
   if (pTstamp != nullptr)
   {
-    const PdbByte* pRecData = pPageData + pPageIdxs[idx];
+    const char* pRecData = pPageData + pPageIdxs[idx];
     uint64_t uint64val = 0;
     Coding::VarintDecode64((pRecData + NORMAL_REC_LEN_LEN), pPageEd, &uint64val);
     *pTstamp = uint64val;
@@ -228,21 +228,20 @@ PdbErr_t NormalDataPage::GetRecTstamp(size_t idx, int64_t* pTstamp)
 PdbErr_t NormalDataPage::GetLastTstamp(int64_t* pTstamp)
 {
   assert(pPage_ != nullptr);
-  const PdbByte* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
-  const PdbByte* pPageEd = pPageData + NORMAL_PAGE_SIZE;
+  const char* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
+  const char* pPageEd = pPageData + NORMAL_PAGE_SIZE;
   const uint16_t* pPageIdxs = (uint16_t*)(pPageData + sizeof(NormalDataHead));
   const NormalDataHead* pHead = (NormalDataHead*)pPageData;
 
   if (pTstamp != nullptr)
   {
-    const PdbByte* pRecData = pPageData + pPageIdxs[pHead->recCnt_ - 1];
+    const char* pRecData = pPageData + pPageIdxs[pHead->recCnt_ - 1];
     uint64_t uint64val = 0;
     Coding::VarintDecode64((pRecData + NORMAL_REC_LEN_LEN), pPageEd, &uint64val);
     *pTstamp = uint64val;
   }
 
   return PdbE_OK;
-
 }
 
 //分裂指定的大小到新页, pNewPage是一个新页
@@ -252,8 +251,8 @@ PdbErr_t NormalDataPage::SplitMost(NormalDataPage* pNewPage, int32_t bytes)
 
   assert(pPage_ != nullptr);
   assert(pNewPage != nullptr);
-  PdbByte* pRecBg = nullptr;
-  PdbByte* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
+  char* pRecBg = nullptr;
+  char* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
   uint16_t* pPageIdxs = (uint16_t*)(pPageData + sizeof(NormalDataHead));
   NormalDataHead* pHead = (NormalDataHead*)pPageData;
 
@@ -297,7 +296,7 @@ PdbErr_t NormalDataPage::CleanUp()
 
   memset(pTmpBuf, 0, NORMAL_PAGE_SIZE);
 
-  PdbByte* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
+  char* pPageData = PAGEHDR_GET_PAGEDATA(pPage_);
   NormalDataHead* pPageHead = (NormalDataHead*)pPageData;
   uint16_t* pPageIdxs = (uint16_t*)(pPageData + sizeof(NormalDataHead));
   uint16_t recLen = 0;
@@ -307,7 +306,7 @@ PdbErr_t NormalDataPage::CleanUp()
 
   for (int i = 0; i < pPageHead->recCnt_; i++)
   {
-    const PdbByte* pBg = pPageData + pPageIdxs[i];
+    const char* pBg = pPageData + pPageIdxs[i];
     recLen = Coding::FixedDecode16(pBg);
 
     pTmpEnd -= recLen;

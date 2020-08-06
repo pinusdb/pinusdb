@@ -26,7 +26,7 @@ struct _PageHdr
 {
   struct list_head listHdr_; // LRU链表
   uint64_t  pageCode_;       // 页号  表ID + 天编码 + 页号, 1+3+4
-  uint8_t*  pData_;          // 页数据
+  char*     pData_;          // 页数据
 
   uint32_t  curVer_;         // 当前版本号
   uint32_t  syncVer_;        // 已同步的版本号

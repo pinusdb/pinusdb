@@ -61,7 +61,7 @@ PdbErr_t CompDataPart::RecoverDW(const char* pPageBuf)
 }
 
 PdbErr_t CompDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp,
-  bool replace, const uint8_t* pRec, size_t recLen)
+  bool replace, const char* pRec, size_t recLen)
 {
   return PdbE_FILE_READONLY;
 }
@@ -81,7 +81,7 @@ PdbErr_t CompDataPart::UnMap()
 }
 
 PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
-  IResultFilter* pResult, uint64_t timeOut, bool queryFirst, bool* pIsAdd)
+  IQuery* pQuery, uint64_t timeOut, bool queryFirst, bool* pIsAdd)
 {
   PdbErr_t retVal = PdbE_OK;
   CompDevId compDevId;
@@ -131,7 +131,7 @@ PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
     while (pHisIter->Valid())
     {
       DBVal* pVals = pHisIter->GetRecord();
-      retVal = pResult->AppendData(pVals, fieldCnt, &isAdd);
+      retVal = pQuery->AppendData(pVals, fieldCnt, &isAdd);
       if (retVal != PdbE_OK)
         return retVal;
 
@@ -143,7 +143,7 @@ PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
         return PdbE_OK;
       }
 
-      if (pResult->GetIsFullFlag())
+      if (pQuery->GetIsFullFlag())
         return PdbE_OK;
 
       curTs = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
@@ -161,7 +161,7 @@ PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
 }
 
 PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
-  IResultFilter* pResult, uint64_t timeOut, bool queryLast, bool* pIsAdd)
+  IQuery* pQuery, uint64_t timeOut, bool queryLast, bool* pIsAdd)
 {
   PdbErr_t retVal = PdbE_OK;
   CompDevId compDevId;
@@ -211,7 +211,7 @@ PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
     while (pHisIter->Valid())
     {
       DBVal* pVals = pHisIter->GetRecord();
-      retVal = pResult->AppendData(pVals, fieldCnt, &isAdd);
+      retVal = pQuery->AppendData(pVals, fieldCnt, &isAdd);
       if (retVal != PdbE_OK)
         return retVal;
 
@@ -223,7 +223,7 @@ PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
         return PdbE_OK;
       }
 
-      if (pResult->GetIsFullFlag())
+      if (pQuery->GetIsFullFlag())
         return PdbE_OK;
 
       curTs = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
@@ -241,7 +241,7 @@ PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
 }
 
 PdbErr_t CompDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
-  ISnapshotResultFilter* pResult, uint64_t timeOut, bool* pIsAdd)
+  IQuery* pQuery, uint64_t timeOut, bool* pIsAdd)
 {
   PdbErr_t retVal = PdbE_OK;
   CompDevId compDevId;
@@ -282,7 +282,7 @@ PdbErr_t CompDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
   if (pHisIter->Valid())
   {
     DBVal* pVals = pHisIter->GetRecord();
-    retVal = pResult->AppendData(pVals, fieldCnt, nullptr);
+    retVal = pQuery->AppendData(pVals, fieldCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
   }
@@ -303,7 +303,7 @@ PdbErr_t CompDataPart::InitMemMap()
     if (retVal != PdbE_OK)
       return retVal;
 
-    const uint8_t* pTmpBase = dataMemMap_.GetBaseAddr();
+    const char* pTmpBase = (char*)dataMemMap_.GetBaseAddr();
     size_t dataSize = dataMemMap_.MemMapSize();
 
     const CompDataFooter* pFooter = (const CompDataFooter*)(pTmpBase + dataSize - sizeof(CompDataFooter));
@@ -429,9 +429,6 @@ void* CompDataPart::InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, in
       if (PDB_TYPE_IS_REAL(tmpType))
         tmpType = PDB_FIELD_TYPE::TYPE_DOUBLE;
 
-      if (PDB_TYPE_IS_REAL(queryType))
-        queryType = PDB_FIELD_TYPE::TYPE_DOUBLE;
-
       if (tmpType == queryType)
         fieldPosVec[idx] = static_cast<int>(queryPos);
     }
@@ -483,7 +480,7 @@ PdbErr_t CompDataPart::CompDataIter::Init(const std::vector<FieldInfo>& fieldVec
   pTypes_ = (int*)arena_.AllocateAligned((sizeof(int) * fieldCnt_));
   pFieldPos_ = (int*)arena_.AllocateAligned((sizeof(int) * fieldCnt_));
   pQueryVals_ = (DBVal*)arena_.AllocateAligned((sizeof(DBVal) * fieldCnt_));
-  pRawBuf_ = (uint8_t*)arena_.AllocateAligned(HIS_BLK_LEN);
+  pRawBuf_ = arena_.AllocateAligned(HIS_BLK_LEN);
 
   if (pTypes_ == nullptr || pFieldPos_ == nullptr || pQueryVals_ == nullptr || pRawBuf_ == nullptr)
     return PdbE_NOMEM;
@@ -512,7 +509,7 @@ PdbErr_t CompDataPart::CompDataIter::Init(const std::vector<FieldInfo>& fieldVec
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::Load(const uint8_t* pBuf, size_t bufLen)
+PdbErr_t CompDataPart::CompDataIter::Load(const char* pBuf, size_t bufLen)
 {
   PdbErr_t retVal = PdbE_OK;
   uint32_t u32 = 0;
@@ -524,7 +521,8 @@ PdbErr_t CompDataPart::CompDataIter::Load(const uint8_t* pBuf, size_t bufLen)
   }
 
   uLongf rawLen = HIS_BLK_LEN;
-  if (uncompress(pRawBuf_, &rawLen, (pBuf + sizeof(CompBlockHead)), pCompBlkHead->dataLen_) != Z_OK)
+  if (uncompress((uint8_t*)pRawBuf_, &rawLen, 
+    (uint8_t*)(pBuf + sizeof(CompBlockHead)), pCompBlkHead->dataLen_) != Z_OK)
   {
     return PdbE_PAGE_ERROR;
   }
@@ -548,9 +546,9 @@ PdbErr_t CompDataPart::CompDataIter::Load(const uint8_t* pBuf, size_t bufLen)
     totalValCnt_ = mateCnt_ * recCnt_;
   }
 
-  const uint8_t* pBlkLimit = pRawBuf_ + rawLen;
-  const uint8_t* pTmp = pRawBuf_ + sizeof(CompPageHead);
-  const uint8_t* pValsLimit = nullptr;
+  const char* pBlkLimit = pRawBuf_ + rawLen;
+  const char* pTmp = pRawBuf_ + sizeof(CompPageHead);
+  const char* pValsLimit = nullptr;
 
   //devid
   DBVAL_ELE_SET_INT64(pQueryVals_, PDB_DEVID_INDEX, pCompPageHead->devId_);
@@ -693,7 +691,7 @@ DBVal* CompDataPart::CompDataIter::GetRecord()
   return nullptr;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeTstampVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit)
+PdbErr_t CompDataPart::CompDataIter::DecodeTstampVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
 {
   uint64_t u64 = 0;
   int64_t tstamp = 0;
@@ -706,7 +704,7 @@ PdbErr_t CompDataPart::CompDataIter::DecodeTstampVals(DBVal* pValBg, const uint8
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeBoolVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit)
+PdbErr_t CompDataPart::CompDataIter::DecodeBoolVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
 {
   for (int i = 0; i < recCnt_; i++)
   {
@@ -715,7 +713,7 @@ PdbErr_t CompDataPart::CompDataIter::DecodeBoolVals(DBVal* pValBg, const uint8_t
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeBigIntVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit)
+PdbErr_t CompDataPart::CompDataIter::DecodeBigIntVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
 {
   uint64_t u64 = 0;
   int64_t i64 = 0;
@@ -729,7 +727,7 @@ PdbErr_t CompDataPart::CompDataIter::DecodeBigIntVals(DBVal* pValBg, const uint8
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeDateTimeVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit)
+PdbErr_t CompDataPart::CompDataIter::DecodeDateTimeVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
 {
   uint64_t u64 = 0;
   int64_t i64 = 0;
@@ -743,7 +741,7 @@ PdbErr_t CompDataPart::CompDataIter::DecodeDateTimeVals(DBVal* pValBg, const uin
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeDoubleVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit)
+PdbErr_t CompDataPart::CompDataIter::DecodeDoubleVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
 {
   uint64_t u64Val = 0;
   uint64_t u64Tmp = 0;
@@ -770,7 +768,7 @@ PdbErr_t CompDataPart::CompDataIter::DecodeDoubleVals(DBVal* pValBg, const uint8
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeStringVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit)
+PdbErr_t CompDataPart::CompDataIter::DecodeStringVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
 {
   uint32_t u32 = 0;
 
@@ -784,7 +782,7 @@ PdbErr_t CompDataPart::CompDataIter::DecodeStringVals(DBVal* pValBg, const uint8
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeBlobVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit)
+PdbErr_t CompDataPart::CompDataIter::DecodeBlobVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
 {
   uint32_t u32 = 0;
 
@@ -798,7 +796,7 @@ PdbErr_t CompDataPart::CompDataIter::DecodeBlobVals(DBVal* pValBg, const uint8_t
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeRealVals(DBVal* pValBg, const uint8_t* pBuf, const uint8_t* pLimit, double multiple)
+PdbErr_t CompDataPart::CompDataIter::DecodeRealVals(DBVal* pValBg, const char* pBuf, const char* pLimit, double multiple)
 {
   int64_t i64 = 0;
   uint64_t u64 = 0;

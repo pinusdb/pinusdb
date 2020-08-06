@@ -56,4 +56,5 @@ typedef struct _ColumnInfo
   int colType_;
 }ColumnInfo;
 
-
+#define PDB_LICENSE_TYPE_STANDARD    1   //标准版授权
+#define PDB_LICENSE_TYPE_ENTERPRISE  2   //企业版授权

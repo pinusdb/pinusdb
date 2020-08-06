@@ -19,16 +19,11 @@
 #include "util/log_util.h"
 #include "util/date_time.h"
 #include "global_variable.h"
-#include "query/result_field.h"
-#include "query/result_filter_group_all.h"
-#include "query/result_filter_group_devid.h"
-#include "query/result_filter_group_tstamp.h"
-#include "query/result_filter_raw.h"
-#include "query/result_filter_snapshot_raw.h"
-#include "query/tstamp_filter.h"
-#include "query/dev_filter.h"
+#include "query/iquery.h"
+#include "query/query_raw.h"
+#include "query/query_group.h"
+#include "query/query_snapshot.h"
 #include "util/coding.h"
-#include "commitlog/commit_log_block.h"
 #include "storage/normal_data_part.h"
 #include "storage/comp_data_part.h"
 
@@ -442,36 +437,30 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
   bool includeErr = false;
   RefUtil partRef;
   RefUtil tabInfoRef;
-  Arena arena;
-  CommitLogBlock logBlock;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
   retVal = pInsertSql->InitTableInfo(pTabInfo);
   if (retVal != PdbE_OK)
     return retVal;
 
+  int32_t fieldType = 0;
   uint32_t tabMetaCode = pTabInfo->GetMetaCode();
   size_t fieldCnt = pTabInfo->GetFieldCnt();
-  DBVal* pVals = (DBVal*)arena.AllocateAligned(sizeof(DBVal) * fieldCnt);
-  uint8_t* pRecBuf = (uint8_t*)arena.AllocateAligned(PDB_MAX_REC_LEN);
-  if (pVals == nullptr || pRecBuf == nullptr)
-  {
-    LOG_WARNING("execute insert error, failed to allocate memory");
-    return PdbE_NOMEM;
-  }
 
+  std::string recBuf;
+  std::vector<DBVal> valsVec;
+  valsVec.resize(fieldCnt);
+  recBuf.reserve(PDB_MAX_REC_LEN);
+
+  DBVal* pVals = valsVec.data();
   //将所有字段设置为默认值
+  memset(pVals, 0, sizeof(DBVal) * fieldCnt);
   for (size_t i = 0; i < fieldCnt; i++)
   {
-    int32_t fieldType = 0;
     pTabInfo->GetFieldInfo(i, &fieldType);
     switch (fieldType)
     {
     case PDB_FIELD_TYPE::TYPE_BOOL: DBVAL_ELE_SET_BOOL(pVals, i, false); break;
-    case PDB_FIELD_TYPE::TYPE_INT64:
-    case PDB_FIELD_TYPE::TYPE_REAL2:
-    case PDB_FIELD_TYPE::TYPE_REAL3:
-    case PDB_FIELD_TYPE::TYPE_REAL4:
-    case PDB_FIELD_TYPE::TYPE_REAL6: DBVAL_ELE_SET_INT64(pVals, i, 0); break;
+    case PDB_FIELD_TYPE::TYPE_INT64: DBVAL_ELE_SET_INT64(pVals, i, 0); break;
     case PDB_FIELD_TYPE::TYPE_DATETIME: DBVAL_ELE_SET_DATETIME(pVals, i, 0); break;
     case PDB_FIELD_TYPE::TYPE_DOUBLE: DBVAL_ELE_SET_DOUBLE(pVals, i, 0); break;
     case PDB_FIELD_TYPE::TYPE_STRING: DBVAL_ELE_SET_STRING(pVals, i, nullptr, 0); break;
@@ -485,17 +474,12 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
 
   int64_t devId = 0;
   int64_t tstamp = 0;
-  uint8_t* pLimitRec = pRecBuf + PDB_MAX_REC_LEN;
-  uint8_t* pRecBg = pRecBuf + sizeof(int64_t);
-  uint8_t* pValBuf = nullptr;
   DataPart* pDataPart = nullptr;
   uint16_t recLen = 0;
   int curPartDay = -1;
   int curRecDay = 0;
   while (!pInsertSql->IsEnd() && glbRunning)
   {
-    pValBuf = pRecBg + sizeof(uint16_t);
-
     retVal = pInsertSql->GetNextRec(pVals, fieldCnt);
     if (retVal != PdbE_OK)
     {
@@ -520,53 +504,38 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
       INSERT_REC_ERROR_OCCUR;
     }
 
+    recBuf.resize(2);
     for (size_t i = PDB_TSTAMP_INDEX; i < fieldCnt; i++)
     {
-      if ((pValBuf + 2 + DBVAL_ELE_GET_LEN(pVals, i)) > pLimitRec)
-      {
-        retVal = PdbE_RECORD_TOO_LONG;
-        break;
-      }
-
       switch (DBVAL_ELE_GET_TYPE(pVals, i))
       {
       case PDB_VALUE_TYPE::VAL_BOOL:
-        *pValBuf = DBVAL_ELE_GET_BOOL(pVals, i) ? PDB_BOOL_TRUE : PDB_BOOL_FALSE;
-        pValBuf++;
+        Coding::PutVarint64(&recBuf, (DBVAL_ELE_GET_BOOL(pVals, i) ? PDB_BOOL_TRUE : PDB_BOOL_FALSE));
         break;
       case PDB_VALUE_TYPE::VAL_INT64:
-        pValBuf = Coding::VarintEncode64(pValBuf, Coding::ZigzagEncode64(DBVAL_ELE_GET_INT64(pVals, i)));
+        Coding::PutVarint64(&recBuf, Coding::ZigzagEncode64(DBVAL_ELE_GET_INT64(pVals, i)));
         break;
       case PDB_VALUE_TYPE::VAL_DATETIME:
-        pValBuf = Coding::VarintEncode64(pValBuf, DBVAL_ELE_GET_INT64(pVals, i));
+        Coding::PutVarint64(&recBuf, DBVAL_ELE_GET_INT64(pVals, i));
         break;
       case PDB_VALUE_TYPE::VAL_DOUBLE:
-        pValBuf[0] = DBVAL_ELE_GET_BYTES(pVals, i)[0];
-        pValBuf[1] = DBVAL_ELE_GET_BYTES(pVals, i)[1];
-        pValBuf[2] = DBVAL_ELE_GET_BYTES(pVals, i)[2];
-        pValBuf[3] = DBVAL_ELE_GET_BYTES(pVals, i)[3];
-        pValBuf[4] = DBVAL_ELE_GET_BYTES(pVals, i)[4];
-        pValBuf[5] = DBVAL_ELE_GET_BYTES(pVals, i)[5];
-        pValBuf[6] = DBVAL_ELE_GET_BYTES(pVals, i)[6];
-        pValBuf[7] = DBVAL_ELE_GET_BYTES(pVals, i)[7];
-        pValBuf += 8;
+        Coding::PutFixed64(&recBuf, DBVAL_ELE_GET_UINT64(pVals, i));
         break;
       case PDB_VALUE_TYPE::VAL_STRING:
       case PDB_VALUE_TYPE::VAL_BLOB:
-        pValBuf = Coding::VarintEncode32(pValBuf, DBVAL_ELE_GET_LEN(pVals, i));
-        memcpy(pValBuf, DBVAL_ELE_GET_BLOB(pVals, i), DBVAL_ELE_GET_LEN(pVals, i));
-        pValBuf += DBVAL_ELE_GET_LEN(pVals, i);
+        Coding::PutVarint64(&recBuf, DBVAL_ELE_GET_LEN(pVals, i));
+        recBuf.append(DBVAL_ELE_GET_STRING(pVals, i), DBVAL_ELE_GET_LEN(pVals, i));
         break;
       }
     }
-    if (retVal != PdbE_OK)
+
+    if (recBuf.size() >= PDB_MAX_REC_LEN)
     {
+      retVal = PdbE_RECORD_TOO_LONG;
       INSERT_REC_ERROR_OCCUR;
     }
 
-    recLen = static_cast<uint16_t>(pValBuf - pRecBg);
-    Coding::FixedEncode16(pRecBg, recLen);
-    Coding::FixedEncode64(pRecBuf, devId);
+    Coding::FixedEncode16(&(recBuf[0]), static_cast<uint16_t>(recBuf.size()));
 
     curRecDay = static_cast<int32_t>(tstamp / MillisPerDay);
     if (curPartDay != curRecDay)
@@ -581,7 +550,16 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
       pDataPart = partRef.GetObj<DataPart>();
     }
 
-    retVal = pDataPart->InsertRec(tabMetaCode, devId, tstamp, true, (const uint8_t*)pRecBg, recLen);
+    if (pDataPart->GetMetaCode() != tabMetaCode)
+    {
+      retVal = PdbE_TABLE_FIELD_MISMATCH;
+      INSERT_REC_ERROR_OCCUR;
+    }
+
+    pGlbCommitLog->AppendRec(tabCrc_, tabMetaCode, CMTLOG_TYPE_INSERT_CLIENT,
+      devId, recBuf.data(), recBuf.size());
+
+    retVal = pDataPart->InsertRec(tabMetaCode, devId, tstamp, true, recBuf.data(), recBuf.size());
     if (retVal != PdbE_OK)
     {
       LOG_DEBUG("failed to insert record {}", retVal);
@@ -589,10 +567,7 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
     }
 
     resultList.push_back(PdbE_OK);
-    logBlock.AppendRec(pRecBuf, (pValBuf - pRecBuf));
   }
-
-  pGlbCommitLog->AppendData(tabCrc_, pTabInfo->GetMetaCode(), false, &logBlock);
 
   if (errBreak)
     return retVal;
@@ -605,179 +580,142 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
 
 
 PdbErr_t PDBTable::InsertByDataLog(uint32_t metaCode, int64_t devId, 
-  int64_t tstamp, const uint8_t* pRecBg, size_t recLen)
+  int64_t tstamp, const char* pRec, size_t recLen)
 {
   RefUtil partRef;
   int32_t recDay = static_cast<int32_t>(tstamp / MillisPerDay);
   DataPart* pDataPart = GetDataPart(recDay, &partRef);
   if (pDataPart != nullptr)
-    return pDataPart->InsertRec(metaCode, devId, tstamp, true, pRecBg, recLen);
+    return pDataPart->InsertRec(metaCode, devId, tstamp, true, pRec, recLen);
   
   return PdbE_OK;
 }
 
-PdbErr_t PDBTable::Query(DataTable* pResultTable, const QueryParam* pQueryParam)
+PdbErr_t PDBTable::InsertByReplicate(std::vector<LogRecInfo>& recVec, size_t beginIdx)
 {
   PdbErr_t retVal = PdbE_OK;
-  RefUtil tabInfoRef;
-  //const ExprList* pColList = pQueryParam->pSelList_;
-  const ExprItem* pConditionItem = pQueryParam->pWhere_;
-  const GroupOpt* pGroup = pQueryParam->pGroup_;
-  const OrderByOpt* pOrderBy = pQueryParam->pOrderBy_;
-  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
-  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
+  uint64_t tstamp;
+  size_t idx = beginIdx;
+  size_t cnt = recVec.size();
+  RefUtil partRef;
+  int32_t tmpCode;
+  int32_t partCode = -1;
+  DataPart* pDataPart = nullptr;
+  int32_t successCnt = 0;
+  int32_t errCnt = 0;
 
-  IResultFilter* pResultFilter = nullptr;
-  std::list<int64_t> devIdList;
-
-  do {
-    if (pOrderBy != nullptr)
+  for (; idx < cnt; idx++)
+  {
+    if (recVec[idx].tabCrc == tabCrc_)
     {
-      //如果有order by 先判断 order by 是否正确
-      if (!pOrderBy->Valid())
+      if (nullptr != Coding::VarintDecode64((recVec[idx].pRec + 2),
+        (recVec[idx].pRec + recVec[idx].recLen), &tstamp))
       {
-        retVal = PdbE_SQL_GROUP_ERROR;
+        tmpCode = static_cast<int32_t>(tstamp / MillisPerDay);
+        if (pDataPart == nullptr || partCode != tmpCode)
+        {
+          retVal = GetOrCreateNormalPart(tmpCode, &partRef);
+          if (retVal != PdbE_OK)
+          {
+            errCnt++;
+            LOG_DEBUG("insert replicate record failed, GetOrCreateNormalPart({}:{}) ", 
+              tabName_.c_str(), partCode);
+            continue;
+          }
+
+          partCode = tmpCode;
+          pDataPart = partRef.GetObj<DataPart>();
+        }
+
+        retVal = pDataPart->InsertRec(recVec[idx].metaCrc, recVec[idx].devId,
+          tstamp, true, recVec[idx].pRec, recVec[idx].recLen);
+        if (retVal != PdbE_OK)
+        {
+          errCnt++;
+          LOG_DEBUG("insert replicate record failed, InsertRec({}:{})",
+            tabName_.c_str(), partCode);
+        }
+        else
+        {
+          successCnt++;
+          pGlbCommitLog->AppendRec(tabCrc_, recVec[idx].metaCrc, CMTLOG_TYPE_INSERT_REPLICATE,
+            recVec[idx].devId, recVec[idx].pRec, recVec[idx].recLen);
+        }
+      }
+    }
+  }
+
+  LOG_DEBUG("insert replicate table ({}) success({}) error({})",
+    tabName_.c_str(), successCnt, errCnt);
+
+  return PdbE_OK;
+}
+
+PdbErr_t PDBTable::ExecQuery(const QueryParam* pQueryParam,
+  std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
+{
+  PdbErr_t retVal = PdbE_OK;
+  bool groupQuery = false;
+  if (pQueryParam == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  if (pQueryParam->pTagList_ == nullptr)
+    return PdbE_SQL_ERROR;
+
+  if (pQueryParam->pGroup_ == nullptr)
+  {
+    const std::vector<TargetItem>* pTagList = pQueryParam->pTagList_->GetTargetList();
+    for (auto tagIt = pTagList->begin(); tagIt != pTagList->end(); tagIt++)
+    {
+      if (IncludeAggFunction(tagIt->first))
+      {
+        groupQuery = true;
         break;
       }
     }
-
-    if (pGroup == nullptr)
+    
+    if (groupQuery)
     {
-      if (pQueryParam->IsQueryRaw())
-      {
-        pResultFilter = new ResultFilterRaw();
-      }
-      else
-      {
-        //将所有数据作为一个分组，不能有 order by 子句
-        if (pOrderBy != nullptr)
-        {
-          retVal = PdbE_SQL_GROUP_ERROR;
-          break;
-        }
+      //GROUP ALL
+      if (pQueryParam->pOrderBy_ != nullptr)
+        return PdbE_SQL_GROUP_ERROR;
 
-        pResultFilter = new ResultFilterGroupAll();
-      }
+      return ExecQueryGroupAll(pQueryParam, resultData, pFieldCnt, pRecordCnt);
     }
     else
     {
-      if (pOrderBy != nullptr)
-      {
-        retVal = PdbE_SQL_GROUP_ERROR;
-        break;
-      }
-
-      if (pGroup->IsDevIdGroup())
-      {
-        pResultFilter = new ResultFilterGroupDevID();
-      }
-      else if (pGroup->IsTStampGroup())
-      {
-        pResultFilter = new ResultFilterGroupTStamp();
-      }
-      else
-      {
-        retVal = PdbE_SQL_GROUP_ERROR;
-        break;
-      }
+      //NONE GROUP
+      return ExecQueryRawData(pQueryParam, resultData, pFieldCnt, pRecordCnt);
     }
+  }
+  else
+  {
+    if (!pQueryParam->pGroup_->Valid())
+      return PdbE_SQL_GROUP_ERROR;
 
-    retVal = pResultFilter->BuildFilter(pQueryParam, pTabInfo, pResultTable->GetArena());
-    if (retVal != PdbE_OK)
-      break;
+    if (pQueryParam->pOrderBy_ != nullptr)
+      return PdbE_SQL_GROUP_ERROR;
 
-    //如果是空数据集，就不用查询了
-    if (!pResultFilter->IsEmptySet())
+    if (pQueryParam->pGroup_->IsDevIdGroup())
     {
-      TStampFilter tstampFilter;
-      DevFilter devFilter;
-      if (!tstampFilter.BuildFilter(pConditionItem))
-      {
-        retVal = PdbE_SQL_CONDITION_EXPR_ERROR;
-        break;
-      }
-
-      retVal = devFilter.BuildFilter(pConditionItem);
-      if (retVal != PdbE_OK)
-        break;
-
-      if (pResultFilter->IsGroupByDevId())
-      {
-        size_t queryOffset = pResultFilter->GetQueryOffset();
-        size_t queryRecord = pResultFilter->GetQueryRecord();
-
-        retVal = devTable_.QueryDevId(&devFilter, devIdList, queryOffset, queryRecord);
-        if (retVal != PdbE_OK)
-          break;
-
-        if (devIdList.empty())
-          break;
-
-        retVal = pResultFilter->InitGrpDevResult(devIdList);
-        if (retVal != PdbE_OK)
-          break;
-
-        if (pResultFilter->IsQueryFirst())
-        {
-          retVal = QueryFirst(devIdList, tstampFilter.GetMinTstamp(),
-            tstampFilter.GetMaxTstamp(), pResultFilter, timeOutTick);
-        }
-        else if (pResultFilter->IsQueryLast())
-        {
-          retVal = QueryLast(devIdList, tstampFilter.GetMinTstamp(),
-            tstampFilter.GetMaxTstamp(), pResultFilter, timeOutTick);
-        }
-        else
-        {
-          retVal = QueryAsc(devIdList, tstampFilter.GetMinTstamp(),
-            tstampFilter.GetMaxTstamp(), pResultFilter, timeOutTick);
-        }
-      }
-      else
-      {
-        retVal = devTable_.QueryDevId(&devFilter, devIdList);
-        if (retVal != PdbE_OK)
-          break;
-
-        if (devIdList.empty())
-          break;
-
-        if (pResultFilter->IsGroupByTstamp())
-        {
-          retVal = pResultFilter->InitGrpTsResult();
-          if (retVal != PdbE_OK)
-            break;
-        }
-
-        if (pOrderBy == nullptr || pOrderBy->IsASC())
-        {
-          retVal = QueryAsc(devIdList, tstampFilter.GetMinTstamp(),
-            tstampFilter.GetMaxTstamp(), pResultFilter, timeOutTick);
-        }
-        else
-        {
-          retVal = QueryDesc(devIdList, tstampFilter.GetMinTstamp(),
-            tstampFilter.GetMaxTstamp(), pResultFilter, timeOutTick);
-        }
-      }
-
+      //GROUP BY DEVID
+      return ExecQueryGroupDevId(pQueryParam, resultData, pFieldCnt, pRecordCnt);
     }
-  } while (false);
+    else if (pQueryParam->pGroup_->IsTStampGroup())
+    {
+      //GROUP BY TSTAMP 1M...
+      return ExecQueryGroupTstamp(pQueryParam, resultData, pFieldCnt, pRecordCnt);
+    }
+  }
 
-  if (retVal == PdbE_OK)
-    retVal = pResultFilter->GetData(pResultTable);
-
-  if (pResultFilter != nullptr)
-    delete pResultFilter;
-
-  return retVal;
+  return PdbE_SQL_GROUP_ERROR;
 }
 
-PdbErr_t PDBTable::QuerySnapshot(DataTable* pResultTable, const QueryParam* pQueryParam)
+PdbErr_t PDBTable::ExecQuerySnapshot(const QueryParam* pQueryParam,
+  std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabInfoRef;
-  const ExprItem* pConditionItem = pQueryParam->pWhere_;
   uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -786,60 +724,36 @@ PdbErr_t PDBTable::QuerySnapshot(DataTable* pResultTable, const QueryParam* pQue
   if (pQueryParam->pOrderBy_ != nullptr)
     return PdbE_SQL_ERROR;
 
-  ISnapshotResultFilter* pResultFilter = nullptr;
+  QuerySnapshot* pSnapshot = new QuerySnapshot();
   std::list<int64_t> devIdList;
 
   do {
-    if (pQueryParam->IsQueryRaw())
-    {
-      pResultFilter = new ResultFilterSnapshotRaw();
-    }
-    else
-    {
-      pResultFilter = new ResultFilterGroupAll();
-    }
-
-    retVal = pResultFilter->BuildFilter(pQueryParam, pTabInfo, pResultTable->GetArena());
+    retVal = pSnapshot->BuildQuery(pQueryParam, pTabInfo);
     if (retVal != PdbE_OK)
       break;
 
-    if (!pResultFilter->IsEmptySet())
-    {
-      TStampFilter tstampFilter;
-      DevFilter devFilter;
-      if (!tstampFilter.BuildFilter(pConditionItem))
-      {
-        retVal = PdbE_SQL_CONDITION_EXPR_ERROR;
-        break;
-      }
+    retVal = devTable_.QueryDevId(pSnapshot, devIdList);
+    if (retVal != PdbE_OK)
+      break;
 
-      retVal = devFilter.BuildFilter(pConditionItem);
-      if (retVal != PdbE_OK)
-        break;
+    if (devIdList.empty() || pSnapshot->IsEmptySet())
+      break;
 
-      retVal = devTable_.QueryDevId(&devFilter, devIdList);
-      if (retVal != PdbE_OK)
-        break;
+    retVal = QuerySnapshotData(devIdList, pSnapshot, timeOutTick);
 
-      if (devIdList.empty())
-        break;
-
-      retVal = QuerySnapshot(devIdList, tstampFilter.GetMinTstamp(),
-        pResultFilter, timeOutTick);
-    }
   } while (false);
 
   if (retVal == PdbE_OK)
   {
-    pResultFilter->CleanUpResult();
-    retVal = pResultFilter->GetData(pResultTable);
+    pSnapshot->GetResult(resultData, pFieldCnt, pRecordCnt);
   }
 
-  if (pResultFilter != nullptr)
-    delete pResultFilter;
+  if (pSnapshot != nullptr)
+    delete pSnapshot;
 
   return retVal;
 }
+
 
 PdbErr_t PDBTable::AddDev(int64_t devId, PdbStr devName, PdbStr expand)
 {
@@ -857,9 +771,9 @@ PdbErr_t PDBTable::DelDev(const ConditionFilter* pCondition)
   return devTable_.DelDev(tabName_, pCondition);
 }
 
-PdbErr_t PDBTable::QueryDev(IResultFilter* pFilter)
+PdbErr_t PDBTable::QueryDev(IQuery* pQuery)
 {
-  return devTable_.QueryDevInfo(tabName_, pFilter);
+  return devTable_.QueryDevInfo(tabName_, pQuery);
 }
 
 PdbErr_t PDBTable::DumpPartToComp()
@@ -1022,15 +936,235 @@ size_t PDBTable::GetDirtyPageCnt()
   return dirtyPageCnt;
 }
 
-PdbErr_t PDBTable::QueryLast(std::list<int64_t>& devIdList,
-  int64_t minTstamp, int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut)
+PdbErr_t PDBTable::ExecQueryGroupAll(const QueryParam* pQueryParam,
+  std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
 {
   PdbErr_t retVal = PdbE_OK;
-  Arena arena;
+  RefUtil tabInfoRef;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
+  QueryGroupAll* pGroupQuery = new QueryGroupAll();
+  std::list<int64_t> devIdList;
+
+  do {
+    retVal = pGroupQuery->BuildQuery(pQueryParam, pTabInfo);
+    if (retVal != PdbE_OK)
+      break;
+
+    retVal = devTable_.QueryDevId(pGroupQuery, devIdList);
+    if (retVal != PdbE_OK)
+      break;
+
+    if (devIdList.empty() || pGroupQuery->IsEmptySet())
+      break;
+
+    if (pGroupQuery->IsQueryFirst())
+    {
+      retVal = QueryFirst(devIdList, pGroupQuery, timeOutTick);
+    }
+    else if (pGroupQuery->IsQueryLast())
+    {
+      retVal = QueryLast(devIdList, pGroupQuery, timeOutTick);
+    }
+    else
+    {
+      retVal = QueryAsc(devIdList, pGroupQuery, timeOutTick);
+    }
+  } while (false);
+
+  if (retVal == PdbE_OK)
+  {
+    retVal = pGroupQuery->GetResult(resultData, pFieldCnt, pRecordCnt);
+  }
+
+  if (pGroupQuery != nullptr)
+    delete pGroupQuery;
+
+  return retVal;
+}
+
+PdbErr_t PDBTable::ExecQueryGroupDevId(const QueryParam* pQueryParam,
+  std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
+{
+  PdbErr_t retVal = PdbE_OK;
+  RefUtil tabInfoRef;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
+  QueryGroupDevID* pGroupQuery = new QueryGroupDevID();
+  std::list<int64_t> devIdList;
+
+  do {
+    retVal = pGroupQuery->BuildQuery(pQueryParam, pTabInfo);
+    if (retVal != PdbE_OK)
+      break;
+
+    retVal = devTable_.QueryDevId(pGroupQuery, devIdList, 
+      pGroupQuery->GetQueryOffset(), pGroupQuery->GetQueryRecord());
+    if (retVal != PdbE_OK)
+      break;
+
+    retVal = pGroupQuery->InitGroupDevID(devIdList);
+    if (retVal != PdbE_OK)
+      break;
+
+    if (devIdList.empty() || pGroupQuery->IsEmptySet())
+      break;
+
+    if (pGroupQuery->IsQueryFirst())
+    {
+      retVal = QueryFirst(devIdList, pGroupQuery, timeOutTick);
+    }
+    else if (pGroupQuery->IsQueryLast())
+    {
+      retVal = QueryLast(devIdList, pGroupQuery, timeOutTick);
+    }
+    else
+    {
+      retVal = QueryAsc(devIdList, pGroupQuery, timeOutTick);
+    }
+  } while (false);
+
+  if (retVal == PdbE_OK)
+  {
+    retVal = pGroupQuery->GetResult(resultData, pFieldCnt, pRecordCnt);
+  }
+
+  if (pGroupQuery != nullptr)
+    delete pGroupQuery;
+
+  return retVal;
+}
+
+PdbErr_t PDBTable::ExecQueryGroupTstamp(const QueryParam* pQueryParam,
+  std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
+{
+  PdbErr_t retVal = PdbE_OK;
+  RefUtil tabInfoRef;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
+  QueryGroupTstamp* pGroupQuery = new QueryGroupTstamp();
+  QueryRaw* pRawQuery = new QueryRaw();
+  std::list<int64_t> devIdList;
+
+  do {
+    retVal = pGroupQuery->BuildQuery(pQueryParam, pTabInfo);
+    if (retVal != PdbE_OK)
+      break;
+
+    if (pQueryParam->pGroup_ == nullptr)
+    {
+      retVal = PdbE_SQL_GROUP_ERROR;
+      break;
+    }
+
+    if ((!pQueryParam->pGroup_->Valid()) || (!pQueryParam->pGroup_->IsTStampGroup()))
+    {
+      retVal = PdbE_SQL_GROUP_ERROR;
+      break;
+    }
+
+    retVal = devTable_.QueryDevId(pGroupQuery, devIdList);
+    if (retVal != PdbE_OK)
+      break;
+
+    if (devIdList.empty() || pGroupQuery->IsEmptySet())
+      break;
+
+    if (pGroupQuery->IsQueryFirst())
+    {
+      retVal = QueryFirst(devIdList, pGroupQuery, timeOutTick);
+    }
+    else if (pGroupQuery->IsQueryLast())
+    {
+      retVal = QueryLast(devIdList, pGroupQuery, timeOutTick);
+    }
+    else
+    {
+      retVal = QueryAsc(devIdList, pGroupQuery, timeOutTick);
+    }
+  } while (false);
+
+  if (retVal == PdbE_OK)
+  {
+    retVal = pGroupQuery->GetResult(resultData, pFieldCnt, pRecordCnt);
+  }
+
+  if (pGroupQuery != nullptr)
+    delete pGroupQuery;
+
+  if (pRawQuery != nullptr)
+    delete pRawQuery;
+
+  return retVal;
+}
+
+PdbErr_t PDBTable::ExecQueryRawData(const QueryParam* pQueryParam,
+  std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
+{
+  PdbErr_t retVal = PdbE_OK;
+  bool isAsc = true;
+  RefUtil tabInfoRef;
+  int64_t nowMillis = DateTime::NowMilliseconds();
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
+  QueryRaw* pRawQuery = new QueryRaw();
+  std::list<int64_t> devIdList;
+
+  do {
+    if (pQueryParam->pOrderBy_ != nullptr)
+    {
+      if (!pQueryParam->pOrderBy_->Valid())
+      {
+        retVal = PdbE_SQL_ERROR;
+      }
+
+      isAsc = pQueryParam->pOrderBy_->IsASC();
+    }
+    
+    retVal = pRawQuery->BuildQuery(pQueryParam, pTabInfo);
+    if (retVal != PdbE_OK)
+      break;
+
+    retVal = devTable_.QueryDevId(pRawQuery, devIdList);
+    if (retVal != PdbE_OK)
+      break;
+
+    if (devIdList.empty() || pRawQuery->IsEmptySet())
+      break;
+
+    if (isAsc)
+    {
+      retVal = QueryAsc(devIdList, pRawQuery, timeOutTick);
+    }
+    else
+    {
+      retVal = QueryDesc(devIdList, pRawQuery, timeOutTick);
+    }
+
+  } while (false);
+
+  if (retVal == PdbE_OK)
+  {
+    pRawQuery->GetResult(resultData, pFieldCnt, pRecordCnt);
+  }
+
+  if (pRawQuery != nullptr)
+    delete pRawQuery;
+
+  return retVal;
+}
+
+PdbErr_t PDBTable::QueryLast(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut)
+{
+  PdbErr_t retVal = PdbE_OK;
   RefUtil partRef;
   RefUtil tabInfoRef;
-  int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
-  int maxQueryDay = static_cast<int>(maxTstamp / MillisPerDay);
+  int minQueryDay, maxQueryDay;
+  int64_t minTs, maxTs;
+
+  pQuery->GetTstampRange(&minTs, &maxTs);
+  minQueryDay = static_cast<int>(minTs / MillisPerDay);
+  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
   int curDay = maxQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1042,7 +1176,7 @@ PdbErr_t PDBTable::QueryLast(std::list<int64_t>& devIdList,
     if (minQueryDay > curDay)
       break;
 
-    retVal = pDataPart->QueryLast(devIdList, minTstamp, maxTstamp, pTabInfo, pFilter, queryTimeOut);
+    retVal = pDataPart->QueryLast(devIdList, pTabInfo, pQuery, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
@@ -1059,15 +1193,17 @@ PdbErr_t PDBTable::QueryLast(std::list<int64_t>& devIdList,
   return PdbE_OK;
 }
 
-PdbErr_t PDBTable::QueryFirst(std::list<int64_t>& devIdList,
-  int64_t minTstamp, int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut)
+PdbErr_t PDBTable::QueryFirst(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut)
 {
   PdbErr_t retVal = PdbE_OK;
-  Arena arena;
   RefUtil partRef;
   RefUtil tabInfoRef;
-  int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
-  int maxQueryDay = static_cast<int>(maxTstamp / MillisPerDay);
+  int minQueryDay, maxQueryDay;
+  int64_t minTs, maxTs;
+
+  pQuery->GetTstampRange(&minTs, &maxTs);
+  minQueryDay = static_cast<int>(minTs / MillisPerDay);
+  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
   int curDay = minQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1079,7 +1215,7 @@ PdbErr_t PDBTable::QueryFirst(std::list<int64_t>& devIdList,
     if (maxQueryDay < curDay)
       break;
 
-    retVal = pDataPart->QueryFirst(devIdList, minTstamp, maxTstamp, pTabInfo, pFilter, queryTimeOut);
+    retVal = pDataPart->QueryFirst(devIdList, pTabInfo, pQuery, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
@@ -1096,15 +1232,17 @@ PdbErr_t PDBTable::QueryFirst(std::list<int64_t>& devIdList,
   return PdbE_OK;
 }
 
-PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList,
-  int64_t minTstamp, int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut)
+PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut)
 {
   PdbErr_t retVal = PdbE_OK;
-  Arena arena;
   RefUtil partRef;
   RefUtil tabInfoRef;
-  int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
-  int maxQueryDay = static_cast<int>(maxTstamp / MillisPerDay);
+  int minQueryDay, maxQueryDay;
+  int64_t minTs, maxTs;
+
+  pQuery->GetTstampRange(&minTs, &maxTs);
+  minQueryDay = static_cast<int>(minTs / MillisPerDay);
+  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
   int curDay = minQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1116,15 +1254,14 @@ PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList,
     if (maxQueryDay < curDay)
       break;
 
-    retVal = pDataPart->QueryAsc(devIdList, minTstamp, maxTstamp,
-      pTabInfo, pFilter, queryTimeOut);
+    retVal = pDataPart->QueryAsc(devIdList, pTabInfo, pQuery, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
     if (retVal != PdbE_OK)
       return retVal;
 
-    if (pFilter->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       return PdbE_OK;
 
     GetDataPartEqualOrGreat(curDay, false, &partRef);
@@ -1134,15 +1271,17 @@ PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList,
   return PdbE_OK;
 }
 
-PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList,
-  int64_t minTstamp, int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut)
+PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut)
 {
   PdbErr_t retVal = PdbE_OK;
-  Arena arena;
   RefUtil partRef;
   RefUtil tabInfoRef;
-  int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
-  int maxQueryDay = static_cast<int>(maxTstamp / MillisPerDay);
+  int minQueryDay, maxQueryDay;
+  int64_t minTs, maxTs;
+
+  pQuery->GetTstampRange(&minTs, &maxTs);
+  minQueryDay = static_cast<int>(minTs / MillisPerDay);
+  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
   int curDay = maxQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1154,14 +1293,14 @@ PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList,
     if (minQueryDay > curDay)
       break;
 
-    retVal = pDataPart->QueryDesc(devIdList, minTstamp, maxTstamp, pTabInfo, pFilter, queryTimeOut);
+    retVal = pDataPart->QueryDesc(devIdList, pTabInfo, pQuery, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
     if (retVal != PdbE_OK)
       return retVal;
 
-    if (pFilter->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       return PdbE_OK;
 
     GetDataPartEqualOrLess(curDay, false, &partRef);
@@ -1171,15 +1310,17 @@ PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList,
   return PdbE_OK;
 }
 
-PdbErr_t PDBTable::QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstamp,
-  ISnapshotResultFilter* pFilter, uint64_t queryTimeOut)
+PdbErr_t PDBTable::QuerySnapshotData(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut)
 {
   PdbErr_t retVal = PdbE_OK;
-  Arena arena;
   RefUtil partRef;
   RefUtil tabInfoRef;
-  int minQueryDay = static_cast<int>(minTstamp / MillisPerDay);
-  int maxQueryDay = static_cast<int>(MaxMillis / MillisPerDay);
+  int minQueryDay, maxQueryDay;
+  int64_t minTs, maxTs;
+
+  pQuery->GetTstampRange(&minTs, &maxTs);
+  minQueryDay = static_cast<int>(minTs / MillisPerDay);
+  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
   int curDay = maxQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1194,10 +1335,10 @@ PdbErr_t PDBTable::QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstam
     if (devIdList.empty())
       break;
 
-    if (pFilter->GetIsFullFlag() && *devIdList.begin() > pFilter->GetResultMaxDevId())
+    if (*devIdList.begin() > pQuery->GetMaxDevId())
       break;
 
-    retVal = pDataPart->QuerySnapshot(devIdList, pTabInfo, pFilter, queryTimeOut);
+    retVal = pDataPart->QuerySnapshot(devIdList, pTabInfo, pQuery, queryTimeOut);
     if (retVal == PdbE_RESLT_FULL)
       return PdbE_OK;
 
@@ -1328,6 +1469,9 @@ PdbErr_t PDBTable::GetOrCreateNormalPart(uint32_t partCode, RefUtil* pPartRef)
   int idx = _GetDataPartPos(partCode);
   if (idx >= 0 && partVec_[idx]->GetPartCode() == partCode)
   {
+    if (!partVec_[idx]->IsNormalPart())
+      return PdbE_FILE_READONLY;
+
     pPartRef->Attach(partVec_[idx]);
     return PdbE_OK;
   }
@@ -1421,7 +1565,6 @@ PdbErr_t PDBTable::BuildPartPath(uint32_t partCode, bool isNormal, bool createPa
 
   return PdbE_OK;
 }
-
 
 DataPart* PDBTable::DelOrReplacePart(uint32_t partCode, DataPart* pNewPart)
 {

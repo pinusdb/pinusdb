@@ -2,7 +2,8 @@
 #include "pdb.h"
 #include "expr/pdb_db_int.h"
 #include "expr/parse.h"
-#include "expr/expr_item.h"
+#include "expr/expr_value.h"
+#include "expr/target_list.h"
 #include "expr/record_list.h"
 #include "expr/sql_parser.h"
 #include "expr/column_item.h"
@@ -11,11 +12,14 @@
 #include "expr/limit_opt.h"
 
 void pdbSetError(SQLParser* pParse, const char* pErrMsg);
-void pdbSelect(SQLParser* pParse, ExprList* pTagList, Token* pSrcTab, ExprItem* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit);
+void pdbSelect(SQLParser* pParse, TargetList* pTagList, Token* pSrcTab, 
+  ExprValue* pWhere, GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit);
+//void pdbSelect2(SQLParser* pParse, TargetList* pTagList1, Token* pSrcTab, ExprValue* pWhere1, 
+//  GroupOpt* pGroup, OrderByOpt* pOrderBy, LimitOpt* pLimit, TargetList* pTagList2, ExprValue* pWhere2);
 void pdbCreateTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList);
 void pdbAlterTable(SQLParser* pParse, Token* pTabName, ColumnList* pColList);
 
-void pdbDelete(SQLParser* pParse, Token* pTabName, ExprItem* pWhere);
+void pdbDelete(SQLParser* pParse, Token* pTabName, ExprValue* pWhere);
 void pdbAttachTable(SQLParser* pParse, Token* pTabName);
 void pdbDetachTable(SQLParser* pParse, Token* pTabName);
 void pdbDropTable(SQLParser* pParse, Token* pTabToken);
@@ -29,7 +33,7 @@ void pdbChangePwd(SQLParser* pParse, Token* pNameToken, Token* pPwdToken);
 void pdbChangeRole(SQLParser* pParse, Token* pNameToken, Token* pRoleToken);
 void pdbDropUser(SQLParser* pParse, Token* pNameToken);
 
-void pdbInsert(SQLParser* pParse, Token* pTabName, ExprList* pColList, RecordList* pRecList);
+void pdbInsert(SQLParser* pParse, Token* pTabName, TargetList* pColList, RecordList* pRecList);
 }
 
 %token_prefix  TK_
@@ -148,59 +152,28 @@ cmd ::= SELECT target_list(T) FROM ID(X) where_opt(W) groupby_opt(G) orderby_opt
   pdbSelect(pParse, T, &X, W, G, O, L);
 }
 
+//cmd ::= SELECT target_list(A) FROM LP SELECT target_list(T) FROM ID(X) where_opt(W) groupby_opt(G) orderby_opt(O) limit_opt(L) RP where_opt(B) SEMI.
+//{
+//  pdbSelect2(pParse, T, &X, W, G, O, L, A, B);
+//}
+
 cmd ::= SELECT target_list(T) SEMI.
 {
   pdbSelect(pParse, T, nullptr, nullptr, nullptr, nullptr, nullptr);
 }
 
-%type target_list               { ExprList* }
-%destructor target_list         { ExprList::FreeExprList($$); }
-%type target_item               { ExprItem* }
-%destructor target_item         { ExprItem::FreeExprItem($$); }
+%type where_opt       { ExprValue* }
+%destructor where_opt { ExprValue::FreeExprValue($$); }
 
-target_item(A) ::= STAR(S).         { A = ExprItem::MakeValue(TK_STAR, &S); }
-target_item(A) ::= ID(N).           { A = ExprItem::MakeValue(TK_ID, &N); }
-target_item(A) ::= ID(N) AS ID(X).  { A = ExprItem::MakeValue(TK_ID, &N, &X); }
-target_item(A) ::= STRING(N).       { A = ExprItem::MakeValue(TK_ID, &N); }
-target_item(A) ::= ID(N) LP arg_list(L) RP(R).       { A = ExprItem::MakeFunction(TK_FUNCTION, &N, L, &R); }
-target_item(A) ::= ID(N) LP arg_list(L) RP AS ID(X). { A = ExprItem::MakeFunction(TK_FUNCTION, &N, L, &X); }
-target_item(A) ::= ID(N) LP RP(R).       { A = ExprItem::MakeFunction(TK_FUNCTION, &N, nullptr, &R); }
-target_item(A) ::= ID(N) LP RP AS ID(X). { A = ExprItem::MakeFunction(TK_FUNCTION, &N, nullptr, &X); }
-
-target_list(A) ::= target_item(X). {
-  A = ExprList::AppendExprItem(nullptr, X);
-}
-target_list(A) ::= target_list(P) COMMA target_item(X). {
-  A = ExprList::AppendExprItem(P, X);
-}
-
-%type arg_item                  { ExprItem* }
-%destructor arg_item            { ExprItem::FreeExprItem($$); }
-%type arg_list                  { ExprList* }
-%destructor arg_list            { ExprList::FreeExprList($$); }
-
-arg_item(A) ::= ID(X).          { A = ExprItem::MakeValue(TK_ID, &X); }
-arg_item(A) ::= STAR(X).        { A = ExprItem::MakeValue(TK_STAR, &X); }
-arg_item(A) ::= timeval(T).     { A = T; }
-arg_item(A) ::= STRING(X).      { A = ExprItem::MakeValue(TK_STRING, &X); }
-
-arg_list(A) ::= arg_item(I).      
-{ A = ExprList::AppendExprItem(nullptr, I); }
-arg_list(A) ::= arg_list(P) COMMA arg_item(I).
-{ A = ExprList::AppendExprItem(P, I); }
-
-%type where_opt                  { ExprItem* }
-%destructor where_opt            { ExprItem::FreeExprItem($$); }
-
-where_opt(A) ::= .                      { A = nullptr; }
-where_opt(A) ::= WHERE condi_expr(X).   { A = X; }
+where_opt(A) ::= .                  { A = nullptr; }
+where_opt(A) ::= WHERE expr_val(X). { A = X; }
 
 %type groupby_opt                 { GroupOpt* }
 %destructor groupby_opt           { delete ($$); }
 
-groupby_opt(A) ::= . { A = nullptr; }
-groupby_opt(A) ::= GROUP BY ID(X).   { A = new GroupOpt(&X); }
-groupby_opt(A) ::= GROUP BY ID(X) timeval(T). { A = new GroupOpt(&X, T); }
+groupby_opt(A) ::= .                           { A = nullptr; }
+groupby_opt(A) ::= GROUP BY ID(X).             { A = new GroupOpt(&X); }
+groupby_opt(A) ::= GROUP BY ID(X) expr_val(T). { A = new GroupOpt(&X, T); }
 
 %type orderby_opt                 { OrderByOpt* }
 %destructor orderby_opt           { delete ($$); }
@@ -221,63 +194,63 @@ limit_opt(A) ::= LIMIT INTEGER(X) COMMA INTEGER(Y).  { A = new LimitOpt(&X, &Y);
 %left EQ NE.
 %left GT GE LT LE.
 
-/////////////////////////////////// Condition Expression ////////////
-
-%type condi_expr { ExprItem* }
-%destructor condi_expr { ExprItem::FreeExprItem($$); }
-
-condi_expr(A) ::= ID(X) LT userval(Y).       { A = ExprItem::MakeCondition(TK_LT, &X, Y); }
-condi_expr(A) ::= ID(X) LE userval(Y).       { A = ExprItem::MakeCondition(TK_LE, &X, Y); }
-condi_expr(A) ::= ID(X) GT userval(Y).       { A = ExprItem::MakeCondition(TK_GT, &X, Y); }
-condi_expr(A) ::= ID(X) GE userval(Y).       { A = ExprItem::MakeCondition(TK_GE, &X, Y); }
-condi_expr(A) ::= ID(X) EQ userval(Y).       { A = ExprItem::MakeCondition(TK_EQ, &X, Y); }
-condi_expr(A) ::= ID(X) NE userval(Y).       { A = ExprItem::MakeCondition(TK_NE, &X, Y); }
-condi_expr(A) ::= ID(X) LIKE userval(Y).     { A = ExprItem::MakeCondition(TK_LIKE, &X, Y); }
-condi_expr(A) ::= ID(X) IS NOT NULL.         { A = ExprItem::MakeCondition(TK_ISNOTNULL, &X, nullptr); }
-condi_expr(A) ::= ID(X) IS NULL.             { A = ExprItem::MakeCondition(TK_ISNULL, &X, nullptr); }
-condi_expr(A) ::= userval(X) EQ userval(Y).  { A = ExprItem::MakeCondition(TK_EQ, X, Y); }
-condi_expr(A) ::= userval(X) NE userval(Y).  { A = ExprItem::MakeCondition(TK_NE, X, Y); }
-condi_expr(A) ::= ID(X) IN LP userval_list(L) RP.       { A = ExprItem::MakeFuncCondition(TK_IN, &X, L); }
-condi_expr(A) ::= ID(X) NOT IN LP userval_list(L) RP.   { A = ExprItem::MakeFuncCondition(TK_NOTIN, &X, L); }
-
-
-condi_expr(A) ::= condi_expr(X) AND condi_expr(Y).  { A = ExprItem::MakeCondition(TK_AND, X, Y); }
-
-%type userval { ExprItem* }
-%destructor userval { ExprItem::FreeExprItem($$); }
-
-userval(A) ::= TRUE(X).                        { A = ExprItem::MakeValue(TK_TRUE, &X); }
-userval(A) ::= FALSE(X).                       { A = ExprItem::MakeValue(TK_FALSE, &X); }
-userval(A) ::= INTEGER(X).                     { A = ExprItem::MakeValue(TK_INTEGER, &X); }
-userval(A) ::= DOUBLE(X).                      { A = ExprItem::MakeValue(TK_DOUBLE, &X); }
-userval(A) ::= PLUS INTEGER(X).                { A = ExprItem::MakeValue(TK_INTEGER, &X); }
-userval(A) ::= PLUS DOUBLE(X).                 { A = ExprItem::MakeValue(TK_DOUBLE, &X); }
-userval(A) ::= MINUS INTEGER(X). [UINTEGER]    { A = ExprItem::MakeValue(TK_UINTEGER, &X); }
-userval(A) ::= MINUS DOUBLE(X).   [UDOUBLE]    { A = ExprItem::MakeValue(TK_UDOUBLE, &X); }
-userval(A) ::= STRING(X).                      { A = ExprItem::MakeValue(TK_STRING, &X); }
-userval(A) ::= BLOB(X).                        { A = ExprItem::MakeValue(TK_BLOB, &X); }
-userval(A) ::= ID(N) LP arg_list(L) RP.        { A = ExprItem::MakeFunction(TK_FUNCTION, &N, L, nullptr); } 
-userval(A) ::= ID(N) LP RP.                    { A = ExprItem::MakeFunction(TK_FUNCTION, &N, nullptr, nullptr); } 
-
-%type timeval       { ExprItem* }
-%destructor timeval { ExprItem::FreeExprItem($$);}
-
-timeval(A) ::= INTEGER(X) ID(U).        { A = ExprItem::MakeTimeVal(true, &X, &U); }
-timeval(A) ::= PLUS INTEGER(X) ID(U).   { A = ExprItem::MakeTimeVal(true, &X, &U); }
-timeval(A) ::= MINUS INTEGER(X) ID(U).  { A = ExprItem::MakeTimeVal(false, &X, &U); }
-
-%type userval_list       { ExprList* }
-%destructor userval_list { ExprList::FreeExprList($$); }
-
-userval_list(A) ::= userval(V).                        
-{ A = ExprList::AppendExprItem(nullptr, V); }
-userval_list(A) ::= userval_list(L) COMMA userval(V).  
-{ A = ExprList::AppendExprItem(L, V); }
-
 %type record_list        { RecordList* }
 %destructor record_list  { RecordList::FreeRecordList($$); }
 
-record_list(A) ::= LP userval_list(U) RP.
-{ A = RecordList::AppendRecordList(nullptr, U); }
-record_list(A) ::= record_list(L) COMMA LP userval_list(U) RP.
-{ A = RecordList::AppendRecordList(L, U); }
+record_list(A) ::= LP expr_val_list(R) RP. 
+{ A = RecordList::AppendRecordList(nullptr, R); }
+record_list(A) ::= record_list(L) COMMA LP expr_val_list(R) RP. 
+{ A = RecordList::AppendRecordList(L, R); }
+
+%type expr_val  { ExprValue* }
+%destructor expr_val { ExprValue::FreeExprValue($$); }
+
+expr_val(A) ::= LP expr_val(X) RP.             { A = X; }
+expr_val(A) ::= STAR.                          { A = ExprValue::MakeStarValue(); }
+expr_val(A) ::= ID(X).                         { A = ExprValue::MakeID(&X); }
+expr_val(A) ::= TRUE.                          { A = ExprValue::MakeBoolValue(true); }
+expr_val(A) ::= FALSE.                         { A = ExprValue::MakeBoolValue(false); }
+expr_val(A) ::= INTEGER(X).                    { A = ExprValue::MakeIntValue(false, &X); }
+expr_val(A) ::= PLUS INTEGER(X).               { A = ExprValue::MakeIntValue(false, &X); }
+expr_val(A) ::= MINUS INTEGER(X).              { A = ExprValue::MakeIntValue(true, &X); }
+expr_val(A) ::= DOUBLE(X).                     { A = ExprValue::MakeDoubleValue(false, &X); }
+expr_val(A) ::= PLUS DOUBLE(X).                { A = ExprValue::MakeDoubleValue(false, &X); }
+expr_val(A) ::= MINUS DOUBLE(X).               { A = ExprValue::MakeDoubleValue(true, &X); }
+expr_val(A) ::= STRING(X).                     { A = ExprValue::MakeStringValue(&X); }
+expr_val(A) ::= BLOB(X).                       { A = ExprValue::MakeBlobValue(&X); }
+expr_val(A) ::= INTEGER(X) ID(U).              { A = ExprValue::MakeTimeValue(false, &X, &U); }
+expr_val(A) ::= PLUS INTEGER(X) ID(U).         { A = ExprValue::MakeTimeValue(false, &X, &U); }
+expr_val(A) ::= MINUS INTEGER(X) ID(U).        { A = ExprValue::MakeTimeValue(true, &X, &U); }
+
+expr_val(A) ::= ID(N) LP expr_val_list(L) RP.  { A = ExprValue::MakeFunction(&N, L); }
+expr_val(A) ::= ADD(N) LP expr_val_list(L) RP. { A = ExprValue::MakeFunction(&N, L); }
+
+expr_val(A) ::= expr_val(X) LT expr_val(Y).           { A = ExprValue::MakeCompare(TK_LT, X, Y); }
+expr_val(A) ::= expr_val(X) LE expr_val(Y).           { A = ExprValue::MakeCompare(TK_LE, X, Y); }
+expr_val(A) ::= expr_val(X) GT expr_val(Y).           { A = ExprValue::MakeCompare(TK_GT, X, Y); }
+expr_val(A) ::= expr_val(X) GE expr_val(Y).           { A = ExprValue::MakeCompare(TK_GE, X, Y); }
+expr_val(A) ::= expr_val(X) EQ expr_val(Y).           { A = ExprValue::MakeCompare(TK_EQ, X, Y); }
+expr_val(A) ::= expr_val(X) NE expr_val(Y).           { A = ExprValue::MakeCompare(TK_NE, X, Y); }
+expr_val(A) ::= expr_val(X) AND expr_val(Y).          { A = ExprValue::MakeCompare(TK_AND, X, Y); }
+expr_val(A) ::= ID(X) LIKE STRING(Y).                 { A = ExprValue::MakeLike(&X, &Y); }
+expr_val(A) ::= ID(X) IS NOT NULL.                    { A = ExprValue::MakeIsNotNull(&X); }
+expr_val(A) ::= ID(X) IS NULL.                        { A = ExprValue::MakeIsNull(&X); }
+expr_val(A) ::= STRING(X) IS NOT NULL.                { A = ExprValue::MakeIsNotNull(&X); }
+expr_val(A) ::= STRING(X) IS NULL.                    { A = ExprValue::MakeIsNull(&X); }
+expr_val(A) ::= ID(X) IN LP expr_val_list(L) RP.      { A = ExprValue::MakeIn(&X, L); }
+expr_val(A) ::= ID(X) NOT IN LP expr_val_list(L) RP.  { A = ExprValue::MakeNotIn(&X, L); }
+
+%type expr_val_list        { ExprValueList* }
+%destructor expr_val_list  { ExprValueList::FreeExprValueList($$); }
+
+expr_val_list(A) ::= .                                    { A = nullptr; }
+expr_val_list(A) ::= expr_val(V).                         { A = ExprValueList::AppendExprValue(nullptr, V); }
+expr_val_list(A) ::= expr_val_list(L) COMMA expr_val(V).  { A = ExprValueList::AppendExprValue(L, V); }
+
+%type target_list                { TargetList* }
+%destructor target_list          { TargetList::FreeTargetList($$); }
+
+target_list(A) ::= expr_val(V).                                { A = TargetList::AppendExprValue(nullptr, V, nullptr); }
+target_list(A) ::= expr_val(V) AS ID(X).                       { A = TargetList::AppendExprValue(nullptr, V, &X); }
+target_list(A) ::= target_list(L) COMMA expr_val(V).           { A = TargetList::AppendExprValue(L, V, nullptr); }
+target_list(A) ::= target_list(L) COMMA expr_val(V) AS ID(X).  { A = TargetList::AppendExprValue(L, V, &X); }

@@ -18,9 +18,10 @@
 #include "util/log_util.h"
 #include "global_variable.h"
 #include "sys_table_schema.h"
-#include "query/result_filter_raw.h"
-#include "query/result_filter_group_all.h"
-#include "table/db_obj.h"
+#include "query/iquery.h"
+#include "query/query_raw.h"
+#include "query/query_group.h"
+#include "internal.h"
 
 #define PDB_MAX_TABLE_CODE    255  //最大的表Code
 #define PDB_MAX_OPEN_TABLE     32  //最大打开表数量
@@ -67,11 +68,12 @@ const char* pFieldTypeStr[] = {
 
 TableSet::TableSet()
 {
-  maxDev_ = PDB_SYS_DEV_CNT;
   for (uint32_t tabCode = 1; tabCode < PDB_MAX_TABLE_CODE; tabCode++)
   {
     freeCodeList_.push_back(tabCode);
   }
+
+  maxDev_ = PDB_SYS_DEV_CNT;
 
   sysDevInfo_.SetTableName(SYSTAB_SYSDEV_NAME);
   sysDevInfo_.AddField(SYSCOL_SYSDEV_TABNAME, PDB_FIELD_TYPE::TYPE_STRING, true);
@@ -115,7 +117,6 @@ TableSet::TableSet()
   systab_connection_crc_ = StringTool::CRC64NoCase(SYSTAB_CONNECTION_NAME);
   systab_sysconfig_crc_ = StringTool::CRC64NoCase(SYSTAB_SYSCFG_NAME);
   systab_sysdev_crc_ = StringTool::CRC64NoCase(SYSTAB_SYSDEV_NAME);
-
 }
 
 TableSet::~TableSet()
@@ -126,17 +127,17 @@ TableSet::~TableSet()
   }
 }
 
-PdbErr_t TableSet::CreateTable(const CreateTableParam* pTableParam)
+PdbErr_t TableSet::CreateTable(const char* pTableName, const ColumnList* pColList)
 {
   PdbErr_t retVal = PdbE_OK;
   TableInfo tabInfo;
 
-  if (pTableParam == nullptr)
+  if (pTableName == nullptr || pColList == nullptr)
     return PdbE_INVALID_PARAM;
 
   std::unique_lock<std::mutex> tabLock(tabMutex_);
 
-  retVal = tabInfo.SetTableName(pTableParam->tabName_.c_str());
+  retVal = tabInfo.SetTableName(pTableName);
   if (retVal != PdbE_OK)
     return retVal;
 
@@ -161,7 +162,7 @@ PdbErr_t TableSet::CreateTable(const CreateTableParam* pTableParam)
     return PdbE_TABLE_CAPACITY_FULL;
   }
   
-  const std::vector<ColumnItem*>& colItemVec = pTableParam->pColList_->GetColumnList();
+  const std::vector<ColumnItem*>& colItemVec = pColList->GetColumnList();
   for (auto colIt = colItemVec.begin(); colIt != colItemVec.end(); colIt++)
   {
     retVal = tabInfo.AddField((*colIt)->GetName(), (*colIt)->GetType());
@@ -178,7 +179,7 @@ PdbErr_t TableSet::CreateTable(const CreateTableParam* pTableParam)
     LOG_INFO("failed to create table ({}), invalid field list", pTabName);
     return retVal;
   }
-  
+
   std::string devPath = pGlbSysCfg->GetTablePath() + "/" + pTabName + ".dev";
 
   retVal = DevIDTable::Create(devPath.c_str(), &tabInfo);
@@ -207,21 +208,22 @@ PdbErr_t TableSet::CreateTable(const CreateTableParam* pTableParam)
   return PdbE_OK;
 }
 
-PdbErr_t TableSet::AlterTable(const CreateTableParam* pTableParam)
+PdbErr_t TableSet::AlterTable(const char* pTableName, const ColumnList* pColList)
 {
   RefUtil tabRef;
 
-  if (pTableParam == nullptr)
+  if (pTableName == nullptr || pColList == nullptr)
     return PdbE_INVALID_PARAM;
 
   std::unique_lock<std::mutex> tabLock(tabMutex_);
-  PDBTable* pTab = GetTable(pTableParam->tabName_.c_str(), &tabRef);
+  PDBTable* pTab = GetTable(pTableName, &tabRef);
   if (pTab == nullptr)
   {
     return PdbE_TABLE_NOT_FOUND;
   }
 
-  return pTab->AlterTable(pTableParam->pColList_->GetColumnList());
+  const std::vector<ColumnItem*>& colItemVec = pColList->GetColumnList();
+  return pTab->AlterTable(colItemVec);
 }
 
 PdbErr_t TableSet::OpenTable(const char* pTabName)
@@ -266,7 +268,9 @@ PdbErr_t TableSet::OpenTable(const char* pTabName)
   do {
     retVal = pNewTab->OpenTable(tabCode, pTabName);
     if (retVal != PdbE_OK)
+    {
       break;
+    }
 
     if (totalDevCnt + pNewTab->GetDevCnt() > maxDev_)
     {
@@ -430,12 +434,13 @@ PdbErr_t TableSet::DropFile(const char* pTabName, int partCode)
   return pTab->DropPart(partCode);
 }
 
-PdbErr_t TableSet::ExecuteQuery(DataTable* pResultTable, SQLParser* pParser, int32_t userRole)
+PdbErr_t TableSet::ExecuteQuery(SQLParser* pParser, int32_t userRole,
+  std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabRef;
 
-  if (pResultTable == nullptr || pParser == nullptr)
+  if (pParser == nullptr)
     return PdbE_INVALID_PARAM;
 
   if (pParser->GetCmdType() != SQLParser::CmdType::CT_Select)
@@ -446,49 +451,50 @@ PdbErr_t TableSet::ExecuteQuery(DataTable* pResultTable, SQLParser* pParser, int
     return PdbE_OPERATION_DENIED;
 
   const QueryParam* pQueryParam = pParser->GetQueryParam();
-
-  if (pQueryParam->srcTab_.size() == 0)
+  std::string tableName = pParser->GetTableName();
+  if (tableName.size() == 0)
   {
-    retVal = QueryVariable(pQueryParam, pResultTable);
+    retVal = QueryVariable(pQueryParam, resultData, pFieldCnt, pRecordCnt);
   }
   else
   {
-    PDBTable* pTab = GetTable(pQueryParam->srcTab_.c_str(), &tabRef);
+    PDBTable* pTab = GetTable(tableName.c_str(), &tabRef);
     if (pTab != nullptr)
     {
-      retVal = pTab->Query(pResultTable, pQueryParam);
+      retVal = pTab->ExecQuery(pQueryParam, resultData, pFieldCnt, pRecordCnt);
     }
-    else if (StringTool::EndWithNoCase(pQueryParam->srcTab_, SNAPSHOT_NAME, SNAPSHOT_NAME_LEN))
+    else if (StringTool::EndWithNoCase(tableName.c_str(), SNAPSHOT_NAME, SNAPSHOT_NAME_LEN))
     {
       //查询快照
-      std::string tmpTabName = pQueryParam->srcTab_.substr(0, (pQueryParam->srcTab_.length() - SNAPSHOT_NAME_LEN));
+      std::string tmpTabName = tableName.substr(0, (tableName.size() - SNAPSHOT_NAME_LEN));
       pTab = GetTable(tmpTabName.c_str(), &tabRef);
       if (pTab != nullptr)
-        retVal = pTab->QuerySnapshot(pResultTable, pQueryParam);
+        retVal = pTab->ExecQuerySnapshot(pQueryParam, resultData, pFieldCnt, pRecordCnt);
       else
         retVal = PdbE_TABLE_NOT_FOUND;
     }
     else
     {
       //是否是系统表
-      retVal = QuerySysTable(pQueryParam, userRole, pResultTable);
+      retVal = QuerySysTable(tableName.c_str(), pQueryParam, userRole, resultData, pFieldCnt, pRecordCnt);
     }
   }
 
   return retVal;
 }
 
-PdbErr_t TableSet::DeleteDev(const DeleteParam* pDeleteParam)
+PdbErr_t TableSet::DeleteDev(const char* pTabName, const DeleteParam* pDeleteParam)
 {
-  if (!StringTool::ComparyNoCase(pDeleteParam->tabName_.c_str(), SYSTAB_SYSDEV_NAME))
+  if (!StringTool::ComparyNoCase(pTabName, SYSTAB_SYSDEV_NAME))
   {
     LOG_INFO("failed to delete table ({}), only support delete device",
-      pDeleteParam->tabName_.c_str());
+      pTabName);
     return PdbE_OPERATION_DENIED;
   }
 
+  int64_t nowMillis = DateTime::NowMilliseconds();
   ConditionFilter delCondition;
-  PdbErr_t retVal = delCondition.BuildCondition(pDeleteParam->pWhere_, &sysDevInfo_);
+  PdbErr_t retVal = delCondition.BuildCondition(&sysDevInfo_, pDeleteParam->pWhere_, nowMillis);
   if (retVal != PdbE_OK)
   {
     LOG_INFO("failed to delete device, condition error {}", retVal);
@@ -548,7 +554,34 @@ PdbErr_t TableSet::Insert(InsertSql* pInsertSql, bool errBreak, std::list<PdbErr
   return PdbE_TABLE_NOT_FOUND;
 }
 
-PdbErr_t QueryTableColumn(IResultFilter* pFilter, const TableInfo* pTabInfo)
+PdbErr_t TableSet::InsertReplicate(std::vector<LogRecInfo>& recVec)
+{
+  RefUtil tabRef;
+  std::unordered_set<uint64_t> tabSet;
+  size_t idx;
+  size_t cnt = recVec.size();
+
+  for (idx = 0; idx < cnt; idx++)
+  {
+    if (tabSet.find(recVec[idx].tabCrc) == tabSet.end())
+    {
+      tabSet.insert(recVec[idx].tabCrc);
+      PDBTable* pTable = GetTable(recVec[idx].tabCrc, &tabRef);
+      if (pTable != nullptr)
+      {
+        pTable->InsertByReplicate(recVec, idx);
+      }
+      else
+      {
+        LOG_DEBUG("insert replicate failed, table({}) not found", recVec[idx].tabCrc);
+      }
+    }
+  }
+
+  return PdbE_OK;
+}
+
+PdbErr_t QueryTableColumn(IQuery* pQuery, const TableInfo* pTabInfo)
 {
   PdbErr_t retVal = PdbE_OK;
 
@@ -566,7 +599,7 @@ PdbErr_t QueryTableColumn(IResultFilter* pFilter, const TableInfo* pTabInfo)
   for (size_t i = 0; i < fieldCnt; i++)
   {
     pFieldName = pTabInfo->GetFieldName(i);
-    pTabInfo->GetFieldInfo(i, &fieldType);
+    pTabInfo->GetFieldRealInfo(i, &fieldType);
     pTypeStr = pFieldTypeStr[0];
     pTabInfo->GetFieldIsKey(i, &isKey);
     if (fieldType > 0 && fieldType < fieldTypeCnt)
@@ -577,71 +610,74 @@ PdbErr_t QueryTableColumn(IResultFilter* pFilter, const TableInfo* pTabInfo)
     DBVAL_ELE_SET_STRING(vals, 2, pTypeStr, strlen(pTypeStr));
     DBVAL_ELE_SET_BOOL(vals, 3, isKey);
 
-    retVal = pFilter->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendData(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
 
-    if (pFilter->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       return PdbE_OK;
   }
 
   return PdbE_OK;
 }
 
-PdbErr_t TableSet::QueryColumn(IResultFilter* pFilter)
+PdbErr_t TableSet::QueryColumn(IQuery* pQuery)
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabRef;
   RefUtil tabInfoRef;
   std::list<uint64_t> tabCrcList;
 
-  retVal = QueryTableColumn(pFilter, &sysConfigInfo_);
+  retVal = QueryTableColumn(pQuery, &sysConfigInfo_);
   if (retVal != PdbE_OK)
     return retVal;
 
-  if (pFilter->GetIsFullFlag())
+  if (pQuery->GetIsFullFlag())
     return PdbE_OK;
 
-  retVal = QueryTableColumn(pFilter, &sysUserInfo_);
+  retVal = QueryTableColumn(pQuery, &sysUserInfo_);
   if (retVal != PdbE_OK)
     return retVal;
 
-  if (pFilter->GetIsFullFlag())
+  if (pQuery->GetIsFullFlag())
     return PdbE_OK;
 
-  retVal = QueryTableColumn(pFilter, &sysTableInfo_);
+  retVal = QueryTableColumn(pQuery, &sysTableInfo_);
   if (retVal != PdbE_OK)
     return retVal;
 
-  if (pFilter->GetIsFullFlag())
+  if (pQuery->GetIsFullFlag())
     return PdbE_OK;
 
-  retVal = QueryTableColumn(pFilter, &sysColumnInfo_);
+  retVal = QueryTableColumn(pQuery, &sysColumnInfo_);
   if (retVal != PdbE_OK)
     return retVal;
 
-  if (pFilter->GetIsFullFlag())
+  if (pQuery->GetIsFullFlag())
     return PdbE_OK;
 
-  retVal = QueryTableColumn(pFilter, &sysDataFileInfo_);
+  retVal = QueryTableColumn(pQuery, &sysDataFileInfo_);
   if (retVal != PdbE_OK)
     return retVal;
 
-  if (pFilter->GetIsFullFlag())
+  if (pQuery->GetIsFullFlag())
     return PdbE_OK;
 
-  retVal = QueryTableColumn(pFilter, &sysDevInfo_);
+  retVal = QueryTableColumn(pQuery, &sysDevInfo_);
   if (retVal != PdbE_OK)
     return retVal;
 
-  if (pFilter->GetIsFullFlag())
+  if (pQuery->GetIsFullFlag())
     return PdbE_OK;
 
-  retVal = QueryTableColumn(pFilter, &sysConnInfo_);
+  retVal = QueryTableColumn(pQuery, &sysConnInfo_);
   if (retVal != PdbE_OK)
     return retVal;
 
-  if (pFilter->GetIsFullFlag())
+  if (pQuery->GetIsFullFlag())
+    return PdbE_OK;
+
+  if (pQuery->GetIsFullFlag())
     return PdbE_OK;
 
   GetAllTable(tabCrcList);
@@ -651,11 +687,11 @@ PdbErr_t TableSet::QueryColumn(IResultFilter* pFilter)
     if (pTab != nullptr)
     {
       const TableInfo* pTabInfo = pTab->GetTableInfo(&tabInfoRef);
-      retVal = QueryTableColumn(pFilter, pTabInfo);
+      retVal = QueryTableColumn(pQuery, pTabInfo);
       if (retVal != PdbE_OK)
         return retVal;
 
-      if (pFilter->GetIsFullFlag())
+      if (pQuery->GetIsFullFlag())
         break;
     }
   }
@@ -663,7 +699,7 @@ PdbErr_t TableSet::QueryColumn(IResultFilter* pFilter)
   return PdbE_OK;
 }
 
-PdbErr_t TableSet::QueryDev(IResultFilter* pFilter)
+PdbErr_t TableSet::QueryDev(IQuery* pQuery)
 {
   PdbErr_t retVal = PdbE_OK;
 
@@ -677,11 +713,11 @@ PdbErr_t TableSet::QueryDev(IResultFilter* pFilter)
     PDBTable* pTab = GetTable(*crcIter, &tabRef);
     if (pTab != nullptr)
     {
-      retVal = pTab->QueryDev(pFilter);
+      retVal = pTab->QueryDev(pQuery);
       if (retVal != PdbE_OK)
         return retVal;
 
-      if (pFilter->GetIsFullFlag())
+      if (pQuery->GetIsFullFlag())
         return PdbE_OK;
     }
   }
@@ -689,15 +725,15 @@ PdbErr_t TableSet::QueryDev(IResultFilter* pFilter)
   return PdbE_OK;
 }
 
+
 PdbErr_t TableSet::SyncDirtyPages(bool syncAll)
 {
   RefUtil tabRef;
   std::list<uint64_t> tabCrcList;
 
-  uint64_t curLogPos = 0;
-
-  pGlbCommitLog->GetCurLogPos(&curLogPos);
   GetAllTable(tabCrcList);
+  if (syncAll)
+    pGlbCommitLog->MakeSyncPoint();
 
   for (auto crcIter = tabCrcList.begin(); crcIter != tabCrcList.end(); crcIter++)
   {
@@ -709,7 +745,7 @@ PdbErr_t TableSet::SyncDirtyPages(bool syncAll)
   }
 
   if (syncAll)
-    pGlbCommitLog->SetSyncPos(curLogPos);
+    pGlbCommitLog->CommitSyncPoint();
 
   return PdbE_OK;
 }
@@ -772,9 +808,8 @@ void TableSet::UnMapCompressData()
   }
 }
 
-size_t TableSet::GetDirtyPagePercent()
+int32_t TableSet::GetDirtySizeMB()
 {
-  size_t poolPageCnt = pGlbPagePool->GetPoolPageCnt();
   size_t dirtyPageCnt = 0;
 
   RefUtil tabRef;
@@ -789,7 +824,7 @@ size_t TableSet::GetDirtyPagePercent()
     }
   }
 
-  return ((dirtyPageCnt * 100) / poolPageCnt);
+  return static_cast<int32_t>((dirtyPageCnt * NORMAL_PAGE_SIZE) / PDB_MB_BYTES(1));
 }
 
 #define INSERT_DEV_ERROR_OCCUR \
@@ -890,11 +925,11 @@ PdbErr_t TableSet::InsertDev(InsertSql* pInsertSql,
   return PdbE_OK;
 }
 
-PdbErr_t TableSet::QuerySysTable(const QueryParam* pQueryParam,
-  int32_t userRole, DataTable* pResultTable)
+PdbErr_t TableSet::QuerySysTable(const char* pTabName, const QueryParam* pQueryParam, 
+  int32_t userRole, std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
 {
   PdbErr_t retVal = PdbE_OK;
-  uint64_t tabNameCrc = StringTool::CRC64NoCase(pQueryParam->srcTab_.c_str());
+  uint64_t tabNameCrc = StringTool::CRC64NoCase(pTabName);
 
   if (tabNameCrc == systab_sysuser_crc_
     || tabNameCrc == systab_connection_crc_
@@ -904,130 +939,125 @@ PdbErr_t TableSet::QuerySysTable(const QueryParam* pQueryParam,
       return PdbE_OPERATION_DENIED;
   }
 
-  IResultFilter* pFilter = nullptr;
-  if (pQueryParam->IsQueryRaw())
-    pFilter = new ResultFilterRaw();
-  else if (pQueryParam->pGroup_ == nullptr)
-    pFilter = new ResultFilterGroupAll(); //Group All
-  else
-    return PdbE_SQL_GROUP_ERROR;
+  if (pQueryParam->pTagList_ == nullptr)
+    return PdbE_SQL_ERROR;
 
-  if (pFilter == nullptr)
-    return PdbE_NOMEM;
+  bool groupQuery = false;
+  const std::vector<TargetItem>* pTagList = pQueryParam->pTagList_->GetTargetList();
+  for (auto tagIt = pTagList->begin(); tagIt != pTagList->end(); tagIt++)
+  {
+    if (IncludeAggFunction(tagIt->first))
+    {
+      groupQuery = true;
+      break;
+    }
+  }
+
+  IQuery* pQuery = nullptr;
+  if (groupQuery)
+    pQuery = new QueryGroupAll();
+  else
+    pQuery = new QueryRaw();
 
   do {
     if (tabNameCrc == systab_sysuser_crc_)
     {
-      retVal = pFilter->BuildFilter(pQueryParam, &sysUserInfo_, pResultTable->GetArena());
+      retVal = pQuery->BuildQuery(pQueryParam, &sysUserInfo_);
       if (retVal != PdbE_OK)
         break;
 
-      retVal = pGlbUser->Query(pFilter);
+      retVal = pGlbUser->Query(pQuery);
     }
     else if (tabNameCrc == systab_systable_crc_)
     {
-      retVal = pFilter->BuildFilter(pQueryParam, &sysTableInfo_, pResultTable->GetArena());
+      retVal = pQuery->BuildQuery(pQueryParam, &sysTableInfo_);
       if (retVal != PdbE_OK)
         break;
 
-      retVal = pGlbTabCfg->QueryTable(pFilter);
+      retVal = pGlbTabCfg->QueryTable(pQuery);
     }
     else if (tabNameCrc == systab_sysdatafile_crc_)
     {
-      retVal = pFilter->BuildFilter(pQueryParam, &sysDataFileInfo_, pResultTable->GetArena());
+      retVal = pQuery->BuildQuery(pQueryParam, &sysDataFileInfo_);
       if (retVal != PdbE_OK)
         break;
 
-      retVal = pGlbTabCfg->QueryPart(pFilter);
+      retVal = pGlbTabCfg->QueryPart(pQuery);
     }
     else if (tabNameCrc == systab_syscolumn_crc_)
     {
-      retVal = pFilter->BuildFilter(pQueryParam, &sysColumnInfo_, pResultTable->GetArena());
+      retVal = pQuery->BuildQuery(pQueryParam, &sysColumnInfo_);
       if (retVal != PdbE_OK)
         break;
 
-      retVal = QueryColumn(pFilter);
+      retVal = QueryColumn(pQuery);
     }
     else if (tabNameCrc == systab_connection_crc_)
     {
-      retVal = pFilter->BuildFilter(pQueryParam, &sysConnInfo_, pResultTable->GetArena());
+      retVal = pQuery->BuildQuery(pQueryParam, &sysConnInfo_);
       if (retVal != PdbE_OK)
         break;
 
-      retVal = pGlbServerConnction->QueryConn(pFilter);
+      retVal = pGlbServerConnction->QueryConn(pQuery);
     }
     else if (tabNameCrc == systab_sysconfig_crc_)
     {
-      retVal = pFilter->BuildFilter(pQueryParam, &sysConfigInfo_, pResultTable->GetArena());
+      retVal = pQuery->BuildQuery(pQueryParam, &sysConfigInfo_);
       if (retVal != PdbE_OK)
         break;
 
-      retVal = pGlbSysCfg->Query(pFilter);
+      retVal = pGlbSysCfg->Query(pQuery);
     }
     else if (tabNameCrc == systab_sysdev_crc_)
     {
-      retVal = pFilter->BuildFilter(pQueryParam, &sysDevInfo_, pResultTable->GetArena());
+      retVal = pQuery->BuildQuery(pQueryParam, &sysDevInfo_);
       if (retVal != PdbE_OK)
         break;
 
-      retVal = QueryDev(pFilter);
+      retVal = QueryDev(pQuery);
     }
     else
+    {
       retVal = PdbE_TABLE_NOT_FOUND;
-
+    }
   } while (false);
 
   if (retVal == PdbE_OK)
   {
-    retVal = pFilter->GetData(pResultTable);
+    pQuery->GetResult(resultData, pFieldCnt, pRecordCnt);
   }
 
-  delete pFilter;
+  delete pQuery;
   return retVal;
 }
 
-PdbErr_t TableSet::QueryVariable(const QueryParam* pQueryParam, DataTable* pResultTable)
+PdbErr_t TableSet::QueryVariable(const QueryParam* pQueryParam, 
+  std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
 {
   PdbErr_t retVal = PdbE_OK;
-  DBVal val;
-  if (pQueryParam->pSelList_ == nullptr)
+  TableInfo tabInfo;
+  Arena arena;
+  if (pQueryParam == nullptr)
     return PdbE_SQL_ERROR;
 
-  DBObj* pRecObj = new DBObj(pResultTable->GetArena());
-  const std::vector<ExprItem*>& colItemVec = pQueryParam->pSelList_->GetExprList();
-  for (auto colItem = colItemVec.begin(); colItem != colItemVec.end(); colItem++)
-  {
-    const std::string& aliasName = (*colItem)->GetAliasName();
-    if (aliasName.size() == 0)
-    {
-      delete pRecObj;
-      return PdbE_SQL_LOST_ALIAS;
-    }
+  if (pQueryParam->pTagList_ == nullptr)
+    return PdbE_SQL_ERROR;
 
-    if (!(*colItem)->GetDBVal(&val))
-    {
-      delete pRecObj;
-      return PdbE_SQL_ERROR;
-    }
+  QueryRaw* pQuery = new QueryRaw();
 
-    retVal = pResultTable->AddColumn(aliasName, val.dataType_);
+  do {
+    retVal = pQuery->BuildQuery(pQueryParam, &tabInfo);
     if (retVal != PdbE_OK)
-    {
-      delete pRecObj;
-      return retVal;
-    }
+      break;
 
-    pRecObj->AppendVal(&val);
-  }
+    retVal = pQuery->AppendData(nullptr, 0, nullptr);
+  } while (false);
 
-  retVal = pResultTable->AppendData(pRecObj);
-  if (retVal != PdbE_OK) 
-  {
-    delete pRecObj;
-    return retVal;
-  }
+  if (retVal == PdbE_OK)
+    pQuery->GetResult(resultData, pFieldCnt, pRecordCnt);
 
-  return PdbE_OK;
+  delete pQuery;
+  return retVal;
 }
 
 size_t TableSet::GetTotalDevCnt()

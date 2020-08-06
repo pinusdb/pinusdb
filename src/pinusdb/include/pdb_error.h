@@ -19,6 +19,7 @@
 #define PdbE_PATH_NOT_FOUND                 50013           // 目录不存在
 #define PdbE_DATA_LOG_VER_ERROR             50014           // 数据日志版本错误
 #define PdbE_DATA_FILECODE_ERROR            50015           // 数据日志文件编号错误
+#define PdbE_LOGFILE_FULL                   50016           // 日志文件满
 
 #define PdbE_INVALID_FILE_NAME              50100           // 无效的文件名
 #define PdbE_INVALID_PARAM                  50101           // 无效的参数

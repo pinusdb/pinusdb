@@ -18,21 +18,15 @@
 #include <algorithm>
 #include "util/log_util.h"
 #include "util/string_tool.h"
-#include "boost/filesystem.hpp"
-
-namespace bfs = boost::filesystem;
+#include "port/env.h"
+#include "util/coding.h"
 
 CommitLogList::CommitLogList()
 {
-  enableRep_ = false;
   nextFileCode_ = 1;
+  curSyncPos_ = 0;
+  nextSyncPos_ = 0;
 
-  redoPos_ = 0;
-  repPos_ = 0;
-  syncPos_ = 0;
-
-  pRedoLog_ = nullptr;
-  pRepLog_ = nullptr;
   pWriteLog_ = nullptr;
 }
 
@@ -40,68 +34,42 @@ CommitLogList::~CommitLogList()
 {
 }
 
-bool CommitLogList::Init(const char* pLogPath, bool enableRep)
+PdbErr_t CommitLogList::Init(const char* pLogPath)
 {
   PdbErr_t retVal = PdbE_OK;
-  enableRep_ = enableRep_;
-  nextFileCode_ = 1;
+  if (pLogPath == nullptr)
+    return PdbE_INVALID_PARAM;
 
-  redoPos_ = 0;
-  repPos_ = 0;
-  syncPos_ = 0;
-
-  pRedoLog_ = nullptr;
-  pRepLog_ = nullptr;
-  pWriteLog_ = nullptr;
   logPath_ = pLogPath;
-
-  retVal = InitLogFileList(pLogPath);
+  retVal = InitLogList();
   if (retVal != PdbE_OK)
   {
-    LOG_INFO("failed to init datalog list, path: ({}), err: {}", pLogPath, retVal);
-    return false;
-  }
-  
-  //初始化当前状态
-  if (!logFileVec_.empty())
-  {
-    CommitLogFile* pLastLog = logFileVec_[logFileVec_.size() - 1];
-    pLastLog->RecoverPoint(&repPos_, &syncPos_);
+    LOG_ERROR("CommitLogList::Init failed to init log list, {}", retVal);
+    return retVal;
   }
 
-  redoPos_ = syncPos_;
-  return true;
+  if (logFileVec_.size() > 0)
+  {
+    logFileVec_.back()->RecoverPoint(&curSyncPos_);
+  }
+
+  nextSyncPos_ = curSyncPos_;
+  return PdbE_OK;
 }
 
-PdbErr_t CommitLogList::AppendData(uint64_t tabCrc, uint32_t metaCode,
-  bool isRep, const CommitLogBlock* pLogBlock)
+PdbErr_t CommitLogList::AppendRec(uint64_t tabCrc, uint32_t metaCrc,
+  int recType, int64_t devId, const char* pRec, size_t recLen)
 {
   PdbErr_t retVal = PdbE_OK;
-  LogBlkHdr logHdr;
-  int32_t dataLen = 0;
-  uint64_t dataCrc = 0;
-  memset(&logHdr, 0, sizeof(LogBlkHdr));
-
-  if (pLogBlock == nullptr)
-    return PdbE_INVALID_PARAM;
-
-  const std::list<PdbBlob>& recList = pLogBlock->GetRecList();
-  if (recList.size() == 0)
-    return PdbE_INVALID_PARAM;
-
-  for (auto recIt = recList.begin(); recIt != recList.end(); recIt++)
-  {
-    dataLen += static_cast<int32_t>(recIt->len_);
-    dataCrc = StringTool::CRC64(recIt->pBlob_, recIt->len_, 0, dataCrc);
-  }
-
-  logHdr.tabCrc_ = tabCrc;
-  logHdr.metaCode_ = metaCode;
-  logHdr.recCnt_ = static_cast<int32_t>(recList.size());
-  logHdr.dataLen_ = dataLen;
-  logHdr.dataCrc_ = CRC64_TO_CRC32(dataCrc);
-  logHdr.blkHdr_.blkType_ = isRep ? BLKTYPE_INSERT_REP : BLKTYPE_INSERT_CLI;
-  logHdr.blkHdr_.hdrCrc_ = StringTool::CRC32(&logHdr, (sizeof(LogBlkHdr) - 4));
+  char recHead[kRecDataLen];
+  recHead[4] = static_cast<char>(recType);
+  Coding::FixedEncode16((recHead + 5), static_cast<uint16_t>(recLen + kRecDataLen));
+  Coding::FixedEncode64((recHead + kRecHead), tabCrc);
+  Coding::FixedEncode32((recHead + kRecHead + 8), metaCrc);
+  Coding::FixedEncode64((recHead + kRecHead + 12), devId);
+  uint64_t crc64 = StringTool::CRC64((recHead + 4), (kRecDataLen - 4));
+  crc64 = StringTool::CRC64(pRec, recLen, 0, crc64);
+  Coding::FixedEncode32(recHead, CRC64_TO_CRC32(crc64));
 
   std::unique_lock<std::mutex> logLock(logMutex_);
   if (pWriteLog_ == nullptr)
@@ -109,331 +77,295 @@ PdbErr_t CommitLogList::AppendData(uint64_t tabCrc, uint32_t metaCode,
     retVal = NewLogFile();
     if (retVal != PdbE_OK)
     {
-      LOG_INFO("failed to create datalog file, err:{}", retVal);
+      LOG_ERROR("CommitLogList::AppendRec create commit log file failed, {}", retVal);
       return retVal;
     }
   }
 
-  if ((pWriteLog_->GetCurPos() + dataLen + sizeof(LogBlkHdr)) > DATA_LOG_FILE_SIZE)
+  retVal = pWriteLog_->AppendRecord(recHead, pRec, recLen);
+  if (retVal == PdbE_LOGFILE_FULL)
   {
-    pWriteLog_->Sync();
+    pWriteLog_->CloseWrite();
+    pWriteLog_ = nullptr;
     retVal = NewLogFile();
     if (retVal != PdbE_OK)
     {
-      LOG_INFO("failed to crate datalog file, err: {}", retVal);
+      LOG_ERROR("CommitLogList::AppendRec create commit log file failed, {}", retVal);
       return retVal;
     }
+    retVal = pWriteLog_->AppendRecord(recHead, pRec, recLen);
   }
 
-  return pWriteLog_->AppendData(&logHdr, pLogBlock);
-}
-
-void CommitLogList::GetCurLogPos(uint64_t* pDataLogPos)
-{
-  if (pDataLogPos != nullptr)
-    *pDataLogPos = 0;
-
-  std::unique_lock<std::mutex> logLock(logMutex_);
-  if (logFileVec_.size() > 0)
+  if (retVal != PdbE_OK)
   {
-    CommitLogFile* pTmpLog = logFileVec_[logFileVec_.size() - 1];
-    if (pDataLogPos != nullptr)
-      *pDataLogPos = (pTmpLog->GetFileCode() * DATA_LOG_FILE_SIZE) + pTmpLog->GetCurPos();
+    LOG_ERROR("CommitLogList::AppendRec append commit log failed, {}", retVal);
   }
+
+  return retVal;
 }
 
-void CommitLogList::SetSyncPos(uint64_t syncPos)
-{
-  syncPos_ = syncPos;
-  AppendSyncInfo();
-}
-
-void CommitLogList::SetRepPos(uint64_t repPos)
-{
-  repPos_ = repPos;
-  AppendSyncInfo();
-}
-
-PdbErr_t CommitLogList::GetRedoData(uint64_t *pTabCrc, uint32_t *pMetaCode,
-  size_t* pRecCnt, size_t* pDataLen, uint8_t* pBuf)
+PdbErr_t CommitLogList::GetRedoRecList(std::vector<LogRecInfo>& recList, char* pRedoBuf, size_t bufSize)
 {
   PdbErr_t retVal = PdbE_OK;
-  LogBlkHdr logHdr;
-
-  if (pTabCrc == nullptr || pMetaCode == nullptr
-    || pRecCnt == nullptr || pDataLen == nullptr || pBuf == nullptr)
-    return PdbE_INVALID_PARAM;
+  CommitLogFile* pLogFile;
+  recList.clear();
 
   while (true)
   {
-    uint32_t redoFileCode = static_cast<uint32_t>(redoPos_ / DATA_LOG_FILE_SIZE);
-    do {
-      if (pRedoLog_ != nullptr && pRedoLog_->GetFileCode() == redoFileCode)
-        break;
+    pLogFile = nullptr;
 
-      pRedoLog_ = nullptr;
+    do {
+      std::unique_lock<std::mutex> vecLock(vecMutex_);
       for (auto logIt = logFileVec_.begin(); logIt != logFileVec_.end(); logIt++)
       {
-        uint32_t tmpCode = (*logIt)->GetFileCode();
-        if (tmpCode >= redoFileCode)
+        if (nextSyncPos_ < (*logIt)->GetFileEndPos())
         {
-          if (tmpCode > redoFileCode)
-            redoPos_ = (uint64_t)tmpCode * DATA_LOG_FILE_SIZE + sizeof(LogFileHdr);
-
-          pRedoLog_ = *logIt;
+          pLogFile = *logIt;
           break;
         }
       }
     } while (false);
 
-    if (pRedoLog_ == nullptr)
-      return PdbE_END_OF_DATALOG;
-
-    while (true)
-    {
-      uint64_t tmpPos = redoPos_ % DATA_LOG_FILE_SIZE;
-      if (tmpPos + sizeof(LogBlkHdr) >= DATA_LOG_FILE_SIZE) {
-        //下一个日志文件
-        redoPos_ = ((redoPos_ / DATA_LOG_FILE_SIZE) + 1) * DATA_LOG_FILE_SIZE;
-        break;
-      }
-
-      retVal = pRedoLog_->ReadBuf((uint8_t*)&logHdr, sizeof(LogBlkHdr), tmpPos);
-      if (retVal != PdbE_OK)
-      {
-        //下一个日志文件
-        redoPos_ = ((redoPos_ / DATA_LOG_FILE_SIZE) + 1) * DATA_LOG_FILE_SIZE;
-        break;
-      }
-
-      if (StringTool::CRC32(&logHdr, (sizeof(LogBlkHdr) - 4))
-        != logHdr.blkHdr_.hdrCrc_)
-      {
-        //下一个日志文件
-        redoPos_ = ((redoPos_ / DATA_LOG_FILE_SIZE) + 1) * DATA_LOG_FILE_SIZE;
-        break;
-      }
-
-      redoPos_ += sizeof(SyncBlkHdr);
-      tmpPos = redoPos_ % DATA_LOG_FILE_SIZE;
-      if (logHdr.blkHdr_.blkType_ == BLKTYPE_SYNC_INFO
-        || logHdr.blkHdr_.blkType_ == BLKTYPE_FILE_HEAD)
-      {
-        continue;
-      }
-
-      if (logHdr.blkHdr_.blkType_ != BLKTYPE_INSERT_CLI
-        && logHdr.blkHdr_.blkType_ != BLKTYPE_INSERT_REP)
-      {
-        //下一个日志文件
-        redoPos_ = ((redoPos_ / DATA_LOG_FILE_SIZE) + 1) * DATA_LOG_FILE_SIZE;
-        break;
-      }
-
-      //一次最多写入1000条数据，每条数据最多8K, 所以一次读取最多8M
-      if (logHdr.dataLen_ >= PDB_MB_BYTES(8))
-      {
-        //数据错误, 下一个日志文件
-        redoPos_ = ((redoPos_ / DATA_LOG_FILE_SIZE) + 1) * DATA_LOG_FILE_SIZE;
-        break;
-      }
-
-      if (tmpPos + logHdr.dataLen_ > DATA_LOG_FILE_SIZE)
-      {
-        //数据错误, 下一个日志文件
-        redoPos_ = ((redoPos_ / DATA_LOG_FILE_SIZE) + 1) * DATA_LOG_FILE_SIZE;
-        break;
-      }
-
-      retVal = pRedoLog_->ReadBuf(pBuf, logHdr.dataLen_, tmpPos);
-      if (retVal != PdbE_OK)
-      {
-        //数据错误, 下一个日志文件
-        redoPos_ = ((redoPos_ / DATA_LOG_FILE_SIZE) + 1) * DATA_LOG_FILE_SIZE;
-        break;
-      }
-
-      if (StringTool::CRC32(pBuf, logHdr.dataLen_) != logHdr.dataCrc_)
-      {
-        //当前数据校验失败,下一个日志文件
-        redoPos_ = ((redoPos_ / DATA_LOG_FILE_SIZE) + 1) * DATA_LOG_FILE_SIZE;
-        break;
-      }
-
-      redoPos_ += logHdr.dataLen_;
-
-      *pTabCrc = logHdr.tabCrc_;
-      *pMetaCode = logHdr.metaCode_;
-      *pRecCnt = logHdr.recCnt_;
-      *pDataLen = logHdr.dataLen_;
+    if (pLogFile == nullptr)
       return PdbE_OK;
+
+    retVal = pLogFile->ReadRecList(&nextSyncPos_, pRedoBuf, bufSize, recList);
+    if (retVal != PdbE_OK)
+    {
+      nextSyncPos_ = pLogFile->GetFileEndPos();
     }
+
+    if (recList.size() > 0)
+      return PdbE_OK;
+  }
+}
+
+bool CommitLogList::NeedSyncAllPage()
+{
+  std::unique_lock<std::mutex> vecLock(vecMutex_);
+  if (logFileVec_.size() > 0)
+  {
+    return logFileVec_.back()->GetFileBeginPos() > curSyncPos_;
   }
 
-  return PdbE_END_OF_DATALOG;
+  return false;
+}
+
+void CommitLogList::MakeSyncPoint()
+{
+  std::unique_lock<std::mutex> vecLock(vecMutex_);
+  if (logFileVec_.size() > 0)
+  {
+    nextSyncPos_ = logFileVec_.back()->GetFileEndPos();
+  }
+}
+
+void CommitLogList::CommitSyncPoint()
+{
+  curSyncPos_ = nextSyncPos_;
+  AppendPoint();
+  RemoveExpiredLog();
 }
 
 void CommitLogList::Shutdown()
 {
-  if (!enableRep_)
+  MakeSyncPoint();
+  CommitSyncPoint();
+  if (pWriteLog_ != nullptr)
   {
-    std::unique_lock<std::mutex> logLock(logMutex_);
-    for (auto fileIt = logFileVec_.begin(); fileIt != logFileVec_.end(); fileIt++)
-    {
-      std::string logPath = (*fileIt)->GetFilePath();
-      (*fileIt)->Close();
-      FileTool::RemoveFile(logPath.c_str());
-    }
+    pWriteLog_->CloseWrite();
+    pWriteLog_ = nullptr;
+  }
+  if (logFileVec_.size() > 0)
+  {
+    curSyncPos_ = logFileVec_.back()->GetFileEndPos();
+  }
+  RemoveExpiredLog();
+}
+
+void CommitLogList::SyncLogFile()
+{
+  std::unique_lock<std::mutex> logLock(logMutex_);
+  if (pWriteLog_ != nullptr)
+  {
+    pWriteLog_->Sync();
   }
 }
 
-PdbErr_t CommitLogList::InitLogFileList(const char* pLogPath)
+int64_t CommitLogList::GetLogPosition() const
 {
-  PdbErr_t retVal = PdbE_OK;
-  int32_t fileCode = 0;
-  std::vector<int32_t> logFileVec;
-  std::vector<std::string> errFileVec;
-  char pathBuf[MAX_PATH];
+  int64_t logPos = 0;
+  CommitLogFile* pTmpLog = pWriteLog_;
+  if (nextFileCode_ >= 2)
+    logPos = nextFileCode_ - 2;
 
-  bfs::path logPath(pLogPath);
-  bfs::recursive_directory_iterator endIter;
-  for (bfs::recursive_directory_iterator fIter(logPath); fIter != endIter; fIter++)
+  logPos *= kCmtLogFileSize;
+  if (pTmpLog != nullptr)
   {
-    if (!bfs::is_directory(*fIter))
-    {
-      std::string fileName = fIter->path().filename().string();
-      if (fileName.size() != 12)
-        continue;
-
-      if (!StringTool::EndWithNoCase(fileName, ".cmt", 4))
-        continue;
-
-      const char* pFileName = fileName.c_str();
-      fileCode = 0;
-      for (int i = 0; i < 8; i++)
-      {
-        if (pFileName[i] >= '0' && pFileName[i] <= '9')
-        {
-          fileCode = fileCode * 10 + pFileName[i] - '0';
-        }
-        else
-        {
-          fileCode = -1;
-          break;
-        }
-      }
-
-      if (fileCode >= 0)
-      {
-        if (fileCode >= 20000000)
-        {
-          LOG_ERROR("failed to init datalog list, file code overflow");
-          return PdbE_DATA_LOG_ERROR;
-        }
-        logFileVec.push_back(fileCode);
-      }
-    }
+    logPos += pTmpLog->GetFileSize();
   }
 
-  if (!logFileVec.empty())
-  {
-    std::sort(logFileVec.begin(), logFileVec.end());
-
-    CommitLogFile* pLogFile = nullptr;
-    for (auto fileIt = logFileVec.begin(); fileIt != logFileVec.end(); fileIt++)
-    {
-      sprintf(pathBuf, "%s/%08d.cmt", pLogPath, *fileIt);
-      pLogFile = new CommitLogFile();
-      retVal = pLogFile->OpenLog(*fileIt, pathBuf);
-      if (retVal != PdbE_OK)
-      {
-        delete pLogFile;
-        errFileVec.push_back(pathBuf);
-
-        if (retVal != PdbE_DATA_LOG_ERROR)
-        {
-          //PdbE_DATA_LOG_ERROR 错误可以继续，其他错误不可以继续
-          return retVal;
-        }
-      }
-      else {
-        logFileVec_.push_back(pLogFile);
-        nextFileCode_ = *fileIt + 1;
-      }
-    }
-  }
-
-  //删除错误的日志文件
-  for (auto fileIt = errFileVec.begin(); fileIt != errFileVec.end(); fileIt++)
-  {
-    FileTool::RemoveFile(fileIt->c_str());
-  }
-
-  return PdbE_OK;
+  return logPos;
 }
 
 PdbErr_t CommitLogList::NewLogFile()
 {
   PdbErr_t retVal = PdbE_OK;
-  char pathBuf[MAX_PATH];
+  char buf[16];
+  std::string path;
+  Env* pEnv = Env::Default();
   uint32_t maxFileCode = nextFileCode_ + 100;
 
   do {
-    sprintf(pathBuf, "%s/%08d.cmt", logPath_.c_str(), nextFileCode_);
-    if (!FileTool::FileExists(pathBuf))
+    sprintf(buf, "/%08d.cmt", nextFileCode_);
+    path = logPath_;
+    path.append(buf);
+
+    if (!pEnv->FileExists(path.c_str()))
       break;
 
     nextFileCode_++;
   } while (nextFileCode_ < maxFileCode);
 
   CommitLogFile* pTmpLog = new CommitLogFile();
-  retVal = pTmpLog->NewLog(nextFileCode_, pathBuf, repPos_, syncPos_);
-
+  retVal = pTmpLog->CreateLogFile(nextFileCode_, path.c_str(), curSyncPos_);
   if (retVal != PdbE_OK)
   {
-    LOG_ERROR("failed to create datalog({}), err:{}", pathBuf, retVal);
+    LOG_ERROR("failed to create commit log ({}), {}", path.c_str(), retVal);
     delete pTmpLog;
     return retVal;
   }
 
   nextFileCode_++;
   pWriteLog_ = pTmpLog;
+  std::unique_lock<std::mutex> vecLock(vecMutex_);
   logFileVec_.push_back(pTmpLog);
+  if (logFileVec_.size() >= 3)
+    logFileVec_[(logFileVec_.size() - 3)]->FreeCache();
   return PdbE_OK;
 }
 
-void CommitLogList::AppendSyncInfo()
+bool LogFileComp(const CommitLogFile* pLogA, const CommitLogFile* pLogB)
 {
-  std::unique_lock<std::mutex> logLock(logMutex_);
-  do {
-    if (pWriteLog_ == nullptr)
-    {
-      //NewLogFile 中已写入了Sync信息
-      NewLogFile();
-      break;
-    }
+  return pLogA->GetFileEndPos() < pLogB->GetFileEndPos();
+}
 
-    if ((pWriteLog_->GetCurPos() + sizeof(SyncBlkHdr)) > DATA_LOG_FILE_SIZE)
-    {
-      //NewLogFile 中已写入了Sync信息
-      NewLogFile();
-      break;
-    }
+PdbErr_t CommitLogList::InitLogList()
+{
+  Env* pEnv = Env::Default();
+  PdbErr_t retVal = PdbE_OK;
+  int64_t fileCode;
+  std::string filePath;
+  std::vector<std::string> fileVec;
 
-    pWriteLog_->AppendSync(repPos_, syncPos_);
-  } while (false);
+  retVal = pEnv->GetChildrenFiles(logPath_.c_str(), &fileVec);
+  if (retVal != PdbE_OK)
+    return retVal;
 
-  while (logFileVec_.size() > 1)
+  for (auto fileIt = fileVec.begin(); fileIt != fileVec.end(); fileIt++)
   {
-    CommitLogFile* pLogFile = *(logFileVec_.begin());
-    if (syncPos_ < ((pLogFile->GetFileCode() + 1) * DATA_LOG_FILE_SIZE))
-      break;
-    if (enableRep_ && repPos_ < ((pLogFile->GetFileCode() + 1) * DATA_LOG_FILE_SIZE))
+    if (!StringTool::EndWithNoCase(*fileIt, ".cmt", 4))
+      continue;
+
+    if (StringTool::StrToInt64(fileIt->c_str(), fileIt->size() - 4, &fileCode))
+    {
+      filePath = logPath_;
+      filePath.append("/");
+      filePath.append(*fileIt);
+
+      CommitLogFile* pLogFile = new CommitLogFile();
+      retVal = pLogFile->OpenLogFile(static_cast<uint32_t>(fileCode), filePath.c_str());
+      if (retVal != PdbE_OK)
+      {
+        delete pLogFile;
+        if (retVal != PdbE_DATA_LOG_ERROR)
+        {
+          //PdbE_DATA_LOG_ERROR 错误可以继续，其他错误不可以继续
+          return retVal;
+        }
+        pEnv->DelFile(filePath.c_str());
+      }
+      else
+      {
+        logFileVec_.push_back(pLogFile);
+      }
+    }
+  }
+
+  if (logFileVec_.size() > 0)
+  {
+    std::sort(logFileVec_.begin(), logFileVec_.end(), LogFileComp);
+    nextFileCode_ = logFileVec_.back()->GetFileCode() + 1;
+  }
+
+  return PdbE_OK;
+}
+
+PdbErr_t CommitLogList::AppendPoint()
+{
+  PdbErr_t retVal = PdbE_OK;
+
+  std::unique_lock<std::mutex> logLock(logMutex_);
+  if (pWriteLog_ == nullptr)
+  {
+    retVal = NewLogFile();
+    if (retVal != PdbE_OK)
+    {
+      LOG_ERROR("CommitLogList::AppendPoint create commit log file failed, {}", retVal);
+      return retVal;
+    }
+  }
+
+  retVal = pWriteLog_->AppendSync(curSyncPos_);
+  if (retVal == PdbE_LOGFILE_FULL)
+  {
+    pWriteLog_->CloseWrite();
+    pWriteLog_ = nullptr;
+    retVal = NewLogFile();
+    if (retVal != PdbE_OK)
+    {
+      LOG_ERROR("CommitLogList::AppendPoint create commit log file failed, {}", retVal);
+      return retVal;
+    }
+    retVal = pWriteLog_->AppendSync(curSyncPos_);
+  }
+
+  LOG_DEBUG("append commit point syncPos({})", curSyncPos_);
+  return retVal;
+}
+
+void CommitLogList::RemoveExpiredLog()
+{
+  Env* pEnv = Env::Default();
+  CommitLogFile* pLogFile;
+  uint64_t minPos = curSyncPos_;
+
+  while (true)
+  {
+    pLogFile = nullptr;
+
+    do {
+      std::unique_lock<std::mutex> vecLock(vecMutex_);
+      if (logFileVec_.empty())
+        break;
+
+      if (!logFileVec_.front()->GetFileReadOnly())
+        break;
+
+      if (logFileVec_.front()->GetFileEndPos() <= minPos)
+      {
+        pLogFile = logFileVec_.front();
+        logFileVec_.erase(logFileVec_.begin());
+      }
+    } while (false);
+
+    if (pLogFile == nullptr)
       break;
 
-    logFileVec_.erase(logFileVec_.begin());
-    std::string logPath = pLogFile->GetFilePath();
-    pLogFile->Close();
-    FileTool::RemoveFile(logPath.c_str());
+    std::string filePath = pLogFile->GetFilePath();
+    delete pLogFile;
+    pEnv->DelFile(filePath.c_str());
+    LOG_DEBUG("delete commitlog ({})", filePath.c_str());
   }
 }
+

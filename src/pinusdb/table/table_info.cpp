@@ -18,6 +18,7 @@
 #include "pdb_error.h"
 #include "table/table_info.h"
 #include "util/string_tool.h"
+#include "util/coding.h"
 #include <string.h>
 
 TableInfo::TableInfo()
@@ -134,7 +135,13 @@ PdbErr_t TableInfo::GetFieldInfo(size_t fieldPos, int32_t* pFieldType) const
   if (fieldPos < fieldVec_.size())
   {
     if (pFieldType != nullptr)
+    {
       *pFieldType = fieldVec_[fieldPos].GetFieldType();
+      if (PDB_TYPE_IS_REAL(*pFieldType))
+      {
+        *pFieldType = PDB_FIELD_TYPE::TYPE_DOUBLE;
+      }
+    }
 
     return PdbE_OK;
   }
@@ -164,13 +171,61 @@ PdbErr_t TableInfo::GetFieldInfo(uint64_t fieldCrc, size_t* pFieldPos, int32_t* 
       *pFieldPos = fieldIter->second;
 
     if (pFieldType != nullptr)
+    {
       *pFieldType = fieldVec_[fieldIter->second].GetFieldType();
+      if (PDB_TYPE_IS_REAL(*pFieldType))
+      {
+        *pFieldType = PDB_FIELD_TYPE::TYPE_DOUBLE;
+      }
+    }
 
     return PdbE_OK;
   }
 
   return PdbE_FIELD_NOT_FOUND;
 }
+
+PdbErr_t TableInfo::GetFieldRealInfo(const char* pFieldName, size_t* pFieldPos, int32_t* pFieldType) const
+{
+  uint64_t nameCrc = StringTool::CRC64NoCase(pFieldName);
+  return GetFieldRealInfo(nameCrc, pFieldPos, pFieldType);
+}
+
+PdbErr_t TableInfo::GetFieldRealInfo(size_t fieldPos, int32_t* pFieldType) const
+{
+  if (fieldPos < fieldVec_.size())
+  {
+    if (pFieldType != nullptr)
+    {
+      *pFieldType = fieldVec_[fieldPos].GetFieldType();
+    }
+
+    return PdbE_OK;
+  }
+
+  return PdbE_FIELD_NOT_FOUND;
+}
+
+PdbErr_t TableInfo::GetFieldRealInfo(uint64_t fieldCrc, size_t* pFieldPos, int32_t* pFieldType) const
+{
+  auto fieldIter = fieldMap_.find(fieldCrc);
+  if (fieldIter != fieldMap_.end())
+  {
+    if (pFieldPos != nullptr)
+      *pFieldPos = fieldIter->second;
+
+    if (pFieldType != nullptr)
+    {
+      *pFieldType = fieldVec_[fieldIter->second].GetFieldType();
+    }
+
+    return PdbE_OK;
+  }
+
+  return PdbE_FIELD_NOT_FOUND;
+}
+
+
 const char* TableInfo::GetFieldName(size_t fieldPos) const
 {
   if (fieldPos < fieldVec_.size())
@@ -189,4 +244,27 @@ size_t TableInfo::GetFieldCnt() const
 uint32_t TableInfo::GetMetaCode() const
 {
   return CRC64_TO_CRC32(metaCode64_);
+}
+
+void TableInfo::Serialize(std::string& dataBuf) const
+{
+  std::string fullName;
+  for (auto fieldIt = fieldVec_.begin(); fieldIt != fieldVec_.end(); fieldIt++)
+  {
+    fullName.clear();
+    switch (fieldIt->GetFieldType())
+    {
+    case PDB_FIELD_TYPE::TYPE_BOOL: fullName.append("bool;"); break;
+    case PDB_FIELD_TYPE::TYPE_INT64: fullName.append("bigint;"); break;
+    case PDB_FIELD_TYPE::TYPE_DATETIME: fullName.append("datetime;"); break;
+    case PDB_FIELD_TYPE::TYPE_DOUBLE: fullName.append("double;"); break;
+    case PDB_FIELD_TYPE::TYPE_STRING: fullName.append("string;"); break;
+    case PDB_FIELD_TYPE::TYPE_BLOB: fullName.append("blob;"); break;
+    }
+
+    fullName.append(fieldIt->GetFieldName());
+    dataBuf.push_back(static_cast<char>(PDB_FIELD_TYPE::TYPE_STRING));
+    Coding::PutVarint64(&dataBuf, fullName.size());
+    dataBuf.append(fullName);
+  }
 }

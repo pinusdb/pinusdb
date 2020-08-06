@@ -1,5 +1,6 @@
 #pragma once
-#include "expr/expr_item.h"
+#include "expr/expr_value.h"
+#include "expr/target_list.h"
 #include "expr/pdb_db_int.h"
 
 class RecordList
@@ -8,15 +9,15 @@ public:
   RecordList() {}
   ~RecordList()
   {
-    for (auto iter = recList_.begin(); iter != recList_.end(); iter++)
+    for (auto iter = recVec_.begin(); iter != recVec_.end(); iter++)
     {
       delete *iter;
     }
   }
 
-  const std::list<ExprList*>& GetRecList() const { return recList_; }
+  const std::vector<ExprValueList*>& GetRecList() const { return recVec_; }
 
-  static RecordList* AppendRecordList(RecordList* pRecList, ExprList* pRec)
+  static RecordList* AppendRecordList(RecordList* pRecList, ExprValueList* pRec)
   {
     if (pRecList == nullptr)
     {
@@ -24,7 +25,7 @@ public:
     }
 
     if (pRec != nullptr)
-      pRecList->recList_.push_back(pRec);
+      pRecList->recVec_.push_back(pRec);
 
     return pRecList;
   }
@@ -38,7 +39,7 @@ public:
   }
 
 private:
-  std::list<ExprList*> recList_;
+  std::vector<ExprValueList*> recVec_;
 };
 
 

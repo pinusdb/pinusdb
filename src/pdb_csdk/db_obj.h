@@ -17,36 +17,34 @@
 #pragma once
 
 #include "internal.h"
-#include "query/result_field.h"
+#include "table/db_value.h"
+#include "table/table_info.h"
+#include "util/arena.h"
 
-class GroupTstampField : public ResultField
+class DBObj
 {
 public:
-  GroupTstampField(int64_t tstamp)
-  {
-    tstamp_ = tstamp;
-  }
+  DBObj(Arena* pArena) : pArena_(pArena) {}
+  ~DBObj() {}
 
-  virtual ~GroupTstampField() {}
-  
-  virtual int32_t FieldType() { return PDB_FIELD_TYPE::TYPE_DATETIME; }
+  void Clear();
 
-  virtual PdbErr_t AppendData(const DBVal* pVals, size_t valCnt)
-  {
-    return PdbE_OK;
-  }
+  size_t GetFieldCnt() const;
+  const DBVal* GetFieldValue(size_t idx) const;
 
-  virtual PdbErr_t GetResult(DBVal* pVal)
-  {
-    DBVAL_SET_DATETIME(pVal, tstamp_);
-    return PdbE_OK;
-  }
+  void AppendNullVal();
+  void AppendVal(bool val);
+  void AppendVal(int64_t val);
+  void AppendVal(double val);
+  PdbErr_t AppendStrVal(const char* pVal, size_t len);
+  PdbErr_t AppendBlobVal(const uint8_t* pVal, size_t len);
+  void AppendDateTime(int64_t val);
 
-  virtual ResultField* NewField(int64_t devId, int64_t tstamp)
-  {
-    return new GroupTstampField(tstamp);
-  }
+  PdbErr_t AppendVal(const DBVal* pVal);
+
+  PdbErr_t ParseTrans(size_t fieldCnt, const char* pData, const char* pLimit, size_t* pObjLen);
 
 private:
-  int64_t tstamp_;
+  Arena* pArena_;
+  std::vector<DBVal> fieldVec_;
 };

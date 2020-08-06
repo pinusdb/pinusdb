@@ -27,13 +27,11 @@
 #include "pdb_error.h"
 #include "server/table_config.h"
 #include "db/page_pool.h"
+#include "internal.h"
 
-#include "expr/expr_item.h"
 #include "expr/column_item.h"
 #include "expr/parse.h"
-#include "query/result_filter.h"
 #include "util/string_tool.h"
-#include "table/db_obj.h"
 
 #include "util/log_util.h"
 #include "util/coding.h"
@@ -51,8 +49,8 @@ DBImpl* DBImpl::dbImpl_ = nullptr;
 
 DBImpl::DBImpl()
 {
+  pCmtLogTask_ = nullptr;
   pSyncTask_ = nullptr;
-  pRepTask_ = nullptr;
   pCompTask_ = nullptr;
   isInit_ = false;
 }
@@ -123,6 +121,7 @@ PdbErr_t DBImpl::Start()
     return retVal;
   }
 
+  pCmtLogTask_ = new std::thread(&DBImpl::SyncCmtLog, this);
   pSyncTask_ = new std::thread(&DBImpl::SyncTask, this);
   pCompTask_ = new std::thread(&DBImpl::CompressTask, this);
 
@@ -134,12 +133,40 @@ void DBImpl::Stop()
 {
   stopVariable_.notify_all();
   pGlbPagePool->NotifyAll();
+  pCmtLogTask_->join();
   pCompTask_->join();
   pSyncTask_->join();
   //CloseAllTable 会同步所有的数据页
   pGlbTableSet->CloseAllTable();
   //同步所有数据页后，如果只是单机运行，删除所有日志文件
   pGlbCommitLog->Shutdown();
+}
+
+void DBImpl::SyncCmtLog()
+{
+#ifdef _WIN32
+  PDB_SEH_BEGIN(false);
+  _SyncCmtLog();
+  PDB_SEH_END("synccmtlog", return);
+#else
+  _SyncCmtLog();
+#endif
+}
+
+void DBImpl::_SyncCmtLog()
+{
+  while (glbRunning)
+  {
+    do {
+      std::unique_lock<std::mutex> stopLock(stopMutex_);
+      stopVariable_.wait_for(stopLock, std::chrono::seconds(5));
+    } while (false);
+
+    if (!glbRunning)
+      break;
+
+    pGlbCommitLog->SyncLogFile();
+  }
 }
 
 void DBImpl::SyncTask()
@@ -155,10 +182,9 @@ void DBImpl::SyncTask()
 
 void DBImpl::_SyncTask()
 {
-  uint32_t syncFileCode = 1;
-  uint64_t curLogPos = 0;
   int64_t dbTick = 0;
   int64_t syncAllTick = 0;
+  int32_t writeCacheMB = pGlbSysCfg->GetWriteCache(); // *NORMAL_PAGE_SIZE;
 
   while (glbRunning)
   {
@@ -182,20 +208,18 @@ void DBImpl::_SyncTask()
     else
     {
       //每秒判断是否生成了新的日志文件，若有新的日志文件则需要刷盘
-      size_t dirtyPercent = pGlbTableSet->GetDirtyPagePercent();
-      pGlbCommitLog->GetCurLogPos(&curLogPos);
-      if (static_cast<uint32_t>(curLogPos / DATA_LOG_FILE_SIZE) > syncFileCode)
+      size_t dirtySizeMB = pGlbTableSet->GetDirtySizeMB();
+      if (pGlbCommitLog->NeedSyncAllPage())
       {
         LOG_INFO("create new data log file, sync all page cache to datafile");
         pGlbTableSet->SyncDirtyPages(true);
-        syncFileCode = static_cast<uint32_t>(curLogPos / DATA_LOG_FILE_SIZE);
         LOG_INFO("sync all page cache to datafile finished");
         syncAllTick = dbTick;
       }
-      else if (dirtyPercent >= 80)
+      else if (dirtySizeMB >= writeCacheMB)
       {
         //判断是否脏页太多，需要刷盘
-        LOG_INFO("dirty page percent ({}%), sync all page cache to datafile", dirtyPercent);
+        LOG_INFO("dirty memory ({}MB), sync all page cache to datafile", dirtySizeMB);
         pGlbTableSet->SyncDirtyPages(true);
         LOG_INFO("sync all page cache to datafile finished");
         syncAllTick = dbTick;
@@ -242,56 +266,43 @@ void DBImpl::_CompressTask()
 PdbErr_t DBImpl::RecoverDataLog()
 {
   PdbErr_t retVal = PdbE_OK;
-  uint32_t metaCode = 0;
-  uint64_t tabCrc = 0;
-  int64_t devId = 0;
-  uint64_t recTstamp = 0;
-  size_t recCnt = 0;
-  size_t dataLen = 0;
-  size_t recLen = 0;
   RefUtil tabRef;
-  Arena arena;
   PDBTable* pTab = nullptr;
-  uint8_t* pBuf = (uint8_t*)arena.Allocate(PDB_MB_BYTES(8));
-  uint8_t* pBufLimit = nullptr;
-  uint8_t* pRec = nullptr;
+  uint64_t tabCrc = 0;
+  uint64_t tstamp = 0;
+  Arena arena;
+
+  std::vector<LogRecInfo> recVec;
+  const size_t RedoBufSize = PDB_KB_BYTES(128);
+  char* pRedoBuf = arena.AllocateAligned(RedoBufSize);
 
   while (true)
   {
-    retVal = pGlbCommitLog->GetRedoData(&tabCrc, &metaCode, &recCnt, &dataLen, pBuf);
-    if (retVal == PdbE_END_OF_DATALOG)
-      return PdbE_OK;
+    recVec.clear();
+    pGlbCommitLog->GetRedoRecList(recVec, pRedoBuf, RedoBufSize);
+    if (recVec.empty())
+      break;
 
-    if (retVal != PdbE_OK)
+    for (auto rec = recVec.begin(); rec != recVec.end(); rec++)
     {
-      LOG_ERROR("failed to recover datalog, get datalog error, err:{}", retVal);
-      return retVal;
-    }
-
-    pTab = pGlbTableSet->GetTable(tabCrc, &tabRef);
-    if (pTab == nullptr)
-    {
-      LOG_INFO("failed to recover datalog, table ({}) not found, skip ({}) record data", tabCrc, recCnt);
-      continue;
-    }
-
-    pRec = pBuf;
-    pBufLimit = pBuf + dataLen;
-    for (size_t i = 0; i < recCnt; i++)
-    {
-      devId = (int64_t)Coding::FixedDecode64(pRec);
-      pRec += sizeof(int64_t);
-      recLen = Coding::FixedDecode16(pRec);
-      Coding::VarintDecode64((pRec + sizeof(uint16_t)), pBufLimit, &recTstamp);
-      
-      retVal = pTab->InsertByDataLog(metaCode, devId, (int64_t)recTstamp, pRec, recLen);
-      if (retVal != PdbE_OK && retVal != PdbE_TABLE_FIELD_MISMATCH)
+      if (pTab == nullptr || tabCrc != rec->tabCrc)
       {
-        LOG_ERROR("failed to recover datalog, insert record error, err:{}", retVal);
-        return retVal;
+        pTab = pGlbTableSet->GetTable(rec->tabCrc, &tabRef);
+        if (pTab == nullptr)
+        {
+          LOG_INFO("failed to recover commit log, table ({}) not found");
+          continue;
+        }
+        tabCrc = rec->tabCrc;
       }
 
-      pRec += recLen;
+      Coding::VarintDecode64((rec->pRec + 2), (rec->pRec + rec->recLen), &tstamp);
+      retVal = pTab->InsertByDataLog(rec->metaCrc, rec->devId, tstamp, rec->pRec, rec->recLen);
+      if (retVal != PdbE_OK && retVal != PdbE_TABLE_FIELD_MISMATCH)
+      {
+        LOG_ERROR("failed to recover commit log, table ({}), devid ({}), tstamp:({}), retVal:({})",
+          rec->tabCrc, rec->devId, tstamp, retVal);
+      }
     }
   }
 

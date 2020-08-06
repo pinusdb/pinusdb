@@ -79,7 +79,7 @@ PdbErr_t DBClient::Login(const char* pName, const char* pPwd)
     return PdbE_INVALID_PARAM;
   }
 
-  uint8_t* pPacketBuf = (uint8_t*)arena.Allocate(packetLen);
+  char* pPacketBuf = arena.Allocate(packetLen);
   if (pPacketBuf == nullptr)
   {
     return PdbE_NOMEM;
@@ -112,7 +112,7 @@ PdbErr_t DBClient::Login(const char* pName, const char* pPwd)
     return retVal;
   }
 
-  uint8_t* pResBuf = nullptr;
+  char* pResBuf = nullptr;
   size_t resLen = 0;
   retVal = Recv(arena, &pResBuf, &resLen);
   if (retVal != PdbE_OK)
@@ -156,7 +156,7 @@ PdbErr_t DBClient::ExecuteInsert(const char* pSql, size_t* pSucessCnt, size_t* p
 {
   PdbErr_t retVal = PdbE_OK;
   Arena arena;
-  uint8_t* pPacketBuf = nullptr;
+  char* pPacketBuf = nullptr;
   size_t packetLen = 0;
 
   if (pSql == nullptr)
@@ -218,7 +218,7 @@ PdbErr_t DBClient::ExecuteQuery(const char* pSql, PDBDataTable* pTable)
   if (!logined_)
     return PdbE_NOT_LOGIN;
 
-  uint8_t* pPacketBuf = nullptr;
+  char* pPacketBuf = nullptr;
   size_t packetLen = 0;
 
   retVal = MakeRequestPacket(arena, pSql, METHOD_CMD_QUERY_REQ, &pPacketBuf, &packetLen);
@@ -276,7 +276,7 @@ PdbErr_t DBClient::ExecuteNonQuery(const char* pSql)
     return PdbE_NOT_LOGIN;
   }
 
-  uint8_t* pPacketBuf = nullptr;
+  char* pPacketBuf = nullptr;
   size_t packetLen = 0;
 
   retVal = MakeRequestPacket(arena, pSql, METHOD_CMD_NONQUERY_REQ, &pPacketBuf, &packetLen);
@@ -309,7 +309,7 @@ PdbErr_t DBClient::ExecuteNonQuery(const char* pSql)
   return retVal;
 }
 
-PdbErr_t DBClient::DecodePacket(uint8_t* pPacket, size_t packetLen, PDBDataTable* pTable)
+PdbErr_t DBClient::DecodePacket(char* pPacket, size_t packetLen, PDBDataTable* pTable)
 {
   ProtoHeader proHdr;
   proHdr.Load(pPacket);
@@ -328,7 +328,8 @@ PdbErr_t DBClient::DecodePacket(uint8_t* pPacket, size_t packetLen, PDBDataTable
 
   do {
     //初始化列信息
-    retVal = tmpObj.ParseTrans(fieldCnt, (pPacket + offset), (pPacket + packetLen), &recLen);
+    retVal = tmpObj.ParseTrans(fieldCnt, (pPacket + offset), 
+      (pPacket + packetLen), &recLen);
     if (retVal != PdbE_OK)
       break;
 
@@ -402,7 +403,7 @@ PdbErr_t DBClient::InitColumnInfo(const DBObj* pObj, PDBDataTable* pTable)
 }
 
 PdbErr_t DBClient::MakeRequestPacket(Arena& arena, const char* pSql,
-  uint32_t method, uint8_t** ppPacketBuf, size_t* pPacketLen)
+  uint32_t method, char** ppPacketBuf, size_t* pPacketLen)
 {
   int32_t bodyLen = 0;
   int32_t totalLen = 0;
@@ -415,7 +416,7 @@ PdbErr_t DBClient::MakeRequestPacket(Arena& arena, const char* pSql,
   bodyLen = static_cast<int32_t>(strlen(pSql));
   totalLen = ProtoHeader::kProtoHeadLength + bodyLen;
 
-  uint8_t* pTmpBuf = (uint8_t*)arena.Allocate(totalLen);
+  char* pTmpBuf = arena.Allocate(totalLen);
   if (pTmpBuf == nullptr)
     return PdbE_NOMEM;
 
@@ -437,7 +438,7 @@ PdbErr_t DBClient::MakeRequestPacket(Arena& arena, const char* pSql,
   return PdbE_OK;
 }
 
-PdbErr_t DBClient::Request(const uint8_t* pBuf, size_t len)
+PdbErr_t DBClient::Request(const char* pBuf, size_t len)
 {
   if (!connected_)
   {
@@ -452,13 +453,13 @@ PdbErr_t DBClient::Request(const uint8_t* pBuf, size_t len)
   return PdbE_OK;
 }
 
-PdbErr_t DBClient::Recv(Arena& arena, uint8_t** ppDataBuf, size_t* pDataLen)
+PdbErr_t DBClient::Recv(Arena& arena, char** ppDataBuf, size_t* pDataLen)
 {
   boost::system::error_code errCode;
   size_t totalLen = 0;
   PdbErr_t retVal = PdbE_OK;
 
-  uint8_t tmpHead[ProtoHeader::kProtoHeadLength] = { 0 };
+  char tmpHead[ProtoHeader::kProtoHeadLength] = { 0 };
 
   while (totalLen < ProtoHeader::kProtoHeadLength)
   {
@@ -474,7 +475,7 @@ PdbErr_t DBClient::Recv(Arena& arena, uint8_t** ppDataBuf, size_t* pDataLen)
   proHdr.Load(tmpHead);
   size_t bodyLen = static_cast<size_t>(proHdr.GetBodyLen());
 
-  uint8_t* pTmpBuf = (uint8_t*)arena.Allocate((bodyLen + ProtoHeader::kProtoHeadLength));
+  char* pTmpBuf = arena.Allocate((bodyLen + ProtoHeader::kProtoHeadLength));
   if (pTmpBuf == nullptr)
     return PdbE_NOMEM;
 
@@ -484,7 +485,7 @@ PdbErr_t DBClient::Recv(Arena& arena, uint8_t** ppDataBuf, size_t* pDataLen)
   while (totalLen < bodyLen)
   {
     size_t tmpLen = bodyLen - totalLen;
-    uint8_t* pRecv = pTmpBuf + ProtoHeader::kProtoHeadLength + totalLen;
+    char* pRecv = pTmpBuf + ProtoHeader::kProtoHeadLength + totalLen;
     size_t recvLen = socket_.read_some(buffer(pRecv, tmpLen), errCode);
     if (errCode)
     {

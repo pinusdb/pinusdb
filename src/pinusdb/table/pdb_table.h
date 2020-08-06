@@ -16,7 +16,6 @@
 
 #pragma once
 #include "internal.h"
-#include "expr/expr_item.h"
 #include "table/table_info.h"
 #include "storage/data_part.h"
 #include "table/devid_table.h"
@@ -46,15 +45,18 @@ public:
   PdbErr_t DropTable();
 
   PdbErr_t Insert(InsertSql* pInsertSql, bool errBreak, std::list<PdbErr_t>& resultList);
-  PdbErr_t InsertByDataLog(uint32_t metaCode, int64_t devId, int64_t tstamp, const uint8_t* pRecBg, size_t recLen);
-  PdbErr_t Query(DataTable* pResultTable, const QueryParam* pQueryParam);
-  PdbErr_t QuerySnapshot(DataTable* pResultTable, const QueryParam* pQueryParam);
+  PdbErr_t InsertByDataLog(uint32_t metaCode, int64_t devId, int64_t tstamp, const char* pRec, size_t recLen);
+  PdbErr_t InsertByReplicate(std::vector<LogRecInfo>& recVec, size_t beginIdx);
+  PdbErr_t ExecQuery(const QueryParam* pQueryParam, 
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
+  PdbErr_t ExecQuerySnapshot(const QueryParam* pQueryParam,
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
 
   size_t GetDevCnt() const { return devTable_.GetDevCnt(); }
   PdbErr_t AddDev(int64_t devId, PdbStr devName, PdbStr expand);
   PdbErr_t FlushDev();
   PdbErr_t DelDev(const ConditionFilter* pCondition);
-  PdbErr_t QueryDev(IResultFilter* pFilter);
+  PdbErr_t QueryDev(IQuery* pQuery);
 
   PdbErr_t DumpPartToComp();
   PdbErr_t UnMapCompressData();
@@ -66,16 +68,20 @@ public:
   uint32_t GetTabCode() { return tabCode_; }
 
 private:
-  PdbErr_t QueryLast(std::list<int64_t>& devIdList, int64_t minTstamp, 
-    int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut);
-  PdbErr_t QueryFirst(std::list<int64_t>& devIdList, int64_t minTstamp, 
-    int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut);
-  PdbErr_t QueryAsc(std::list<int64_t>& devIdList, int64_t minTstamp, 
-    int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut);
-  PdbErr_t QueryDesc(std::list<int64_t>& devIdList, int64_t minTstamp, 
-    int64_t maxTstamp, IResultFilter* pFilter, uint64_t queryTimeOut);
-  PdbErr_t QuerySnapshot(std::list<int64_t>& devIdList, int64_t minTstamp,
-    ISnapshotResultFilter* pFilter, uint64_t queryTimeOut);
+  PdbErr_t ExecQueryGroupAll(const QueryParam* pQueryParam, 
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
+  PdbErr_t ExecQueryGroupDevId(const QueryParam* pQueryParam, 
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
+  PdbErr_t ExecQueryGroupTstamp(const QueryParam* pQueryParam, 
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
+  PdbErr_t ExecQueryRawData(const QueryParam* pQueryParam, 
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
+
+  PdbErr_t QueryLast(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut);
+  PdbErr_t QueryFirst(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut);
+  PdbErr_t QueryAsc(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut);
+  PdbErr_t QueryDesc(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut);
+  PdbErr_t QuerySnapshotData(std::list<int64_t>& devIdList, IQuery* pQuery, uint64_t queryTimeOut);
 
 private:
   void GetDataPartEqualOrGreat(uint32_t partCode, bool includeEqual, RefUtil* pPartRef);

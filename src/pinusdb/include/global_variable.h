@@ -35,3 +35,4 @@ extern TableSet* pGlbTableSet;
 extern CommitLogList* pGlbCommitLog;
 extern bool glbCancelCompTask;
 extern bool glbRunning;
+extern bool glbRepStates;

@@ -46,17 +46,40 @@ namespace spd = spdlog;
 #else
 
 
-#define LOG_ERROR(FORMAT, ...) do { \
-  spd::get("pdb")->error(FORMAT, ## __VA_ARGS__); } while(0)
-
-#define LOG_WARNING(FORMAT, ...) do { \
-  spd::get("pdb")->warn(FORMAT, ## __VA_ARGS__); } while(0)
-
-#define LOG_INFO(FORMAT, ...) do { \
-  spd::get("pdb")->info(FORMAT, ## __VA_ARGS__); } while(0)
-
-#define LOG_DEBUG(FORMAT, ...) do { \
-  spd::get("pdb")->info(FORMAT, ## __VA_ARGS__); } while(0)
+#define LOG_ERROR(FORMAT, ...)   do { spd::get("pdb")->error(FORMAT, ## __VA_ARGS__); } while(0)
+#define LOG_WARNING(FORMAT, ...) do { spd::get("pdb")->warn(FORMAT, ## __VA_ARGS__); } while(0)
+#define LOG_INFO(FORMAT, ...)    do { spd::get("pdb")->info(FORMAT, ## __VA_ARGS__); } while(0)
+#define LOG_DEBUG(FORMAT, ...)   do { spd::get("pdb")->debug(FORMAT, ## __VA_ARGS__); } while(0)
 
 #endif
+
+#define CHINESE_LOG
+#ifdef CHINESE_LOG
+
+//port/env_windows.cpp
+#define LOGFMT_READ_NORMAL_FILE_SETFILEPOINTEREX_FAILED_3PARAM  \
+"读普通文件({})设置文件指针失败,偏移({}),错误码({})"
+
+#define LOGFMT_READ_NORMAL_FILE_FAILED_4PARAM  \
+"读普通文件({})失败,偏移({}),字节数({}),错误码({})"
+
+#define LOGFMT_READ_NORMAL_FILE_DATA_LESS_4PARAM  \
+"读普通文件({})失败,偏移({}),期望字节({}),实际字节({})"
+
+#else
+
+
+//port/env_windows.cpp
+#define LOGFMT_READ_NORMAL_FILE_SETFILEPOINTEREX_FAILED_3PARAM  \
+"read normal file ({}) SetFilePointerEx failed, offset({}), err({})"
+
+
+#define LOGFMT_READ_NORMAL_FILE_FAILED_4PARAM  \
+"read normal file ({}) failed, offset({}),bytes({}),err({})"
+
+#define LOGFMT_READ_NORMAL_FILE_DATA_LESS_4PARAM  \
+"read normal file ({}) failed, offset({}),need bytes({}), read bytes({})"
+
+#endif
+
 

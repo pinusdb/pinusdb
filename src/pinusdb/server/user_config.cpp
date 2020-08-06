@@ -243,7 +243,7 @@ PdbErr_t UserConfig::Login(const char* pUserName, uint32_t pwd, int32_t* pRole)
   return PdbE_USER_NOT_FOUND;
 }
 
-PdbErr_t UserConfig::Query(IResultFilter* pFilter)
+PdbErr_t UserConfig::Query(IQuery* pQuery)
 {
   PdbErr_t retVal = PdbE_OK;
   const int valCnt = 2;
@@ -258,11 +258,11 @@ PdbErr_t UserConfig::Query(IResultFilter* pFilter)
     DBVAL_ELE_SET_STRING(vals, 0, userName.c_str(), userName.size());
     DBVAL_ELE_SET_STRING(vals, 1, roleName.c_str(), roleName.size());
 
-    retVal = pFilter->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendData(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       break;
 
-    if (pFilter->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       break;
   }
 

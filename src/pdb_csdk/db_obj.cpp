@@ -14,7 +14,7 @@
 * along with this program; If not, see <http://www.gnu.org/licenses>
 */
 
-#include "table/db_obj.h"
+#include "db_obj.h"
 #include "pdb_error.h"
 #include "util/coding.h"
 #include <vector>
@@ -90,7 +90,7 @@ PdbErr_t DBObj::AppendStrVal(const char* pVal, size_t len)
   fieldVec_.push_back(tmpVal);
   return PdbE_OK;
 }
-PdbErr_t DBObj::AppendBlobVal(const PdbByte* pVal, size_t len)
+PdbErr_t DBObj::AppendBlobVal(const uint8_t* pVal, size_t len)
 {
   DBVal tmpVal;
 
@@ -144,98 +144,11 @@ PdbErr_t DBObj::AppendVal(const DBVal* pVal)
   return PdbE_OK;
 }
 
-PdbErr_t DBObj::GetTransLen(size_t* pTotalLen)
-{
-  size_t totalLen = 0;
-  size_t fieldCnt = fieldVec_.size();
-
-  for (size_t i = 0; i < fieldCnt; i++)
-  {
-    const DBVal* pVal = GetFieldValue(i);
-    switch (pVal->dataType_)
-    {
-    case PDB_VALUE_TYPE::VAL_NULL:
-      totalLen++; //1字节的类型
-      break;
-    case PDB_VALUE_TYPE::VAL_BOOL:
-      totalLen += 2; //1字节的类型,1字节的数据
-      break;
-    case PDB_VALUE_TYPE::VAL_INT64:
-    case PDB_VALUE_TYPE::VAL_DATETIME:
-      totalLen += 10; //1字节的类型，最多9字节的数据
-      break;
-    case PDB_VALUE_TYPE::VAL_DOUBLE:
-      totalLen += 9; //1字节类型，8字节的数据
-      break;
-    case PDB_VALUE_TYPE::VAL_STRING:
-    case PDB_VALUE_TYPE::VAL_BLOB:
-      totalLen += 3; //1字节的类型, 最多2字节的长度
-      totalLen += pVal->dataLen_;
-      break;
-    }
-  }
-
-  if (pTotalLen != nullptr)
-    *pTotalLen = totalLen;
-
-  return PdbE_OK;
-}
-
-PdbErr_t DBObj::SerializeToTrans(PdbByte* pBuf, size_t* pTotalLen)
-{
-  if (pBuf == nullptr || pTotalLen == nullptr)
-    return PdbE_INVALID_PARAM;
-
-  PdbByte* pData = pBuf;
-  size_t fieldCnt = fieldVec_.size();
-
-  for (size_t i = 0; i < fieldCnt; i++)
-  {
-    const DBVal* pVal = GetFieldValue(i);
-
-    *pData++ = pVal->dataType_;
-
-    switch (pVal->dataType_)
-    {
-    case PDB_VALUE_TYPE::VAL_NULL:
-      break;
-    case PDB_VALUE_TYPE::VAL_BOOL:
-      *pData++ = pVal->val_.boolVal_ ? PDB_BOOL_TRUE : PDB_BOOL_FALSE;
-      break;
-    case PDB_VALUE_TYPE::VAL_INT64:
-      pData = Coding::VarintEncode64(pData, Coding::ZigzagEncode64(DBVAL_GET_INT64(pVal)));
-      break;
-    case PDB_VALUE_TYPE::VAL_DATETIME:
-      pData = Coding::VarintEncode64(pData, DBVAL_GET_INT64(pVal));
-      break;
-    case PDB_VALUE_TYPE::VAL_DOUBLE:
-      *pData++ = pVal->val_.bytes_[0];
-      *pData++ = pVal->val_.bytes_[1];
-      *pData++ = pVal->val_.bytes_[2];
-      *pData++ = pVal->val_.bytes_[3];
-      *pData++ = pVal->val_.bytes_[4];
-      *pData++ = pVal->val_.bytes_[5];
-      *pData++ = pVal->val_.bytes_[6];
-      *pData++ = pVal->val_.bytes_[7];
-      break;
-    case PDB_VALUE_TYPE::VAL_STRING:
-    case PDB_VALUE_TYPE::VAL_BLOB:
-      pData = Coding::VarintEncode32(pData, pVal->dataLen_);
-      memcpy(pData, pVal->val_.pData_, pVal->dataLen_);
-      pData += pVal->dataLen_;
-      break;
-    }
-  }
-
-  *pTotalLen = (pData - pBuf);
-  return PdbE_OK;
-}
-
-PdbErr_t DBObj::ParseTrans(size_t fieldCnt, const PdbByte* pData, 
-  const PdbByte* pLimit, size_t* pObjLen)
+PdbErr_t DBObj::ParseTrans(size_t fieldCnt, const char* pData, 
+  const char* pLimit, size_t* pObjLen)
 {
   PdbErr_t retVal = PdbE_OK;
-  const PdbByte* pTmp = pData;
+  const char* pTmp = pData;
   uint64_t v64 = 0;
   uint32_t v32 = 0;
   uint32_t vType = 0;
@@ -269,12 +182,12 @@ PdbErr_t DBObj::ParseTrans(size_t fieldCnt, const PdbByte* pData,
       break;
     case PDB_VALUE_TYPE::VAL_STRING:
       pTmp = Coding::VarintDecode32(pTmp, pLimit, &v32);
-      retVal = AppendStrVal((char*)pTmp, v32);
+      retVal = AppendStrVal(pTmp, v32);
       pTmp += v32;
       break;
     case PDB_VALUE_TYPE::VAL_BLOB:
       pTmp = Coding::VarintDecode32(pTmp, pLimit, &v32);
-      retVal = AppendBlobVal(pTmp, v32);
+      retVal = AppendBlobVal((const uint8_t*)pTmp, v32);
       pTmp += v32;
       break;
     default:
@@ -289,7 +202,7 @@ PdbErr_t DBObj::ParseTrans(size_t fieldCnt, const PdbByte* pData,
   }
 
   if (pObjLen != nullptr)
-    *pObjLen = ((const uint8_t*)pTmp - pData);
+    *pObjLen = (pTmp - pData);
 
   return PdbE_OK;
 }

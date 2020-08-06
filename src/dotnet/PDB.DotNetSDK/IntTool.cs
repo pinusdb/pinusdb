@@ -156,7 +156,7 @@ namespace PDB.DotNetSDK
     {
       const int B = 128;
       int pos = 0;
-      ulong uVal = IntTool.EncodeZigZag64(value);
+      ulong uVal = EncodeZigZag64(value);
       byte[] buf = new byte[11];
       buf[pos++] = (byte)PDBType.BigInt;
       

@@ -52,35 +52,35 @@ do {  \
 do { \
   (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_BOOL; \
   (pVal)->dataLen_ = 1; \
-  (pVal)->val_.boolVal_ = val; \
+  (pVal)->val_.boolVal_ = (val); \
 } while(false)
 
 #define DBVAL_SET_INT64(pVal, val)     \
 do { \
   (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_INT64; \
   (pVal)->dataLen_ = 8; \
-  (pVal)->val_.int64Val_ = val; \
+  (pVal)->val_.int64Val_ = (val); \
 } while(false)
 
 #define DBVAL_SET_DATETIME(pVal, val)   \
 do { \
   (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_DATETIME;  \
   (pVal)->dataLen_ = 8;  \
-  (pVal)->val_.int64Val_ = val;  \
+  (pVal)->val_.int64Val_ = (val);  \
 } while(false)
 
 #define DBVAL_SET_DOUBLE(pVal, val)  \
 do { \
   (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_DOUBLE; \
   (pVal)->dataLen_ = 8; \
-  (pVal)->val_.doubleVal_ = val; \
+  (pVal)->val_.doubleVal_ = (val); \
 } while(false)
 
 #define DBVAL_SET_DOUBLE_FOR_UINT64(pVal, val)  \
 do { \
   (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_DOUBLE; \
   (pVal)->dataLen_ = 8; \
-  (pVal)->val_.u64Val_ = val; \
+  (pVal)->val_.u64Val_ = (val); \
 } while(false)
 
 #define DBVAL_SET_STRING(pVal, pStr, len) \
@@ -117,42 +117,42 @@ do { \
 do { \
   (pVal)[idx].dataType_ = PDB_VALUE_TYPE::VAL_BOOL; \
   (pVal)[idx].dataLen_ = 1; \
-  (pVal)[idx].val_.boolVal_ = val; \
+  (pVal)[idx].val_.boolVal_ = (val); \
 } while(false)
 
 #define DBVAL_ELE_SET_INT64(pVal, idx, val)     \
 do { \
   (pVal)[idx].dataType_ = PDB_VALUE_TYPE::VAL_INT64; \
   (pVal)[idx].dataLen_ = 8; \
-  (pVal)[idx].val_.int64Val_ = val; \
+  (pVal)[idx].val_.int64Val_ = (val); \
 } while(false)
 
 #define DBVAL_ELE_SET_DATETIME(pVal, idx, val)   \
 do { \
   (pVal)[idx].dataType_ = PDB_VALUE_TYPE::VAL_DATETIME;  \
   (pVal)[idx].dataLen_ = 8;  \
-  (pVal)[idx].val_.int64Val_ = val;  \
+  (pVal)[idx].val_.int64Val_ = (val);  \
 } while(false)
 
 #define DBVAL_ELE_SET_DOUBLE(pVal, idx, val)  \
 do { \
   (pVal)[idx].dataType_ = PDB_VALUE_TYPE::VAL_DOUBLE; \
   (pVal)[idx].dataLen_ = 8; \
-  (pVal)[idx].val_.doubleVal_ = val; \
+  (pVal)[idx].val_.doubleVal_ = (val); \
 } while(false)
 
 #define DBVAL_ELE_SET_DOUBLE_FOR_UINT64(pVal, idx, val) \
 do { \
   (pVal)[idx].dataType_ = PDB_VALUE_TYPE::VAL_DOUBLE; \
   (pVal)[idx].dataLen_ = 8; \
-  (pVal)[idx].val_.u64Val_ = val; \
+  (pVal)[idx].val_.u64Val_ = (val); \
 } while(false)
 
 #define DBVAL_ELE_SET_STRING(pVal, idx, pStr, len) \
 do { \
   (pVal)[idx].dataType_ = PDB_VALUE_TYPE::VAL_STRING; \
-  (pVal)[idx].dataLen_ = (int32_t)len; \
-  (pVal)[idx].val_.pData_ = (const uint8_t*)pStr; \
+  (pVal)[idx].dataLen_ = (int32_t)(len); \
+  (pVal)[idx].val_.pData_ = (const uint8_t*)(pStr); \
 } while(false)
 
 #define DBVAL_ELE_SET_BLOB(pVal, idx, pBlob, len) \
@@ -192,14 +192,16 @@ do { \
 #define DBVAL_GET_STRING(pVal)       ((const char*)(pVal)->val_.pData_)
 #define DBVAL_GET_BLOB(pVal)         ((pVal)->val_.pData_)
 #define DBVAL_GET_LEN(pVal)          ((pVal)->dataLen_)
+#define DBVAL_GET_BYTES(pVal)        ((pVal)->val_.bytes_)
 
-#define DBVAL_ELE_GET_TYPE(pVal, idx)         ((pVal)[idx].dataType_)
-#define DBVAL_ELE_GET_BOOL(pVal, idx)         ((pVal)[idx].val_.boolVal_)
-#define DBVAL_ELE_GET_INT64(pVal, idx)        ((pVal)[idx].val_.int64Val_)
-#define DBVAL_ELE_GET_DATETIME(pVal, idx)     ((pVal)[idx].val_.int64Val_)
-#define DBVAL_ELE_GET_DOUBLE(pVal, idx)       ((pVal)[idx].val_.doubleVal_)
-#define DBVAL_ELE_GET_STRING(pVal, idx)       ((const char*)((pVal)[idx].val_.pData_))
-#define DBVAL_ELE_GET_BLOB(pVal, idx)         ((pVal)[idx].val_.pData_)
-#define DBVAL_ELE_GET_LEN(pVal, idx)          ((pVal)[idx].dataLen_)
+#define DBVAL_ELE_GET_TYPE(pVal, idx)       ((pVal)[idx].dataType_)
+#define DBVAL_ELE_GET_BOOL(pVal, idx)       ((pVal)[idx].val_.boolVal_)
+#define DBVAL_ELE_GET_INT64(pVal, idx)      ((pVal)[idx].val_.int64Val_)
+#define DBVAL_ELE_GET_DATETIME(pVal, idx)   ((pVal)[idx].val_.int64Val_)
+#define DBVAL_ELE_GET_DOUBLE(pVal, idx)     ((pVal)[idx].val_.doubleVal_)
+#define DBVAL_ELE_GET_UINT64(pVal, idx)     ((pVal)[idx].val_.u64Val_)
+#define DBVAL_ELE_GET_STRING(pVal, idx)     ((const char*)((pVal)[idx].val_.pData_))
+#define DBVAL_ELE_GET_BLOB(pVal, idx)       ((pVal)[idx].val_.pData_)
+#define DBVAL_ELE_GET_LEN(pVal, idx)        ((pVal)[idx].dataLen_)
 
 #define DBVAL_ELE_GET_BYTES(pVal, idx)        ((pVal)[idx].val_.bytes_)

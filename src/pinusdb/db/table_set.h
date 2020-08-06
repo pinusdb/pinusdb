@@ -20,11 +20,10 @@
 #include <unordered_map>
 #include "pdb.h"
 #include "expr/sql_parser.h"
-#include "query/data_table.h"
-#include "query/result_filter.h"
 #include "table/pdb_table.h"
 #include "util/ref_util.h"
 #include "expr/insert_sql.h"
+#include "query/iquery.h"
 
 class TableSet
 {
@@ -32,8 +31,8 @@ public:
   TableSet();
   ~TableSet();
 
-  PdbErr_t CreateTable(const CreateTableParam* pTableParam);
-  PdbErr_t AlterTable(const CreateTableParam* pTableParam);
+  PdbErr_t CreateTable(const char* pTableName, const ColumnList* pColList);
+  PdbErr_t AlterTable(const char* pTableName, const ColumnList* pColList);
   PdbErr_t OpenTable(const char* pTabName);
   PdbErr_t OpenDataPart(const char* pTabName, int partCode, bool isNormalPart);
   PdbErr_t RecoverDW(const char* pTabName);
@@ -43,16 +42,18 @@ public:
   PdbErr_t AttachFile(const char* pTabName, const char* pPartStr, int fileType);
   PdbErr_t DetachFile(const char* pTabName, int partCode);
   PdbErr_t DropFile(const char* pTabName, int partCode);
-  PdbErr_t ExecuteQuery(DataTable* pResultTable, SQLParser* pParser, int32_t userRole);
+  PdbErr_t ExecuteQuery(SQLParser* pParser, int32_t userRole, 
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
 
-  PdbErr_t DeleteDev(const DeleteParam* pDeleteParam);
+  PdbErr_t DeleteDev(const char* pTabName, const DeleteParam* pDeleteParam);
   PDBTable* GetTable(const char* pTabName, RefUtil* pTabRef);
   PDBTable* GetTable(uint64_t tabNameCrc, RefUtil* pTabRef);
 
   PdbErr_t Insert(InsertSql* pInsertSql, bool errBreak, std::list<PdbErr_t>& resultList);
+  PdbErr_t InsertReplicate(std::vector<LogRecInfo>& recVec);
 
-  PdbErr_t QueryColumn(IResultFilter* pFilter);
-  PdbErr_t QueryDev(IResultFilter* pFilter);
+  PdbErr_t QueryColumn(IQuery* pQuery);
+  PdbErr_t QueryDev(IQuery* pQuery);
 
   PdbErr_t SyncDirtyPages(bool syncAll);
   PdbErr_t CloseAllTable();
@@ -60,14 +61,16 @@ public:
   void DumpToCompress();
   void UnMapCompressData();
 
-  size_t GetDirtyPagePercent();
+  int32_t GetDirtySizeMB();
 
 private:
   PdbErr_t InsertDev(InsertSql* pInsertSql,
     bool errBreak, std::list<PdbErr_t>& resultList);
 
-  PdbErr_t QuerySysTable(const QueryParam* pQueryParam, int32_t userRole, DataTable* pResultTable);
-  PdbErr_t QueryVariable(const QueryParam* pQueryParam, DataTable* pResultTable);
+  PdbErr_t QuerySysTable(const char* pTabName, const QueryParam* pQueryParam, int32_t userRole,
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
+  PdbErr_t QueryVariable(const QueryParam* pQueryParam, 
+    std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt);
 
   size_t GetTotalDevCnt();
   void GetAllTable(std::list<uint64_t>& tableCrcList);

@@ -19,10 +19,9 @@
 #include "internal.h"
 #include "table/table_info.h"
 #include "util/arena.h"
-#include "expr/expr_item.h"
 #include "expr/column_item.h"
 #include "expr/parse.h"
-#include "query/result_filter.h"
+#include "query/iquery.h"
 
 class PartItem
 {
@@ -82,8 +81,8 @@ public:
 
   const std::vector<TableItem*>& GetTables();
 
-  PdbErr_t QueryTable(IResultFilter* pFilter);
-  PdbErr_t QueryPart(IResultFilter* pFilter);
+  PdbErr_t QueryTable(IQuery* pQuery);
+  PdbErr_t QueryPart(IQuery* pQuery);
 
 private:
   bool _SaveConfig();

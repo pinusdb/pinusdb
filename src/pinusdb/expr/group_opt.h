@@ -18,16 +18,15 @@
 
 #include "pdb.h"
 #include "expr/pdb_db_int.h"
+#include "expr/expr_value.h"
 #include <string>
 #include <vector>
-
-class ExprItem;
 
 class GroupOpt
 {
 public:
   GroupOpt(Token* pToken1);
-  GroupOpt(Token* pToken1, ExprItem* pTimeVal);
+  GroupOpt(Token* pToken1, ExprValue* pTimeVal);
   ~GroupOpt();
 
   bool Valid() const;
@@ -37,7 +36,7 @@ public:
   PdbErr_t GetTStampStep(int64_t& timeStampStep) const;
 
   static GroupOpt* MakeGroupOpt(Token* pToken1);
-  static GroupOpt* MakeGroupOpt(Token* pToken1, ExprItem* pTimeVal);
+  static GroupOpt* MakeGroupOpt(Token* pToken1, ExprValue* pTimeVal);
   static void FreeGroupOpt(GroupOpt* pGroupOpt);
 
 private:

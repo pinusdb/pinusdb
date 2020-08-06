@@ -16,10 +16,12 @@
 
 #include "storage/data_part.h"
 
-PdbErr_t DataPart::QueryAsc(const std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-  const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut)
+PdbErr_t DataPart::QueryAsc(const std::list<int64_t>& devIdList,
+  const TableInfo* pTabInfo, IQuery* pQuery, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
+  int64_t bgTs, edTs;
+  pQuery->GetTstampRange(&bgTs, &edTs);
 
   if (bgTs >= edDayTs_ || edTs < bgDayTs_)
     return PdbE_OK;
@@ -30,11 +32,11 @@ PdbErr_t DataPart::QueryAsc(const std::list<int64_t>& devIdList, int64_t bgTs, i
 
   for (auto devIt = devIdList.begin(); devIt != devIdList.end(); devIt++)
   {
-    retVal = QueryDevAsc(*devIt, pQueryParam, pResult, timeOut, false, nullptr);
+    retVal = QueryDevAsc(*devIt, pQueryParam, pQuery, timeOut, false, nullptr);
     if (retVal != PdbE_OK)
       break;
 
-    if (pResult->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       break;
   }
 
@@ -42,10 +44,12 @@ PdbErr_t DataPart::QueryAsc(const std::list<int64_t>& devIdList, int64_t bgTs, i
   return retVal;
 }
 
-PdbErr_t DataPart::QueryDesc(const std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-  const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut)
+PdbErr_t DataPart::QueryDesc(const std::list<int64_t>& devIdList,
+  const TableInfo* pTabInfo, IQuery* pQuery, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
+  int64_t bgTs, edTs;
+  pQuery->GetTstampRange(&bgTs, &edTs);
 
   if (bgTs >= edDayTs_ || edTs < bgDayTs_)
     return PdbE_OK;
@@ -56,11 +60,11 @@ PdbErr_t DataPart::QueryDesc(const std::list<int64_t>& devIdList, int64_t bgTs, 
 
   for (auto devIt = devIdList.begin(); devIt != devIdList.end(); devIt++)
   {
-    retVal = QueryDevDesc(*devIt, pQueryParam, pResult, timeOut, false, nullptr);
+    retVal = QueryDevDesc(*devIt, pQueryParam, pQuery, timeOut, false, nullptr);
     if (retVal != PdbE_OK)
       break;
 
-    if (pResult->GetIsFullFlag())
+    if (pQuery->GetIsFullFlag())
       break;
   }
 
@@ -68,11 +72,13 @@ PdbErr_t DataPart::QueryDesc(const std::list<int64_t>& devIdList, int64_t bgTs, 
   return retVal;
 }
 
-PdbErr_t DataPart::QueryFirst(std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-  const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut)
+PdbErr_t DataPart::QueryFirst(std::list<int64_t>& devIdList,
+  const TableInfo* pTabInfo, IQuery* pQuery, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
   bool isAdd = false;
+  int64_t bgTs, edTs;
+  pQuery->GetTstampRange(&bgTs, &edTs);
 
   if (bgTs >= edDayTs_ || edTs < bgDayTs_)
     return PdbE_OK;
@@ -84,7 +90,7 @@ PdbErr_t DataPart::QueryFirst(std::list<int64_t>& devIdList, int64_t bgTs, int64
   for (auto devIt = devIdList.begin(); devIt != devIdList.end(); )
   {
     isAdd = false;
-    retVal = QueryDevAsc(*devIt, pQueryParam, pResult, timeOut, true, &isAdd);
+    retVal = QueryDevAsc(*devIt, pQueryParam, pQuery, timeOut, true, &isAdd);
     if (retVal != PdbE_OK)
       break;
 
@@ -102,11 +108,13 @@ PdbErr_t DataPart::QueryFirst(std::list<int64_t>& devIdList, int64_t bgTs, int64
   return retVal;
 }
 
-PdbErr_t DataPart::QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_t edTs,
-  const TableInfo* pTabInfo, IResultFilter* pResult, uint64_t timeOut)
+PdbErr_t DataPart::QueryLast(std::list<int64_t>& devIdList,
+  const TableInfo* pTabInfo, IQuery* pQuery, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
   bool isAdd = false;
+  int64_t bgTs, edTs;
+  pQuery->GetTstampRange(&bgTs, &edTs);
   
   if (bgTs >= edDayTs_ || edTs < bgDayTs_)
     return PdbE_OK;
@@ -118,7 +126,7 @@ PdbErr_t DataPart::QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_
   for (auto devIt = devIdList.begin(); devIt != devIdList.end();)
   {
     isAdd = false;
-    retVal = QueryDevDesc(*devIt, pQueryParam, pResult, timeOut, true, &isAdd);
+    retVal = QueryDevDesc(*devIt, pQueryParam, pQuery, timeOut, true, &isAdd);
     if (retVal != PdbE_OK)
       break;
 
@@ -137,10 +145,12 @@ PdbErr_t DataPart::QueryLast(std::list<int64_t>& devIdList, int64_t bgTs, int64_
 }
 
 PdbErr_t DataPart::QuerySnapshot(std::list<int64_t>& devIdList,
-  const TableInfo* pTabInfo, ISnapshotResultFilter* pResult, uint64_t timeOut)
+  const TableInfo* pTabInfo, IQuery* pQuery, uint64_t timeOut)
 {
   PdbErr_t retVal = PdbE_OK;
   bool isAdd = false;
+  int64_t bgTs, edTs;
+  pQuery->GetTstampRange(&bgTs, &edTs);
 
   void* pQueryParam = InitQueryParam(pTabInfo, MinMillis, MaxMillis);
   if (pQueryParam == nullptr)
@@ -148,14 +158,11 @@ PdbErr_t DataPart::QuerySnapshot(std::list<int64_t>& devIdList,
 
   for (auto devIt = devIdList.begin(); devIt != devIdList.end();)
   {
-    if (pResult->GetIsFullFlag())
-    {
-      if (*devIt > pResult->GetResultMaxDevId())
-        break;
-    }
+    if (*devIt > pQuery->GetMaxDevId())
+      break;
 
     isAdd = false;
-    retVal = QueryDevSnapshot(*devIt, pQueryParam, pResult, timeOut, &isAdd);
+    retVal = QueryDevSnapshot(*devIt, pQueryParam, pQuery, timeOut, &isAdd);
     if (retVal != PdbE_OK)
       break;
 

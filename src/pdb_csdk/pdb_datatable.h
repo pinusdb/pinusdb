@@ -1,7 +1,7 @@
 #pragma once
 
 #include "pdb.h"
-#include "table/db_obj.h"
+#include "db_obj.h"
 #include "table/table_info.h"
 #include "util/string_tool.h"
 #include "util/arena.h"

@@ -62,6 +62,7 @@ private:
 
   size_t totalCacheSize_;  //总的缓存大小
   size_t useCacheSize_;    //已使用的缓存大小 
+  size_t writeCacheSize_;  //写缓存大小
 
   uint64_t lastAllocErrorTime_; //上次申请失败的时间
 

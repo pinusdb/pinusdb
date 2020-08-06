@@ -29,6 +29,7 @@ public class PDBConnection implements java.sql.Connection {
 	private String userName_;
 	private String userPwd_;
 	private Socket socket_ = null;
+	private boolean autoCommit = true;
 	
 	private final int kUserNameLen = 48;
 	private final int kPwdLen = 4;
@@ -214,17 +215,25 @@ public class PDBConnection implements java.sql.Connection {
 
 	@Override
 	public void setAutoCommit(boolean autoCommit) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		checkClosed();
+		this.autoCommit = autoCommit;
 	}
 
 	@Override
 	public boolean getAutoCommit() throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		checkClosed();
+		return autoCommit;
 	}
 
 	@Override
 	public void commit() throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		checkClosed();
+	}
+	
+	protected void checkClosed() throws SQLException {
+		if (isClosed()) {
+			throw new SQLException("connection closed", "58005", PDBErrCode.PdbE_NET_ERROR);
+		}
 	}
 
 	@Override
@@ -299,7 +308,7 @@ public class PDBConnection implements java.sql.Connection {
 	@Override
 	public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency)
 			throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		return new PDBPreStatement(this, sql);
 	}
 
 	@Override
