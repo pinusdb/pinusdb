@@ -75,7 +75,7 @@
       this.lblToolVer.Name = "lblToolVer";
       this.lblToolVer.Size = new System.Drawing.Size(23, 12);
       this.lblToolVer.TabIndex = 3;
-      this.lblToolVer.Text = "1.0";
+      this.lblToolVer.Text = "2.0";
       // 
       // label3
       // 

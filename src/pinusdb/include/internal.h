@@ -49,9 +49,9 @@
 #define NORMAL_DATA_FILE_HEAD_STR   "PDB NORMAL 1"
 #define COMPRESS_DATA_FILE_HEAD_STR "PDB COMPRESS 1"
 
-#define PDB_MAJOR_VER_VAL        1
-#define PDB_MINOR_VER_VAL        5
-#define PDB_BUILD_VER_VAL        2
+#define PDB_MAJOR_VER_VAL        2
+#define PDB_MINOR_VER_VAL        0
+#define PDB_BUILD_VER_VAL        0
 
 
 #define PDB_BOOL_FALSE           0
@@ -137,6 +137,8 @@ enum PDB_SQL_FUNC{
   FUNC_AGG_MAX,
   FUNC_AGG_SUM,
   FUNC_AGG_COUNT_IF,
+  FUNC_AGG_FIRST_IF,
+  FUNC_AGG_LAST_IF,
   FUNC_AGG_AVG_IF,
   FUNC_AGG_MIN_IF,
   FUNC_AGG_MAX_IF,

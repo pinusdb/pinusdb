@@ -151,6 +151,25 @@
         <Key word="MIN" />
         <Key word="SUM" />
         <Key word="FIRST" />
+        <Key word="AVGIF" />
+        <Key word="COUNTIF" />
+        <Key word="LASTIF" />
+        <Key word="MAXIF" />
+        <Key word="MINIF" />
+        <Key word="SUMIF" />
+        <Key word="FIRSTIF" />
+		<Key word="ABS" />
+		<Key word="ADD" />
+		<Key word="DIV" />
+		<Key word="DATETIMEADD" />
+		<Key word="DATETIMEDIFF" />
+		<Key word="DATETIMEFLOOR" />
+		<Key word="DATETIMECEIL" />
+		<Key word="MUL" />
+		<Key word="MOD" />
+		<Key word="SUB" />
+		<Key word="NOW" />
+		<Key word="IF" />
       </KeyWords>
 
 

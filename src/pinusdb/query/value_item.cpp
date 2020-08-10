@@ -116,7 +116,6 @@ public:
   PdbErr_t GetValue(const DBVal* pVals, DBVal* pResult) const override
   {
     PdbErr_t retVal;
-    double leftDouble, rightDouble;
     DBVal leftValue, rightValue;
     GET_LEFT_RIGHT_VALUE(LeftType, RightType);
 
@@ -126,6 +125,7 @@ public:
     }
     else
     {
+      double leftDouble, rightDouble;
       CONVERT_LEFT_RIGHT_VALUE_TO_DOUBLE(LeftType, RightType);
       DBVAL_SET_DOUBLE(pResult, (leftDouble + rightDouble));
     }
@@ -238,7 +238,6 @@ public:
   PdbErr_t GetValue(const DBVal* pVals, DBVal* pResult) const override
   {
     PdbErr_t retVal;
-    double leftDouble, rightDouble;
     DBVal leftValue, rightValue;
     GET_LEFT_RIGHT_VALUE(LeftType, RightType);
 
@@ -248,6 +247,7 @@ public:
     }
     else
     {
+      double leftDouble, rightDouble;
       CONVERT_LEFT_RIGHT_VALUE_TO_DOUBLE(LeftType, RightType);
       DBVAL_SET_DOUBLE(pResult, (leftDouble * rightDouble));
     }
@@ -627,6 +627,11 @@ public:
   {
     pTimeValue_ = pValue;
     millis_ = millis;
+    timeZone_ = 0;
+    if (millis_ == MillisPerDay)
+    {
+      timeZone_ = DateTime::GetSysTimeZone();
+    }
   }
 
   virtual ~DateTimeFloor()
@@ -657,7 +662,7 @@ public:
       return PdbE_OK;
     }
 
-    int64_t dtVal = DBVAL_GET_DATETIME(&tmpVal);
+    int64_t dtVal = DBVAL_GET_DATETIME(&tmpVal) - timeZone_;
     if (millis_ > 0)
     {
       dtVal -= (dtVal % millis_);
@@ -704,6 +709,7 @@ public:
 private:
   ValueItem* pTimeValue_;
   int64_t millis_;
+  int64_t timeZone_;
 };
 
 //时间向上取整
@@ -714,6 +720,11 @@ public:
   {
     pTimeValue_ = pValue;
     millis_ = millis;
+    timeZone_ = 0;
+    if (millis_ == MillisPerDay)
+    {
+      timeZone_ = DateTime::GetSysTimeZone();
+    }
   }
 
   virtual ~DateTimeCeil()
@@ -744,7 +755,7 @@ public:
       return PdbE_OK;
     }
 
-    int64_t dtVal = DBVAL_GET_DATETIME(&tmpVal);
+    int64_t dtVal = DBVAL_GET_DATETIME(&tmpVal) - timeZone_;;
     if (millis_ > 0)
     {
       dtVal += (millis_ - 1);
@@ -792,6 +803,7 @@ public:
 private:
   ValueItem* pTimeValue_;
   int64_t millis_;
+  int64_t timeZone_;
 };
 
 //绝对值函数
@@ -1802,17 +1814,30 @@ int GetFunctionId(const char* pName, size_t nameLen)
     else if (StringTool::ComparyNoCase(pName, nameLen, "SUB", (sizeof("SUB") - 1)))
       return PDB_SQL_FUNC::FUNC_SUB;
   }
-  else
+  else if (pName[0] == 'C' || pName[0] == 'c')
   {
     if (StringTool::ComparyNoCase(pName, nameLen, "COUNT", (sizeof("COUNT") - 1)))
       return PDB_SQL_FUNC::FUNC_AGG_COUNT;
     if (StringTool::ComparyNoCase(pName, nameLen, "COUNTIF", (sizeof("COUNTIF") - 1)))
       return PDB_SQL_FUNC::FUNC_AGG_COUNT_IF;
-    else if (StringTool::ComparyNoCase(pName, nameLen, "FIRST", (sizeof("FIRST") - 1)))
+  }
+  else if (pName[0] == 'F' || pName[0] == 'f')
+  {
+    if (StringTool::ComparyNoCase(pName, nameLen, "FIRST", (sizeof("FIRST") - 1)))
       return PDB_SQL_FUNC::FUNC_AGG_FIRST;
-    else if (StringTool::ComparyNoCase(pName, nameLen, "LAST", (sizeof("LAST") - 1)))
+    else if (StringTool::ComparyNoCase(pName, nameLen, "FIRSTIF", (sizeof("FIRSTIF") - 1)))
+      return PDB_SQL_FUNC::FUNC_AGG_FIRST_IF;
+  }
+  else if (pName[0] == 'L' || pName[0] == 'l')
+  {
+    if (StringTool::ComparyNoCase(pName, nameLen, "LAST", (sizeof("LAST") - 1)))
       return PDB_SQL_FUNC::FUNC_AGG_LAST;
-    else if (StringTool::ComparyNoCase(pName, nameLen, "NOW", (sizeof("NOW") - 1)))
+    else if (StringTool::ComparyNoCase(pName, nameLen, "LASTIF", (sizeof("LASTIF") - 1)))
+      return PDB_SQL_FUNC::FUNC_AGG_LAST_IF;
+  }
+  else
+  {
+    if (StringTool::ComparyNoCase(pName, nameLen, "NOW", (sizeof("NOW") - 1)))
       return PDB_SQL_FUNC::FUNC_NOW;
     else if (StringTool::ComparyNoCase(pName, nameLen, "IF", (sizeof("IF") - 1)))
       return PDB_SQL_FUNC::FUNC_IF;
@@ -2354,6 +2379,8 @@ ValueItem* CreateGeneralFunction(const TableInfo* pTableInfo, const ExprValue* p
       || funcId == PDB_SQL_FUNC::FUNC_AGG_MAX
       || funcId == PDB_SQL_FUNC::FUNC_AGG_SUM
       || funcId == PDB_SQL_FUNC::FUNC_AGG_COUNT_IF
+      || funcId == PDB_SQL_FUNC::FUNC_AGG_FIRST_IF
+      || funcId == PDB_SQL_FUNC::FUNC_AGG_LAST_IF
       || funcId == PDB_SQL_FUNC::FUNC_AGG_AVG_IF
       || funcId == PDB_SQL_FUNC::FUNC_AGG_MIN_IF
       || funcId == PDB_SQL_FUNC::FUNC_AGG_MAX_IF
@@ -3039,8 +3066,9 @@ PdbErr_t BuildTargetGroupItem(const TableInfo* pTableInfo, const ExprValue* pExp
       fieldVec.push_back(pAggFunc);
       return PdbE_OK;
     }
-
-    if (functionId == PDB_SQL_FUNC::FUNC_AGG_COUNT_IF
+    else if (functionId == PDB_SQL_FUNC::FUNC_AGG_COUNT_IF
+      || functionId == PDB_SQL_FUNC::FUNC_AGG_FIRST_IF
+      || functionId == PDB_SQL_FUNC::FUNC_AGG_LAST_IF
       || functionId == PDB_SQL_FUNC::FUNC_AGG_AVG_IF
       || functionId == PDB_SQL_FUNC::FUNC_AGG_MIN_IF
       || functionId == PDB_SQL_FUNC::FUNC_AGG_MAX_IF
@@ -3070,6 +3098,8 @@ PdbErr_t BuildTargetGroupItem(const TableInfo* pTableInfo, const ExprValue* pExp
       switch (functionId)
       {
       case PDB_SQL_FUNC::FUNC_AGG_COUNT_IF: subFunc = PDB_SQL_FUNC::FUNC_AGG_COUNT; break;
+      case PDB_SQL_FUNC::FUNC_AGG_FIRST_IF: subFunc = PDB_SQL_FUNC::FUNC_AGG_FIRST; break;
+      case PDB_SQL_FUNC::FUNC_AGG_LAST_IF: subFunc = PDB_SQL_FUNC::FUNC_AGG_LAST; break;
       case PDB_SQL_FUNC::FUNC_AGG_AVG_IF: subFunc = PDB_SQL_FUNC::FUNC_AGG_AVG; break;
       case PDB_SQL_FUNC::FUNC_AGG_MIN_IF: subFunc = PDB_SQL_FUNC::FUNC_AGG_MIN; break;
       case PDB_SQL_FUNC::FUNC_AGG_MAX_IF: subFunc = PDB_SQL_FUNC::FUNC_AGG_MAX; break;
@@ -3150,6 +3180,8 @@ bool IncludeAggFunction(const ExprValue* pExpr)
       || functionId == PDB_SQL_FUNC::FUNC_AGG_MAX
       || functionId == PDB_SQL_FUNC::FUNC_AGG_SUM
       || functionId == PDB_SQL_FUNC::FUNC_AGG_COUNT_IF
+      || functionId == PDB_SQL_FUNC::FUNC_AGG_FIRST_IF
+      || functionId == PDB_SQL_FUNC::FUNC_AGG_LAST_IF
       || functionId == PDB_SQL_FUNC::FUNC_AGG_AVG_IF
       || functionId == PDB_SQL_FUNC::FUNC_AGG_MIN_IF
       || functionId == PDB_SQL_FUNC::FUNC_AGG_MAX_IF
