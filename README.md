@@ -3,7 +3,7 @@
 松果时序数据库服务仅包含大约3万行C++代码，虽然代码量少但也提供了丰富的功能、较高的性能。
 
 # 文档
-[松果时序数据库用户手册v1.4](https://github.com/pinusdb/pinusdb/blob/master/doc/pinusdb_user_manual.md "用户手册")
+[松果时序数据库用户手册](http://www.pinusdb.cn/doc/manual/index.html "用户手册")
 
 # 性能
 在i3-7100， 8G 内存，1TB HDD windows server 2016 环境下，每条数据8个字段，达到每秒20万条数据写入。
@@ -31,10 +31,10 @@ real6 -> 倍数1000000， 取值范围[-999,999,999.999999 ~ +999,999,999.999999
 若您需要已编译好的程序，请在 http://www.pinusdb.cn 网站相应的链接下载。
 
 # 运行
-松果时序数据库以windows服务的方式运行，运行前请先配置好服务配置文件config.ini 具体运行配置细节请参考文档： http://www.pinusdb.cn/doc/v1.3/doc_pdb_windows_install.html
+松果时序数据库以windows服务的方式运行，运行前请先配置好服务配置文件config.ini 具体运行配置细节请参考文档： http://www.pinusdb.cn/doc/pdb_windows_install.html
 
 # 二次开发
 提供c/c++ SDK, .Net SDK, jdbc 驱动，未来还会支持restful及更多的二次开发接口，具体使用细节请参考：http://www.pinusdb.cn
 
 # 交流
-若您需要帮助或希望给我们反馈信息，请提交Issue、给我们发邮件：zhangquan@pinusdb.cn, 或者加QQ群：614986989
+若您需要帮助或希望给我们反馈信息，请提交Issue、给我们发邮件：zhangquan@pinusdb.cn, 或者加QQ：445560747
