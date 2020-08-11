@@ -548,7 +548,7 @@ PdbErr_t create_handle(const char* pHost, int port, const char* pUser, const cha
 #ifdef _WIN32
 std::string convert_gbk_to_utf8(const std::string& strGbk)
 {
-  int len = MultiByteToWideChar(CP_ACP, 0, strGbk.c_str(), -1, NULL, 0);
+  size_t len = MultiByteToWideChar(CP_ACP, 0, strGbk.c_str(), -1, NULL, 0);
   wchar_t* wstr = new wchar_t[len + 1];
   memset(wstr, 0, len + 1);
   MultiByteToWideChar(CP_ACP, 0, strGbk.c_str(), -1, wstr, len);
@@ -557,14 +557,14 @@ std::string convert_gbk_to_utf8(const std::string& strGbk)
   memset(pStr, 0, len + 1);
   WideCharToMultiByte(CP_UTF8, 0, wstr, -1, pStr, len, NULL, NULL);
   std::string result(pStr);
-  delete pStr;
-  delete wstr;
+  delete []pStr;
+  delete []wstr;
   return result;
 }
 
 std::string convert_utf8_to_gbk(const std::string& strUtf8)
 {
-  int len = MultiByteToWideChar(CP_UTF8, 0, strUtf8.c_str(), -1, NULL, 0);
+  size_t len = MultiByteToWideChar(CP_UTF8, 0, strUtf8.c_str(), -1, NULL, 0);
   wchar_t* wstr = new wchar_t[len + 1];
   memset(wstr, 0, len + 1);
   MultiByteToWideChar(CP_UTF8, 0, strUtf8.c_str(), -1, wstr, len);
@@ -573,8 +573,8 @@ std::string convert_utf8_to_gbk(const std::string& strUtf8)
   memset(pStr, 0, len + 1);
   WideCharToMultiByte(CP_ACP, 0, wstr, -1, pStr, len, NULL, NULL);
   std::string result(pStr);
-  delete pStr;
-  delete wstr;
+  delete []pStr;
+  delete []wstr;
   return result;
 }
 #endif
