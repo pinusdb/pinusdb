@@ -40,14 +40,17 @@ public:
 
   bool IsEnd() const;
   PdbErr_t GetNextRec(DBVal* pVals, size_t valCnt);
+  PdbErr_t GetNextRecBinary(std::string& buf, int64_t& devId, int64_t& tstamp);
 
 private:
   size_t fieldCnt_;
   size_t recCnt_;
+  size_t fixedSize_;
 
   std::string tabName_;
   std::vector<std::string> colNameVec_;
-  std::vector<size_t> posVec_;
+  std::vector<size_t> fieldVec_;
+  std::vector<size_t> storeVec_;
   std::vector<int32_t> typeVec_;
 
   std::list<DBVal> valList_;

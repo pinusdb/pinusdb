@@ -139,6 +139,20 @@ public:
 
   ///////////////////////////////////////////////////////////////////////
 
+  static void PutVarint32(std::string* pDstStr, uint32_t value)
+  {
+    static const int B = 128;
+    char buf[10];
+    uint8_t* ptr = reinterpret_cast<uint8_t*>(buf);
+    while (value >= B) {
+      *(ptr++) = (value & (B - 1)) | B;
+      value >>= 7;
+    }
+    *ptr = static_cast<uint8_t>(value);
+    ptr++;
+    pDstStr->append(buf, (ptr - reinterpret_cast<uint8_t*>(buf)));
+  }
+
   static void PutVarint64(std::string* pDstStr, uint64_t value)
   {
     static const int B = 128;
@@ -290,6 +304,7 @@ public:
       | (static_cast<uint32_t>(static_cast<unsigned char>(p[3])) << 24));
 #endif
   }
+  
   static uint64_t FixedDecode64(const char* p)
   {
 #ifdef PLATFORM_LITTLE_ENDIAN

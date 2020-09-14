@@ -111,12 +111,12 @@ public class PDBDriver implements Driver {
 
 	@Override
 	public int getMajorVersion() {
-		return 1;
+		return 3;
 	}
 
 	@Override
 	public int getMinorVersion() {
-		return 2;
+		return 0;
 	}
 
 	@Override

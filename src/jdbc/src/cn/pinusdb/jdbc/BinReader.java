@@ -44,12 +44,37 @@ public class BinReader {
 	}
 	
 	public Timestamp readDateTime() {
-		long lval = readVarint64();
-		return new Timestamp(lval);
+		long lval = readLongByVarint();
+		long ms = (lval / 1000000) * 1000;
+		int nanos = (int)(lval % 1000000) * 1000;
+		Timestamp ts = new Timestamp(ms);
+		ts.setNanos(nanos);
+		return ts;
 	}
 	
 	public boolean readBoolean() {
 		return (readInt8() != 0);
+	}
+	
+	public byte readTinyInt() {
+		return (byte)readLongByVarint();
+	}
+	
+	public short readSmallInt() {
+		return (short)readLongByVarint();
+	}
+	
+	public int readInt() {
+		return (int)readLongByVarint();
+	}
+	
+	public float readFloat() {
+		int valBits = buf_[offset_ + 3] & 0xFF;
+		valBits = (valBits << 8) | (buf_[offset_ + 2] & 0xFF);
+		valBits = (valBits << 8) | (buf_[offset_ + 1] & 0xFF);
+		valBits = (valBits << 8) | (buf_[offset_] & 0xFF);
+		offset_ += 4;
+		return Float.intBitsToFloat(valBits);
 	}
 	
 	public double readDouble() {

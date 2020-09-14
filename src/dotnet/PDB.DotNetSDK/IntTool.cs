@@ -152,6 +152,60 @@ namespace PDB.DotNetSDK
       byteStream.Write(buf, 0, 1);
     }
 
+    public static void WriteVarint8(ByteStream byteStream, sbyte value)
+    {
+      const int B = 128;
+      int pos = 0;
+      ulong uVal = EncodeZigZag64(value);
+      byte[] buf = new byte[11];
+      buf[pos++] = (byte)PDBType.TinyInt;
+      
+      while (uVal >= B)
+      {
+        buf[pos++] = (byte)((uVal & (B - 1)) | B);
+        uVal >>= 7;
+      }
+
+      buf[pos++] = (byte)uVal;
+      byteStream.Write(buf, 0, pos);
+    }
+    
+    public static void WriteVarint16(ByteStream byteStream, short value)
+    {
+      const int B = 128;
+      int pos = 0;
+      ulong uVal = EncodeZigZag64(value);
+      byte[] buf = new byte[11];
+      buf[pos++] = (byte)PDBType.ShortInt;
+      
+      while (uVal >= B)
+      {
+        buf[pos++] = (byte)((uVal & (B - 1)) | B);
+        uVal >>= 7;
+      }
+
+      buf[pos++] = (byte)uVal;
+      byteStream.Write(buf, 0, pos);
+    }
+    
+    public static void WriteVarint32(ByteStream byteStream, int value)
+    {
+      const int B = 128;
+      int pos = 0;
+      ulong uVal = EncodeZigZag64(value);
+      byte[] buf = new byte[11];
+      buf[pos++] = (byte)PDBType.Int;
+      
+      while (uVal >= B)
+      {
+        buf[pos++] = (byte)((uVal & (B - 1)) | B);
+        uVal >>= 7;
+      }
+
+      buf[pos++] = (byte)uVal;
+      byteStream.Write(buf, 0, pos);
+    }
+
     public static void WriteVarint64(ByteStream byteStream, long value)
     {
       const int B = 128;
@@ -168,6 +222,29 @@ namespace PDB.DotNetSDK
 
       buf[pos++] = (byte)uVal;
       byteStream.Write(buf, 0, pos);
+    }
+
+    public static void WriteFloat(ByteStream byteStream, float value)
+    {
+      byte[] tmpBuf = new byte[5];
+      byte[] valBuf = BitConverter.GetBytes(value);
+      tmpBuf[0] = (byte)PDBType.Float;
+      if (!BitConverter.IsLittleEndian)
+      {
+        tmpBuf[1] = valBuf[3];
+        tmpBuf[2] = valBuf[2];
+        tmpBuf[3] = valBuf[1];
+        tmpBuf[4] = valBuf[0];
+      }
+      else
+      {
+        tmpBuf[1] = valBuf[0];
+        tmpBuf[2] = valBuf[1];
+        tmpBuf[3] = valBuf[2];
+        tmpBuf[4] = valBuf[3];
+      }
+
+      byteStream.Write(tmpBuf, 0, 5);
     }
     
     public static void WriteDouble(ByteStream byteStream, double value)
@@ -206,25 +283,24 @@ namespace PDB.DotNetSDK
     {
       const int B = 128;
       int pos = 0;
-      byte[] buf = new byte[10];
+      byte[] buf = new byte[11];
       buf[pos++] = (byte)PDBType.DateTime;
 
       if (value.Year >= 3000)
         throw new PDBException(PDBErrorCode.PdbE_INVALID_DATETIME_VAL);
 
-      long dtVal = (value.ToUniversalTime().Ticks - 621355968000000000) / 10000;
+      long dtVal = (value.ToUniversalTime().Ticks - 621355968000000000) / 10;
       if (dtVal < 0)
         throw new PDBException(PDBErrorCode.PdbE_INVALID_DATETIME_VAL);
 
-      ulong uDtVal = (ulong)dtVal;
-      
-      while(uDtVal >= B)
+      ulong uVal = EncodeZigZag64(dtVal);
+      while (uVal >= B)
       {
-        buf[pos++] = (byte)((uDtVal & (B - 1)) | B);
-        uDtVal >>= 7;
+        buf[pos++] = (byte)((uVal & (B - 1)) | B);
+        uVal >>= 7;
       }
 
-      buf[pos++] = (byte)uDtVal;
+      buf[pos++] = (byte)uVal;
       byteStream.Write(buf, 0, pos);
     }
 

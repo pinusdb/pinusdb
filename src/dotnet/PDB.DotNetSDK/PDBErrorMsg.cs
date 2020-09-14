@@ -106,7 +106,7 @@ namespace PDB.DotNetSDK
         errMsgDic.Add(PDBErrorCode.PdbE_SQL_NOT_QUERY, "不是查询SQL");
 
         //设备、索引相关
-        errMsgDic.Add(PDBErrorCode.PdbE_RESLT_FULL, "结果集已满");
+        errMsgDic.Add(PDBErrorCode.PdbE_RESULT_FULL, "结果集已满");
         errMsgDic.Add(PDBErrorCode.PdbE_DEVID_EXISTS, "设备ID已存在");
         errMsgDic.Add(PDBErrorCode.PdbE_DEV_CAPACITY_FULL, "设备容量已满");
         errMsgDic.Add(PDBErrorCode.PdbE_USER_EXIST, "用户已存在");

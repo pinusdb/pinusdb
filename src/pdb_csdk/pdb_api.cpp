@@ -420,6 +420,207 @@ pdb_table_get_bool_by_colname(
 PDBAPI
 PdbErr_t
 PDBAPI_CALLRULE
+pdb_table_get_tinyint_by_colidx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int8_t* pVal
+)
+{
+  if (pTable == nullptr || pVal == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  PDBDataTable* pTmp = (PDBDataTable*)pTable;
+
+  const DBObj* pDataObj = pTmp->GetData(rowIdx);
+  if (pDataObj == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
+  if (pDataVal == nullptr)
+    return PdbE_RECORD_FAIL;
+
+  if (DBVAL_IS_NULL(pDataVal))
+  {
+    return PdbE_NULL_VALUE;
+  }
+
+  if (DBVAL_IS_INT8(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT8(pDataVal);
+    return PdbE_OK;
+  }
+
+  return PdbE_VALUE_MISMATCH;
+}
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_tinyint_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int8_t* pVal
+)
+{
+  if (pTable == nullptr || pColumnName == nullptr || pVal == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  PDBDataTable* pTmp = (PDBDataTable*)pTable;
+
+  PdbErr_t retVal = PdbE_OK;
+
+  size_t colIdx = 0;
+  retVal = pTmp->GetColumnPos(pColumnName, &colIdx);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  return pdb_table_get_tinyint_by_colidx(pTable, rowIdx, colIdx, pVal);
+}
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_smallint_by_colIdx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int16_t* pVal
+)
+{
+  if (pTable == nullptr || pVal == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  PDBDataTable* pTmp = (PDBDataTable*)pTable;
+
+  const DBObj* pDataObj = pTmp->GetData(rowIdx);
+  if (pDataObj == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
+  if (pDataVal == nullptr)
+    return PdbE_RECORD_FAIL;
+
+  if (DBVAL_IS_NULL(pDataVal))
+  {
+    return PdbE_NULL_VALUE;
+  }
+
+  if (DBVAL_IS_INT16(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT16(pDataVal);
+    return PdbE_OK;
+  }
+  else if (DBVAL_IS_INT8(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT8(pDataVal);
+    return PdbE_OK;
+  }
+  
+  return PdbE_VALUE_MISMATCH;
+}
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_smallint_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int16_t* pVal
+)
+{
+  if (pTable == nullptr || pColumnName == nullptr || pVal == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  PDBDataTable* pTmp = (PDBDataTable*)pTable;
+
+  PdbErr_t retVal = PdbE_OK;
+
+  size_t colIdx = 0;
+  retVal = pTmp->GetColumnPos(pColumnName, &colIdx);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  return pdb_table_get_smallint_by_colIdx(pTable, rowIdx, colIdx, pVal);
+}
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_int_by_colIdx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int32_t* pVal
+)
+{
+  if (pTable == nullptr || pVal == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  PDBDataTable* pTmp = (PDBDataTable*)pTable;
+
+  const DBObj* pDataObj = pTmp->GetData(rowIdx);
+  if (pDataObj == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
+  if (pDataVal == nullptr)
+    return PdbE_RECORD_FAIL;
+
+  if (DBVAL_IS_NULL(pDataVal))
+  {
+    return PdbE_NULL_VALUE;
+  }
+
+  if (DBVAL_IS_INT32(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT32(pDataVal);
+    return PdbE_OK;
+  }
+  else if (DBVAL_IS_INT16(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT16(pDataVal);
+    return PdbE_OK;
+  }
+  else if (DBVAL_IS_INT8(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT8(pDataVal);
+    return PdbE_OK;
+  }
+
+  return PdbE_VALUE_MISMATCH;
+}
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_int_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int32_t* pVal
+)
+{
+  if (pTable == nullptr || pColumnName == nullptr || pVal == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  PDBDataTable* pTmp = (PDBDataTable*)pTable;
+
+  PdbErr_t retVal = PdbE_OK;
+
+  size_t colIdx = 0;
+  retVal = pTmp->GetColumnPos(pColumnName, &colIdx);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  return pdb_table_get_int_by_colIdx(pTable, rowIdx, colIdx, pVal);
+}
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
 pdb_table_get_bigint_by_colidx(
   void* pTable,
   size_t rowIdx,
@@ -450,6 +651,21 @@ pdb_table_get_bigint_by_colidx(
     *pVal = DBVAL_GET_INT64(pDataVal);
     return PdbE_OK;
   }
+  else if (DBVAL_IS_INT32(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT32(pDataVal);
+    return PdbE_OK;
+  }
+  else if (DBVAL_IS_INT16(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT16(pDataVal);
+    return PdbE_OK;
+  }
+  else if (DBVAL_IS_INT8(pDataVal))
+  {
+    *pVal = DBVAL_GET_INT8(pDataVal);
+    return PdbE_OK;
+  }
 
   return PdbE_VALUE_MISMATCH;
 }
@@ -477,6 +693,69 @@ pdb_table_get_bigint_by_colname(
     return retVal;
 
   return pdb_table_get_bigint_by_colidx(pTable, rowIdx, colIdx, pVal);
+}
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_float_by_colidx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  float* pVal
+)
+{
+  if (pTable == nullptr || pVal == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  PDBDataTable* pTmp = (PDBDataTable*)pTable;
+
+  const DBObj* pDataObj = pTmp->GetData(rowIdx);
+  if (pDataObj == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  const DBVal* pDataVal = pDataObj->GetFieldValue(colIdx);
+  if (pDataVal == nullptr)
+    return PdbE_RECORD_FAIL;
+
+  if (DBVAL_IS_NULL(pDataVal))
+  {
+    return PdbE_NULL_VALUE;
+  }
+
+  if (DBVAL_IS_FLOAT(pDataVal))
+  {
+    *pVal = DBVAL_GET_FLOAT(pDataVal);
+    return PdbE_OK;
+  }
+
+  return PdbE_VALUE_MISMATCH;
+
+}
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_float_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  float* pVal
+)
+{
+  if (pTable == nullptr || pColumnName == nullptr || pVal == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  PDBDataTable* pTmp = (PDBDataTable*)pTable;
+
+  PdbErr_t retVal = PdbE_OK;
+
+  size_t colIdx = 0;
+  retVal = pTmp->GetColumnPos(pColumnName, &colIdx);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  return pdb_table_get_float_by_colidx(pTable, rowIdx, colIdx, pVal);
 }
 
 PDBAPI

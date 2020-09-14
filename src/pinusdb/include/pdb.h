@@ -1,3 +1,19 @@
+/*
+* Copyright (c) 2020 ChangSha JuSong Soft Inc. <service@pinusdb.cn>.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; version 3 of the License.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program; If not, see <http://www.gnu.org/licenses>
+*/
+
 #pragma once
 
 typedef int PdbErr_t;
@@ -16,30 +32,40 @@ enum PDB_VALUE_TYPE
 {
   VAL_NULL            = 0,
   VAL_BOOL            = 1,     // bool
-  VAL_INT64           = 2,     // 8字节 bigint
-  VAL_DATETIME        = 3,    // 时间戳 8字节
-  VAL_DOUBLE          = 4,     // 8字节 双精度浮点型
-  VAL_STRING          = 5,     // 字符串
-  VAL_BLOB            = 6,     // 二进制
+  VAL_INT8            = 2,     // 1字节整型
+  VAL_INT16           = 3,     // 2字节整型
+  VAL_INT32           = 4,     // 4字节整型
+  VAL_INT64           = 5,     // 8字节整型
+  VAL_DATETIME        = 6,     // 时间戳 8字节
+  VAL_FLOAT           = 7,     // 4字节 单精度浮点型
+  VAL_DOUBLE          = 8,     // 8字节 双精度浮点型
+  VAL_STRING          = 9,     // 字符串
+  VAL_BLOB            = 10,    // 二进制
 };
 
 enum PDB_FIELD_TYPE
 {
-  TYPE_BOOL             = 1,     // bool
-  TYPE_INT64            = 2,     // 8字节
-  TYPE_DATETIME         = 3,     // 8字节
-  TYPE_DOUBLE           = 4,     // 8字节 双精度浮点型
-  TYPE_STRING           = 5,     // 字符串
-  TYPE_BLOB             = 6,     // 二进制
+  TYPE_BOOL           = 1,  // bool
+  TYPE_INT8           = 2,  // 1字节整型
+  TYPE_INT16          = 3,  // 2字节整型
+  TYPE_INT32          = 4,  // 4字节整型
+  TYPE_INT64          = 5,  // 8字节整型
+  TYPE_DATETIME       = 6,  // 时间戳 8字节
+  TYPE_FLOAT          = 7,  // 4字节 单精度浮点型
+  TYPE_DOUBLE         = 8,  // 8字节 双精度浮点型
+  TYPE_STRING         = 9,  // 字符串
+  TYPE_BLOB           = 10, // 二进制
 
-  TYPE_REAL2            = 32,     // double, 取值范围 [-999,999,999.99      ~  +999,999,999.99]
-  TYPE_REAL3            = 33,     // double, 取值范围 [-999,999,999.999     ~  +999,999,999.999]
-  TYPE_REAL4            = 34,    // double, 取值范围 [-999,999,999.9999    ~  +999,999,999.9999]
-  TYPE_REAL6            = 35,    // double, 取值范围 [-999,999,999.999999  ~  +999,999,999.999999]
+  TYPE_REAL2          = 32, // double, 取值范围 [-999,999,999.99      ~  +999,999,999.99]
+  TYPE_REAL3          = 33, // double, 取值范围 [-999,999,999.999     ~  +999,999,999.999]
+  TYPE_REAL4          = 34, // double, 取值范围 [-999,999,999.9999    ~  +999,999,999.9999]
+  TYPE_REAL6          = 35  // double, 取值范围 [-999,999,999.999999  ~  +999,999,999.999999]
 };
 
 #define PDB_TYPE_IS_VALID(type)    (((type) >= PDB_FIELD_TYPE::TYPE_BOOL && (type) <= PDB_FIELD_TYPE::TYPE_BLOB) || ((type) >= PDB_FIELD_TYPE::TYPE_REAL2  && (type) <= PDB_FIELD_TYPE::TYPE_REAL6))
 #define PDB_TYPE_IS_REAL(type)     ((type) >= PDB_FIELD_TYPE::TYPE_REAL2 && (type) <= PDB_FIELD_TYPE::TYPE_REAL6)
+#define PDB_TYPE_IS_NUMBER(type)   ((type) == PDB_FIELD_TYPE::TYPE_INT8 || (type) == PDB_FIELD_TYPE::TYPE_INT16 || (type) == PDB_FIELD_TYPE::TYPE_INT32 || (type) == PDB_FIELD_TYPE::TYPE_INT64)
+#define PDB_TYPE_IS_FLOAT_OR_DOUBLE(type) ((type) == PDB_FIELD_TYPE::TYPE_FLOAT || (type) == PDB_FIELD_TYPE::TYPE_DOUBLE)
 
 
 enum PDB_ROLE
@@ -55,6 +81,3 @@ typedef struct _ColumnInfo
   char colName_[PDB_FILED_NAME_LEN];
   int colType_;
 }ColumnInfo;
-
-#define PDB_LICENSE_TYPE_STANDARD    1   //标准版授权
-#define PDB_LICENSE_TYPE_ENTERPRISE  2   //企业版授权

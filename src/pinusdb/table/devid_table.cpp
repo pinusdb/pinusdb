@@ -27,7 +27,7 @@
 #define DEVID_FILE_BLOCK_SIZE  (PDB_MB_BYTES(1))
 
 #define DEVID_FILE_TYPE_STR_LEN  16
-#define DEVID_FILE_TYPE_STR      "PDB DEV 1"
+#define DEVID_FILE_TYPE_STR      "PDB DEV 2"
 
 bool DevIdPosComp(DevIdPos a, DevIdPos b)
 {
@@ -36,24 +36,24 @@ bool DevIdPosComp(DevIdPos a, DevIdPos b)
 
 typedef struct _DevMetaFormat
 {
-  char headStr_[DEVID_FILE_TYPE_STR_LEN]; //头字符串，当前版本为 PDB DEV 1
-  uint32_t fieldCnt_;                     //字段数量
-  char padHead_[44];
+  char _headStr_[DEVID_FILE_TYPE_STR_LEN]; //头字符串，当前版本为 PDB DEV 2
+  char _fieldCnt_[4];                     //字段数量
+  char _padHead_[44];
 
-  FieldInfoFormat fieldRec_[PDB_TABLE_MAX_FIELD_COUNT];
+  FieldInfoFormat _fieldRec_[PDB_TABLE_MAX_FIELD_COUNT];
 
-  char padTail_[10428];
-  uint32_t crc_;
+  char _padTail_[10428];
+  char _crc_[4];
 }DevMetaFormat;
 
 typedef struct _DevItem
 {
-  int64_t devId_;
-  char    devName_[PDB_DEVID_NAME_LEN];
-  char    expand_[PDB_DEVID_EXPAND_LEN];
-  char    padding_[16];
-  uint32_t pos_;
-  uint32_t crc_;
+  char _devId_[8];
+  char _devName_[PDB_DEVID_NAME_LEN];
+  char _expand_[PDB_DEVID_EXPAND_LEN];
+  char _padding_[16];
+  char _pos_[4];
+  char _crc_[4];
 }DevItem;
 
 DevIDTable::DevIDTable()
@@ -77,22 +77,24 @@ PdbErr_t DevIDTable::Create(const char* pDevPath, const TableInfo* pTabInfo)
   DevMetaFormat* pMeta = (DevMetaFormat*)pTmpMeta;
 
   memset(pTmpMeta, 0, sizeof(DevMetaFormat));
-  strncpy(pMeta->headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN);
-  pMeta->fieldCnt_ = static_cast<uint32_t>(pTabInfo->GetFieldCnt());
+  strncpy(pMeta->_headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN);
+  uint32_t fieldCnt = static_cast<uint32_t>(pTabInfo->GetFieldCnt());
+  Coding::FixedEncode32(pMeta->_fieldCnt_, fieldCnt);
 
   int32_t fieldType = 0;
   const char* pFieldName = nullptr;
 
-  for (uint32_t i = 0; i < pMeta->fieldCnt_; i++)
+  for (uint32_t i = 0; i < fieldCnt; i++)
   {
-    pTabInfo->GetFieldRealInfo(i, &fieldType);
+    pTabInfo->GetFieldRealInfo(i, &fieldType, nullptr);
     pFieldName = pTabInfo->GetFieldName(i);
 
-    strncpy(pMeta->fieldRec_[i].fieldName_, pFieldName, PDB_FILED_NAME_LEN);
-    pMeta->fieldRec_[i].fieldType_ = fieldType;
+    strncpy(pMeta->_fieldRec_[i].fieldName_, pFieldName, PDB_FILED_NAME_LEN);
+    Coding::FixedEncode32(pMeta->_fieldRec_[i].fieldType_, fieldType);
   }
 
-  pMeta->crc_ = StringTool::CRC32(pTmpMeta, (sizeof(DevMetaFormat) - 4));
+  uint32_t crc = StringTool::CRC32(pTmpMeta, (sizeof(DevMetaFormat) - 4));
+  Coding::FixedEncode32(pMeta->_crc_, crc);
 
   retVal = devFile.OpenNew(pDevPath);
   if (retVal != PdbE_OK)
@@ -128,22 +130,24 @@ PdbErr_t DevIDTable::Open(const char* pPath, const char* pTabName, TableInfo* pT
 
   //1. 验证元数据页
   const DevMetaFormat* pMeta = (const DevMetaFormat*)pBase;
-  if (strncmp(pMeta->headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN) != 0)
+  if (strncmp(pMeta->_headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN) != 0)
   {
     LOG_ERROR("device file ({}) unknown file type", pPath);
     return PdbE_DEVID_FILE_ERROR;
   }
 
   //1.1 验证 CRC
-  if (pMeta->crc_ != StringTool::CRC32(pBase, (sizeof(DevMetaFormat) - 4)))
+  uint32_t crc = Coding::FixedDecode32(pMeta->_crc_);
+  if (crc != StringTool::CRC32(pBase, (sizeof(DevMetaFormat) - 4)))
   {
     LOG_ERROR("table file ({}) meta block crc error", pPath);
     return PdbE_DEVID_FILE_ERROR;
   }
 
-  if (pMeta->fieldCnt_ <= 2 || pMeta->fieldCnt_ > PDB_TABLE_MAX_FIELD_COUNT)
+  int32_t fieldCnt = Coding::FixedDecode32(pMeta->_fieldCnt_);
+  if (fieldCnt <= 2 || fieldCnt > PDB_TABLE_MAX_FIELD_COUNT)
   {
-    LOG_ERROR("table file ({}) field count({}) error", pPath, pMeta->fieldCnt_);
+    LOG_ERROR("table file ({}) field count({}) error", pPath, fieldCnt);
     return PdbE_DEVID_FILE_ERROR;
   }
 
@@ -155,15 +159,15 @@ PdbErr_t DevIDTable::Open(const char* pPath, const char* pTabName, TableInfo* pT
     return retVal;
   }
 
-  for (uint32_t i = 0; i < pMeta->fieldCnt_; i++)
+  for (int32_t i = 0; i < fieldCnt; i++)
   {
-    retVal = pTabInfo->AddField(pMeta->fieldRec_[i].fieldName_, 
-      pMeta->fieldRec_[i].fieldType_, (i <= PDB_TSTAMP_INDEX));
+    int32_t fieldType = Coding::FixedDecode32(pMeta->_fieldRec_[i].fieldType_);
+    retVal = pTabInfo->AddField(pMeta->_fieldRec_[i].fieldName_, fieldType, (i <= PDB_TSTAMP_INDEX));
 
     if (retVal != PdbE_OK)
     {
       LOG_ERROR("device file ({}) field ({},{}) error {}",
-        pPath, pMeta->fieldRec_[i].fieldName_, pMeta->fieldRec_[i].fieldType_, retVal);
+        pPath, pMeta->_fieldRec_[i].fieldName_, fieldType, retVal);
       return retVal;
     }
   }
@@ -174,20 +178,21 @@ PdbErr_t DevIDTable::Open(const char* pPath, const char* pTabName, TableInfo* pT
   size_t devCnt = fileSize / sizeof(DevItem);
   for (size_t idx = (sizeof(DevMetaFormat) / sizeof(DevItem)); idx < devCnt; idx++)
   {
-    if (pDevItem[idx].pos_ == idx && pDevItem[idx].devId_ > 0)
+    int64_t devId = Coding::FixedDecode64(pDevItem[idx]._devId_);
+    if (Coding::FixedDecode32(pDevItem[idx]._pos_) == idx && devId > 0)
     {
-      if (devIdSet_.find(pDevItem[idx].devId_) != devIdSet_.end())
+      if (devIdSet_.find(devId) != devIdSet_.end())
       {
         LOG_INFO("device file ({}) position({}) device ({}) exists",
-          pPath, idx, pDevItem[idx].devId_);
+          pPath, idx, devId);
       }
       else
       {
-        devIdPos.devId_ = pDevItem[idx].devId_;
+        devIdPos.devId_ = devId;
         devIdPos.pos_ = idx;
 
-        devIdSet_.insert(pDevItem[idx].devId_);
-        devIdVec_.push_back(pDevItem[idx].devId_);
+        devIdSet_.insert(devId);
+        devIdVec_.push_back(devId);
         devIdPosVec_.push_back(devIdPos);
       }
     }
@@ -221,22 +226,24 @@ PdbErr_t DevIDTable::Alter(const TableInfo* pTabInfo)
   std::unique_lock<std::mutex> fileLock(fileMutex_);
 
   memset(pTmpMeta, 0, sizeof(DevMetaFormat));
-  strncpy(pMeta->headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN);
-  pMeta->fieldCnt_ = static_cast<int32_t>(pTabInfo->GetFieldCnt());
+  strncpy(pMeta->_headStr_, DEVID_FILE_TYPE_STR, DEVID_FILE_TYPE_STR_LEN);
+  uint32_t fieldCnt = static_cast<uint32_t>(pTabInfo->GetFieldCnt());
+  Coding::FixedEncode32(pMeta->_fieldCnt_, fieldCnt);
 
   int32_t fieldType = 0;
   const char* pFieldName = nullptr;
 
-  for (uint32_t i = 0; i < pMeta->fieldCnt_; i++)
+  for (uint32_t i = 0; i < fieldCnt; i++)
   {
-    pTabInfo->GetFieldRealInfo(i, &fieldType);
+    pTabInfo->GetFieldRealInfo(i, &fieldType, nullptr);
     pFieldName = pTabInfo->GetFieldName(i);
 
-    strncpy(pMeta->fieldRec_[i].fieldName_, pFieldName, PDB_FILED_NAME_LEN);
-    pMeta->fieldRec_[i].fieldType_ = fieldType;
+    strncpy(pMeta->_fieldRec_[i].fieldName_, pFieldName, PDB_FILED_NAME_LEN);
+    Coding::FixedEncode32(pMeta->_fieldRec_[i].fieldType_, fieldType);
   }
 
-  pMeta->crc_ = StringTool::CRC32(pTmpMeta, (sizeof(DevMetaFormat) - 4));
+  uint32_t crc = StringTool::CRC32(pTmpMeta, (sizeof(DevMetaFormat) - 4));
+  Coding::FixedEncode32(pMeta->_crc_, crc);
   uint8_t* pBase = devIdFile_.GetBaseAddr();
   memcpy(pBase, pTmpMeta, sizeof(DevMetaFormat));
   devIdFile_.Sync();
@@ -299,12 +306,13 @@ PdbErr_t DevIDTable::AddDev(int64_t devId, PdbStr devName, PdbStr expand)
   DevItem* pDevItem = (DevItem*)(pBase + (sizeof(DevItem) * devPos));
   memset(pDevItem, 0, sizeof(DevItem));
 
-  pDevItem->pos_ = static_cast<uint32_t>(devPos);
-  pDevItem->devId_ = devId;
-  memcpy(pDevItem->devName_, devName.pStr_, devName.len_);
-  memcpy(pDevItem->expand_, expand.pStr_, expand.len_);
-  pDevItem->crc_ = StringTool::CRC32(pDevItem, (sizeof(DevItem) - 4));
-
+  Coding::FixedEncode32(pDevItem->_pos_, static_cast<uint32_t>(devPos));
+  Coding::FixedEncode64(pDevItem->_devId_, devId);
+  memcpy(pDevItem->_devName_, devName.pStr_, devName.len_);
+  memcpy(pDevItem->_expand_, expand.pStr_, expand.len_);
+  uint32_t crc = StringTool::CRC32(pDevItem, (sizeof(DevItem) - 4));
+  Coding::FixedEncode32(pDevItem->_crc_, crc);
+  
   do {
     std::unique_lock<std::mutex> insertLock(insertMutex_);
     devIdSet_.insert(devId);
@@ -408,11 +416,12 @@ PdbErr_t DevIDTable::QueryDevInfo(const std::string& tabName, IQuery* pQuery)
   for (auto devIt = devIdPosVec_.begin(); devIt != devIdPosVec_.end(); devIt++)
   {
     DevItem* pDevItem = (DevItem*)(pBase + (sizeof(DevItem) * devIt->pos_));
-    DBVAL_ELE_SET_INT64(vals, 1, pDevItem->devId_);
-    DBVAL_ELE_SET_STRING(vals, 2, pDevItem->devName_, strlen(pDevItem->devName_));
-    DBVAL_ELE_SET_STRING(vals, 3, pDevItem->expand_, strlen(pDevItem->expand_));
+    int64_t devId = Coding::FixedDecode64(pDevItem->_devId_);
+    DBVAL_ELE_SET_INT64(vals, 1, devId);
+    DBVAL_ELE_SET_STRING(vals, 2, pDevItem->_devName_, strlen(pDevItem->_devName_));
+    DBVAL_ELE_SET_STRING(vals, 3, pDevItem->_expand_, strlen(pDevItem->_expand_));
 
-    retVal = pQuery->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendSingle(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
 
@@ -443,9 +452,10 @@ PdbErr_t DevIDTable::DelDev(const std::string& tabName, const ConditionFilter* p
     for (auto devIt = devIdPosVec_.begin(); devIt != devIdPosVec_.end(); )
     {
       DevItem* pDevItem = (DevItem*)(pBase + (sizeof(DevItem) * devIt->pos_));
-      DBVAL_ELE_SET_INT64(vals, 1, pDevItem->devId_);
-      DBVAL_ELE_SET_STRING(vals, 2, pDevItem->devName_, strlen(pDevItem->devName_));
-      DBVAL_ELE_SET_STRING(vals, 3, pDevItem->expand_, strlen(pDevItem->expand_));
+      int64_t devId = Coding::FixedDecode64(pDevItem->_devId_);
+      DBVAL_ELE_SET_INT64(vals, 1, devId);
+      DBVAL_ELE_SET_STRING(vals, 2, pDevItem->_devName_, strlen(pDevItem->_devName_));
+      DBVAL_ELE_SET_STRING(vals, 3, pDevItem->_expand_, strlen(pDevItem->_expand_));
 
       retVal = pCondition->RunCondition(vals, valCnt, isDel);
       if (retVal != PdbE_OK)
@@ -453,7 +463,7 @@ PdbErr_t DevIDTable::DelDev(const std::string& tabName, const ConditionFilter* p
 
       if (isDel)
       {
-        _DelDev(pDevItem->devId_);
+        _DelDev(devId);
         memset(pDevItem, 0, sizeof(DevItem));
         devIt = devIdPosVec_.erase(devIt);
       }

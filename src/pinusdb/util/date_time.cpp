@@ -56,68 +56,67 @@ int64_t DateTime::sysTimeZone_ = 0;
 
 int32_t DateToDayCode(int year, int month, int day)
 {
-  if (year >= MinYear && year <= MaxYear && month >= 1 && month <= 12)
+  if (year >= DateTime::MinYear && year <= DateTime::MaxYear && month >= 1 && month <= 12)
   {
     const int* pDays = IS_LEAP_YEAR(year) ? DaysToMonth366 : DaysToMonth365;
     if (day >= 1 && day <= pDays[month] - pDays[month - 1])
     {
       int32_t y = year - 1;
       int32_t n = y * 365 + y / 4 - y / 100 + y / 400 + pDays[month - 1] + day - 1;
-      return (n - DaysTo1970);
+      return (n - DateTime::DaysTo1970);
     }
   }
 
   return -1;
 }
 
-int64_t DateToMillis(int year, int month, int day)
+int64_t DateToMicroseconds(int year, int month, int day)
 {
   int32_t dayCode = DateToDayCode(year, month, day);
   if (dayCode < 0)
     return dayCode;
 
-  return static_cast<int64_t>(dayCode) * MillisPerDay;
+  return DateTime::MicrosecondPerDay * dayCode;
 }
 
-int64_t TimeToMillis(int hour, int minute, int second)
+int64_t TimeToMicroseconds(int hour, int minute, int second)
 {
   if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60 && second >= 0 && second < 60)
   {
-    return (hour * MillisPerHour + minute * MillisPerMinute + second * MillisPerSecond);
+    return (hour * DateTime::MicrosecondPerHour + minute * DateTime::MicrosecondPerMinute
+      + second * DateTime::MicrosecondPerSecond);
   }
 
   return -1;
 }
 
-
 /////////////////////////////////////////////////////////////////////
-
 
 DateTime::DateTime()
 {
-  totalMilliseconds_ = 0;
+  microseconds_ = 0;
 }
 
-DateTime::DateTime(int64_t totalMillseconds)
+DateTime::DateTime(int64_t microseconds)
 {
-  totalMilliseconds_ = totalMillseconds;
+  microseconds_ = microseconds;
 }
 
 DateTime::DateTime(int year, int month, int day)
 {
-  totalMilliseconds_ = DateToMillis(year, month, day);
-  if (totalMilliseconds_ >= 0)
+  microseconds_ = DateToMicroseconds(year, month, day);
+  if (microseconds_ >= 0)
   {
-    totalMilliseconds_ += sysTimeZone_;
+    microseconds_ += sysTimeZone_;
   }
 }
 
 DateTime::DateTime(int year, int month, int day, int tzMinute)
 {
-  totalMilliseconds_ = DateToMillis(year, month, day);
-  if (totalMilliseconds_ >= 0)
+  microseconds_ = DateToMicroseconds(year, month, day);
+  if (microseconds_ >= 0)
   {
-    totalMilliseconds_ += (tzMinute * MillisPerMinute);
+    microseconds_ += (tzMinute * DateTime::MicrosecondPerMinute);
   }
 }
 
@@ -128,13 +127,13 @@ bool DateTime::Parse(const char* pStr)
 
 bool DateTime::Parse(const char* pStr, size_t len)
 {
-  totalMilliseconds_ = -1;
-  return Parse(pStr, len, &totalMilliseconds_);
+  microseconds_ = -1;
+  return Parse(pStr, len, &microseconds_);
 }
 
-bool DateTime::Parse(const char* pStr, size_t len, int64_t* pMillseconds)
+bool DateTime::Parse(const char* pStr, size_t len, int64_t* pMicroseconds)
 {
-  if (pStr == nullptr || len <= 0 || pMillseconds == nullptr)
+  if (pStr == nullptr || len <= 0 || pMicroseconds == nullptr)
     return false;
 
   int year = 0;
@@ -144,7 +143,7 @@ bool DateTime::Parse(const char* pStr, size_t len, int64_t* pMillseconds)
   int hour = 0;
   int minute = 0;
   int second = 0;
-  int ms = 0;
+  int microsecond = 0;
 
   const char* pBg = pStr;
   const char* pEnd = (pStr + len);
@@ -232,7 +231,7 @@ bool DateTime::Parse(const char* pStr, size_t len, int64_t* pMillseconds)
     //获取秒
     GET_TWO_NUM(pBg, pEnd, second);
 
-    //有毫秒
+    //有微秒
     do {
       if (pBg < pEnd && *pBg == '.')
       {
@@ -240,19 +239,37 @@ bool DateTime::Parse(const char* pStr, size_t len, int64_t* pMillseconds)
 
         if (pBg < pEnd && IS_NUMBER(*pBg))
         {
-          ms = NUMBER_VAL(*pBg) * 100;
+          microsecond = NUMBER_VAL(*pBg) * 100000;
           pBg++;
         }
 
         if (pBg < pEnd && IS_NUMBER(*pBg))
         {
-          ms += NUMBER_VAL(*pBg) * 10;
+          microsecond += NUMBER_VAL(*pBg) * 10000;
           pBg++;
         }
 
         if (pBg < pEnd && IS_NUMBER(*pBg))
         {
-          ms += NUMBER_VAL(*pBg);
+          microsecond += NUMBER_VAL(*pBg) * 1000;
+          pBg++;
+        }
+
+        if (pBg < pEnd && IS_NUMBER(*pBg))
+        {
+          microsecond += NUMBER_VAL(*pBg) * 100;
+          pBg++;
+        }
+
+        if (pBg < pEnd && IS_NUMBER(*pBg))
+        {
+          microsecond += NUMBER_VAL(*pBg) * 10;
+          pBg++;
+        }
+
+        if (pBg < pEnd && IS_NUMBER(*pBg))
+        {
+          microsecond += NUMBER_VAL(*pBg);
           pBg++;
         }
       }
@@ -299,23 +316,23 @@ bool DateTime::Parse(const char* pStr, size_t len, int64_t* pMillseconds)
     //跳过空格
     while (pBg < pEnd && *pBg == ' ') { pBg++; }
 
-    curTimeZone *= ((tzHour * MillisPerHour) + tzMinute * MillisPerMinute);
+    curTimeZone *= ((tzHour * DateTime::MicrosecondPerHour) + tzMinute * DateTime::MicrosecondPerMinute);
   }
 
   //string is end
   if (pBg < pEnd && *pBg != '\0')
     return false; // not end
 
-  if (ms < 0 || ms > 999)
+  if (microsecond < 0 || microsecond >= DateTime::MicrosecondPerSecond)
     return false;
 
-  int64_t msForDate = DateToMillis(year, month, day);
-  int64_t msForTime = TimeToMillis(hour, minute, second);
+  int64_t msForDate = DateToMicroseconds(year, month, day);
+  int64_t msForTime = TimeToMicroseconds(hour, minute, second);
 
   if (msForDate < 0 || msForTime < 0)
     return false;
 
-  *pMillseconds = msForDate + msForTime + ms + curTimeZone;
+  *pMicroseconds = msForDate + msForTime + microsecond + curTimeZone;
   return true;
 }
 
@@ -388,29 +405,24 @@ bool DateTime::ParseDate(const char* pStr, size_t len, int32_t* pDayCode)
 
 }
 
-int64_t DateTime::TotalMilliseconds() const
-{
-  return totalMilliseconds_;
-}
-
 DateTime DateTime::AddDays(int days) const
 {
-  return DateTime(totalMilliseconds_ + days * MillisPerDay);
+  return DateTime(microseconds_ + days * DateTime::MicrosecondPerDay);
 }
 
 int DateTime::GetDayForWeek() const
 {
-  int n = static_cast<int>(totalMilliseconds_ / MillisPerDay);
+  int n = static_cast<int>(microseconds_ / DateTime::MicrosecondPerDay);
 
   return (n + 1) % 7;
 }
 
-int64_t DateTime::NowMilliseconds()
+int64_t DateTime::NowMicrosecond()
 {
   time_t rawtime;
   time(&rawtime);
 
-  return (rawtime * MillisPerSecond);
+  return (rawtime * DateTime::MicrosecondPerSecond);
 }
 
 int32_t DateTime::NowDayCode()
@@ -442,14 +454,14 @@ void DateTime::InitTimeZone()
   tm_utc = gmtime(&t2);
   t2 = mktime(tm_utc);
 
-  sysTimeZone_ = -1 * ((t1 - t2) * MillisPerSecond);
+  sysTimeZone_ = -1 * ((t1 - t2) * DateTime::MicrosecondPerSecond);
 }
 
 void DateTime::GetDatePart(int* pYear, int* pMonth, int* pDay) const
 {
-  if (totalMilliseconds_ >= 0)
+  if (microseconds_ >= 0)
   {
-    int n = static_cast<int>(totalMilliseconds_ / MillisPerDay) + DaysTo1970;
+    int n = static_cast<int>(microseconds_ / DateTime::MicrosecondPerDay) + DaysTo1970;
     int y400 = n / DaysPer400Years;
     n -= y400 * DaysPer400Years;
     int y100 = n / DaysPer100Years;

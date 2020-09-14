@@ -8,7 +8,8 @@ include_directories(
 )
 
 IF (CMAKE_SYSTEM_NAME MATCHES "Linux")
-  add_definitions(-std=c++17 -Wall -O2)
+  set(CMAKE_CXX_STANDARD 17)
+  add_definitions(-Wall -O2)
 ELSEIF (CMAKE_SYSTEM_NAME MATCHES "Windows")
   add_compile_options("/std:c++17")
 	include_directories(${BOOST_INC_PATH})

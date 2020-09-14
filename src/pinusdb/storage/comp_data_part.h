@@ -28,82 +28,61 @@ public:
   PdbErr_t Open(int32_t partCode, const char* pDataPath);
 
   virtual void Close();
-  virtual PdbErr_t RecoverDW(const char* pPageBuf);
-  virtual PdbErr_t InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp,
-    bool replace, const char* pRec, size_t recLen);
 
   virtual PdbErr_t UnMap();
 
 protected:
-  virtual PdbErr_t QueryDevAsc(int64_t devId, void* pQueryParam,
-    IQuery* pQuery, uint64_t timeOut, bool queryFirst, bool* pIsAdd);
-  virtual PdbErr_t QueryDevDesc(int64_t devId, void* pQueryParam,
-    IQuery* pQuery, uint64_t timeOut, bool queryLast, bool* pIsAdd);
-  virtual PdbErr_t QueryDevSnapshot(int64_t devId, void* pQueryParam,
-    IQuery* pQuery, uint64_t timeOut, bool* pIsAdd);
+  PdbErr_t QueryDevAsc(int64_t devId, const DataPartQueryParam& queryParam,
+    IQuery* pQuery, uint64_t timeOut, bool queryFirst, bool* pIsAdd) override;
+  PdbErr_t QueryDevDesc(int64_t devId, const DataPartQueryParam& queryParam,
+    IQuery* pQuery, uint64_t timeOut, bool queryLast, bool* pIsAdd) override;
+  PdbErr_t QueryDevSnapshot(int64_t devId, const DataPartQueryParam& queryParam,
+    IQuery* pQuery, uint64_t timeOut, bool* pIsAdd) override;
+
+  template<bool IsAsc, bool IsSnapshot>
+  PdbErr_t QueryDevData(int64_t devId, const DataPartQueryParam& queryParam,
+    IQuery* pQuery, uint64_t timeOut, bool querySingle, bool* pIsAdd);
 
   PdbErr_t InitMemMap();
 
-  PdbErr_t GetIdx(int64_t devId, int64_t ts, CompDevId* pCompDevId, int* pCurIdx);
+  PdbErr_t GetDevIdxs(int64_t devId, int64_t bgts, int64_t edTs, std::vector<size_t>& idxVec);
 
-  virtual void* InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, int64_t edTs);
-  virtual void ClearQueryParam(void* pQueryParam);
+  template<bool IsAsc>
+  PdbErr_t TraversalDataPage(size_t idxPos,
+    const DataPartQueryParam& queryParam, IQuery* pQuery, bool* pIsAdd);
 
-  class CompDataIter
+  const std::vector<FieldInfo>& GetFieldInfoVec() const override;
+  const std::vector<size_t>& GetFieldPosVec() const override;
+  bool SupportPreWhere() const { return true; }
+
+  template<bool IsAsc>
+  PdbErr_t DecodeBoolVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit);
+  template<bool IsAsc, int FieldType>
+  PdbErr_t DecodeIntVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit);
+  template<bool IsAsc>
+  PdbErr_t DecodeFloatVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit);
+  template<bool IsAsc>
+  PdbErr_t DecodeDoubleVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit);
+  template<bool IsAsc, int FieldType>
+  PdbErr_t DecodeBlockVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit, Arena& arena);
+
+
+  typedef struct _TsIdxItem
   {
-  public:
-    CompDataIter();
-    ~CompDataIter();
-
-    PdbErr_t Init(const std::vector<FieldInfo>& fieldVec,
-      int* pFieldPos, size_t queryFieldCnt, int64_t bgTs, int64_t edTs);
-    PdbErr_t Load(const char* pBuf, size_t bufLen);
-    bool Valid() const;
-    PdbErr_t SeekTo(int64_t tstamp);
-    PdbErr_t SeekToFirst();
-    PdbErr_t SeekToLast();
-    PdbErr_t Next();
-    PdbErr_t Prev();
-
-    size_t GetFieldCnt() const { return fieldCnt_; }
-    int64_t GetBgTs() const { return bgTs_; }
-    int64_t GetEdTs() const { return edTs_; }
-    DBVal* GetRecord();
-
-    PdbErr_t DecodeTstampVals(DBVal* pValBg, const char* pBuf, const char* pLimit);
-    PdbErr_t DecodeBoolVals(DBVal* pValBg, const char* pBuf, const char* pLimit);
-    PdbErr_t DecodeBigIntVals(DBVal* pValBg, const char* pBuf, const char* pLimit);
-    PdbErr_t DecodeDateTimeVals(DBVal* pValBg, const char* pBuf, const char* pLimit);
-    PdbErr_t DecodeDoubleVals(DBVal* pValBg, const char* pBuf, const char* pLimit);
-    PdbErr_t DecodeStringVals(DBVal* pValBg, const char* pBuf, const char* pLimit);
-    PdbErr_t DecodeBlobVals(DBVal* pValBg, const char* pBuf, const char* pLimit);
-    PdbErr_t DecodeRealVals(DBVal* pValBg, const char* pBuf, const char* pLimit, double multiple);
-
-  private:
-    Arena arena_;
-    size_t mateCnt_;  //匹配上的字段数量
-    size_t fieldCnt_;
-    int* pTypes_;
-    int* pFieldPos_;
-    DBVal* pQueryVals_;
-    char* pRawBuf_;
-    int64_t bgTs_;
-    int64_t edTs_;
-
-    int32_t recCnt_;
-    int32_t curIdx_;
-    size_t totalValCnt_;
-    DBVal* pAllVals_;
-  };
+    uint32_t bgPos_;
+    uint32_t idxCnt_;
+  }TsIdxItem;
 
 private:
   std::mutex initMutex_;
   uint64_t lastQueryTime_;
   MemMapFile dataMemMap_;
   const char* pData_;
-  const CompDevId* pDevId_;
-  std::vector<FieldInfo> fieldVec_;
-  int32_t devCnt_;
+  size_t fieldIdxCnt_;
+  std::vector<size_t> idxPosVec_;
+  std::unordered_map<int64_t, TsIdxItem> tsIdxMap_;
+  std::vector<FieldInfo> fieldInfoVec_;
+  std::vector<size_t> fieldPosVec_;
 };
 
 

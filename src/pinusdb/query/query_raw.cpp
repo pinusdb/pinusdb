@@ -1,3 +1,19 @@
+/*
+* Copyright (c) 2020 ChangSha JuSong Soft Inc. <service@pinusdb.cn>.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; version 3 of the License.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program; If not, see <http://www.gnu.org/licenses>
+*/
+
 #include "query/query_raw.h"
 #include "server/proto_header.h"
 #include "util/coding.h"
@@ -17,14 +33,14 @@ QueryRaw::~QueryRaw()
   }
 }
 
-PdbErr_t QueryRaw::AppendData(const DBVal* pVals, size_t valCnt, bool* pIsAdded)
+PdbErr_t QueryRaw::AppendSingle(const DBVal* pVals, size_t valCnt, bool* pIsAdded)
 {
   bool resultVal = true;
   PdbErr_t retVal = PdbE_OK;
   DBVal tmpVal;
 
   if (curRecord_ >= queryRecord_)
-    return PdbE_RESLT_FULL;
+    return PdbE_RESULT_FULL;
 
   retVal = this->condiFilter_.RunCondition(pVals, valCnt, resultVal);
   if (retVal != PdbE_OK)
@@ -47,34 +63,70 @@ PdbErr_t QueryRaw::AppendData(const DBVal* pVals, size_t valCnt, bool* pIsAdded)
       if (retVal != PdbE_OK)
         return retVal;
 
-      resultData_.push_back(static_cast<char>(DBVAL_GET_TYPE(&tmpVal)));
-      switch (DBVAL_GET_TYPE(&tmpVal))
-      {
-      case PDB_VALUE_TYPE::VAL_NULL:
-        break;
-      case PDB_VALUE_TYPE::VAL_BOOL:
-        resultData_.push_back(static_cast<char>(DBVAL_GET_BOOL(&tmpVal) ? PDB_BOOL_TRUE : PDB_BOOL_FALSE));
-        break;
-      case PDB_VALUE_TYPE::VAL_INT64:
-        Coding::PutVarint64(&resultData_, Coding::ZigzagEncode64(DBVAL_GET_INT64(&tmpVal)));
-        break;
-      case PDB_VALUE_TYPE::VAL_DATETIME:
-        Coding::PutVarint64(&resultData_, static_cast<uint64_t>(DBVAL_GET_INT64(&tmpVal)));
-        break;
-      case PDB_VALUE_TYPE::VAL_DOUBLE:
-        resultData_.append(reinterpret_cast<const char*>(DBVAL_GET_BYTES(&tmpVal)), 8);
-        break;
-      case PDB_VALUE_TYPE::VAL_STRING:
-      case PDB_VALUE_TYPE::VAL_BLOB:
-        Coding::PutVarint64(&resultData_, static_cast<uint64_t>(DBVAL_GET_LEN(&tmpVal)));
-        resultData_.append(DBVAL_GET_STRING(&tmpVal), DBVAL_GET_LEN(&tmpVal));
-        break;
-      }
+      PushBackToResult(resultData_, tmpVal);
     }
 
     curRecord_++;
     if (pIsAdded != nullptr)
       *pIsAdded = true;
+  }
+
+  return PdbE_OK;
+}
+
+PdbErr_t QueryRaw::AppendArray(BlockValues& blockValues, bool* pIsAdded)
+{
+  PdbErr_t retVal = PdbE_OK;
+  DBVal tmpVal;
+  std::vector<DBVal> valVec;
+
+  if (curRecord_ >= queryRecord_)
+    return PdbE_RESULT_FULL;
+
+  retVal = this->condiFilter_.RunConditionArray(blockValues);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  if (pIsAdded != nullptr)
+    *pIsAdded = false;
+
+  size_t resultSize = blockValues.GetResultSize();
+  if (resultSize > 0)
+  {
+    if (resultSize < queryOffset_)
+    {
+      queryOffset_ -= resultSize;
+      return PdbE_OK;
+    }
+
+    size_t idx = queryOffset_;
+    queryOffset_ = 0;
+
+    if (pIsAdded != nullptr)
+      *pIsAdded = true;
+
+    size_t columnSize = blockValues.GetColumnSize();
+    valVec.reserve(columnSize);
+    for (; idx < resultSize; idx++)
+    {
+      retVal = blockValues.GetRecordValue(idx, valVec);
+      if (retVal != PdbE_OK)
+        return retVal;
+
+      const DBVal* pVals = valVec.data();
+      for (auto fieldIt = fieldVec_.begin(); fieldIt != fieldVec_.end(); fieldIt++)
+      {
+        retVal = (*fieldIt)->GetValue(pVals, &tmpVal);
+        if (retVal != PdbE_OK)
+          return retVal;
+
+        PushBackToResult(resultData_, tmpVal);
+      }
+
+      curRecord_++;
+      if (curRecord_ >= queryRecord_)
+        return PdbE_RESULT_FULL;
+    }
   }
 
   return PdbE_OK;
@@ -126,6 +178,16 @@ size_t QueryRaw::GetQueryRecord() const
   return queryRecord_;
 }
 
+void QueryRaw::GetUseFields(std::unordered_set<size_t>& fieldSet) const
+{
+  for (size_t idx = 0; idx < fieldVec_.size(); idx++)
+  {
+    fieldVec_[idx]->GetUseFields(fieldSet);
+  }
+
+  condiFilter_.GetUseFields(fieldSet);
+}
+
 PdbErr_t QueryRaw::BuildQuery(const QueryParam* pQueryParam, const TableInfo* pTabInfo)
 {
   PdbErr_t retVal = PdbE_OK;
@@ -133,7 +195,7 @@ PdbErr_t QueryRaw::BuildQuery(const QueryParam* pQueryParam, const TableInfo* pT
   size_t fieldPos = 0;
   DBVal nameVal;
   std::string fieldName;
-  int64_t nowMillis = DateTime::NowMilliseconds();
+  int64_t nowMicroseconds = DateTime::NowMicrosecond();
   if (pQueryParam->pLimit_ != nullptr)
   {
     retVal = pQueryParam->pLimit_->Valid();
@@ -146,7 +208,7 @@ PdbErr_t QueryRaw::BuildQuery(const QueryParam* pQueryParam, const TableInfo* pT
 
   if (pQueryParam->pWhere_ != nullptr)
   {
-    retVal = condiFilter_.BuildCondition(pTabInfo, pQueryParam->pWhere_, nowMillis);
+    retVal = condiFilter_.BuildCondition(pTabInfo, pQueryParam->pWhere_, nowMicroseconds);
     if (retVal != PdbE_OK)
       return retVal;
   }
@@ -168,7 +230,7 @@ PdbErr_t QueryRaw::BuildQuery(const QueryParam* pQueryParam, const TableInfo* pT
         if (retVal != PdbE_OK)
           return retVal;
 
-        fieldVec_.push_back(new FieldValue(pos, fieldType));
+        fieldVec_.push_back(CreateFieldValue(fieldType, pos));
       }
     }
     else if (tagIt->first->GetValueType() == TK_STRING)
@@ -187,7 +249,7 @@ PdbErr_t QueryRaw::BuildQuery(const QueryParam* pQueryParam, const TableInfo* pT
         if (retVal != PdbE_OK)
           break;
 
-        pTagItem = new FieldValue(fieldPos, fieldType);
+        pTagItem = CreateFieldValue(fieldType, fieldPos);
       } while (false);
 
       if (pTagItem == nullptr)
@@ -202,7 +264,7 @@ PdbErr_t QueryRaw::BuildQuery(const QueryParam* pQueryParam, const TableInfo* pT
     }
     else
     {
-      pTagItem = BuildGeneralValueItem(pTabInfo, tagIt->first, nowMillis);
+      pTagItem = BuildGeneralValueItem(pTabInfo, tagIt->first, nowMicroseconds);
       if (pTagItem == nullptr)
         return PdbE_SQL_ERROR;
 
@@ -222,4 +284,7 @@ PdbErr_t QueryRaw::BuildQuery(const QueryParam* pQueryParam, const TableInfo* pT
 
   return PdbE_OK;
 }
+
+
+
 

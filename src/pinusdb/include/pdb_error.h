@@ -1,3 +1,19 @@
+/*
+* Copyright (c) 2020 ChangSha JuSong Soft Inc. <service@pinusdb.cn>.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; version 3 of the License.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program; If not, see <http://www.gnu.org/licenses>
+*/
+
 #pragma once
 
 #define PdbE_OK                             0                // 成功
@@ -92,7 +108,7 @@
 #define PdbE_SQL_NOT_QUERY                  50509           // 不是查询SQL
 
 //设备、索引相关
-#define PdbE_RESLT_FULL                     50600           // 结果集已满
+#define PdbE_RESULT_FULL                    50600           // 结果集已满
 #define PdbE_DEVID_EXISTS                   50601           // 设备ID已存在
 #define PdbE_DEV_CAPACITY_FULL              50602           // 设备容量已满
 #define PdbE_USER_EXIST                     50603           // 用户已存在

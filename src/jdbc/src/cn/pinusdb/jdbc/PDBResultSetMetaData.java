@@ -68,14 +68,22 @@ public class PDBResultSetMetaData implements ResultSetMetaData {
 		case 1:
 			return java.sql.Types.BOOLEAN;
 		case 2:
-			return java.sql.Types.BIGINT;
+			return java.sql.Types.TINYINT;
 		case 3:
-			return java.sql.Types.TIMESTAMP;
+			return java.sql.Types.SMALLINT;
 		case 4:
-			return java.sql.Types.DOUBLE;
+			return java.sql.Types.INTEGER;
 		case 5:
-			return java.sql.Types.VARCHAR;
+			return java.sql.Types.BIGINT;
 		case 6:
+			return java.sql.Types.TIMESTAMP;
+		case 7:
+			return java.sql.Types.FLOAT;
+		case 8:
+			return java.sql.Types.DOUBLE;
+		case 9:
+			return java.sql.Types.VARCHAR;
+		case 10:
 			return java.sql.Types.BLOB;
 		}
 		
@@ -92,14 +100,22 @@ public class PDBResultSetMetaData implements ResultSetMetaData {
 		case 1:
 			return "bool";
 		case 2:
-			return "bigint";
+			return "tinyint";
 		case 3:
-			return "timestamp";
+			return "smallint";
 		case 4:
-			return "double";
+			return "int";
 		case 5:
-			return "string";
+			return "bigint";
 		case 6:
+			return "timestamp";
+		case 7:
+			return "float";
+		case 8:
+			return "double";
+		case 9:
+			return "string";
+		case 10:
 			return "blob";
 		}
 		
@@ -174,7 +190,7 @@ public class PDBResultSetMetaData implements ResultSetMetaData {
 
 		PDBDataType colType = colInfoList_.get((column - 1)).getColType();
 		int colTypeVal = colType.getTypeVal();
-		return (colTypeVal == 2 || colTypeVal == 4);
+		return (colTypeVal == 2 || colTypeVal == 3 || colTypeVal == 4 || colTypeVal == 5 || colTypeVal == 7 || colTypeVal == 8);
 	}
 
 	@Override

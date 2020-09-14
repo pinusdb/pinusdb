@@ -78,7 +78,9 @@ int main(int argc, char* argv[])
     }
     else if (cmd.compare("clear") == 0)
     {
-      //system("cls");
+#ifdef _WIN32
+      system("cls");
+#endif
     }
     else
     {
@@ -282,7 +284,6 @@ void print_error_msg(PdbErr_t ret)
   }
 }
 
-
 #define PRINT_LINE(lineLen) do { std::cout.fill('-'); std::cout.width(lineLen); std::cout<< "-" << std::endl; std::cout.fill(' '); } while(false)
 #define PRINT_VAL_LEFT(val) do { std::cout.width(11); std::cout.setf(std::ios::left); std::cout << (val) << "|"; std::cout.unsetf(std::ios::left); } while(false)
 #define PRINT_VAL_RIGHT(val) do { std::cout.width(11); std::cout.setf(std::ios::right); std::cout << (val) << "|"; std::cout.unsetf(std::ios::right); } while(false)
@@ -333,6 +334,7 @@ void print_table(void* pTable)
   PRINT_LINE(lineLen);
 
   bool boolVal = false;
+  float floatVal = 0;
   int64_t int64Val = 0;
   double doubleVal = 0;
   const char* pStrVal = nullptr;
@@ -369,6 +371,9 @@ void print_table(void* pTable)
           PRINT_VAL_RIGHT((boolVal ? "true" : "false"));
         break;
       }
+      case PDB_FIELD_TYPE::TYPE_INT8:
+      case PDB_FIELD_TYPE::TYPE_INT16:
+      case PDB_FIELD_TYPE::TYPE_INT32:
       case PDB_FIELD_TYPE::TYPE_INT64:
       {
         retVal = pdb_table_get_bigint_by_colidx(pTable, rowIdx, colIdx, &int64Val);
@@ -383,6 +388,15 @@ void print_table(void* pTable)
         {
           strVal = convert_datetime_to_str(int64Val).c_str();
           PRINT_VAL_RIGHT(strVal.c_str());
+        }
+        break;
+      }
+      case PDB_FIELD_TYPE::TYPE_FLOAT:
+      {
+        retVal = pdb_table_get_float_by_colidx(pTable, rowIdx, colIdx, &floatVal);
+        if (retVal == PdbE_OK)
+        {
+          PRINT_VAL_RIGHT(floatVal);
         }
         break;
       }
@@ -581,7 +595,7 @@ std::string convert_utf8_to_gbk(const std::string& strUtf8)
 
 std::string convert_datetime_to_str(int64_t dt)
 {
-  time_t t = (dt / 1000);
+  time_t t = (dt / 1000000);
   struct tm tmptm = { 0 };
 #ifdef _WIN32
   errno_t err = localtime_s(&tmptm, &t);
@@ -597,10 +611,10 @@ std::string convert_datetime_to_str(int64_t dt)
 
   char tmpBuf[64] = { 0 };
 
-  sprintf(tmpBuf, "%d-%d-%d %d:%d:%d.%03d",
+  sprintf(tmpBuf, "%d-%d-%d %d:%d:%d.%06d",
     (tmptm.tm_year + 1900), (tmptm.tm_mon + 1),
     tmptm.tm_mday, tmptm.tm_hour, tmptm.tm_min,
-    tmptm.tm_sec, static_cast<int>(dt % 1000));
+    tmptm.tm_sec, static_cast<int>(dt % 1000000));
 
   return std::string(tmpBuf);
 }

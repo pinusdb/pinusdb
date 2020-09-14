@@ -551,8 +551,6 @@ bool EventHandle::ExecTask()
 
 PdbErr_t EventHandle::DecodeHead()
 {
-  PdbErr_t retVal = PdbE_OK;
-
   ProtoHeader proHdr;
 
   if (recvHeadLen_ != ProtoHeader::kProtoHeadLength)
@@ -621,6 +619,7 @@ PdbErr_t EventHandle::DecodeInsertTable(InsertSql* pInsertSql)
   uint32_t vType = 0;
   uint32_t v32 = 0;
   uint64_t v64 = 0;
+  int64_t i64 = 0;
 
   if (recvBodyLen_ == 0 || recCnt_ == 0 || fieldCnt_ == 0)
   {
@@ -666,17 +665,35 @@ PdbErr_t EventHandle::DecodeInsertTable(InsertSql* pInsertSql)
       DBVAL_SET_BOOL(&dbVal, (*pTmp == PDB_BOOL_TRUE));
       pTmp++;
       break;
+    case PDB_VALUE_TYPE::VAL_INT8:
+      pTmp = Coding::VarintDecode64(pTmp, pBufLimit, &v64);
+      DBVAL_SET_INT8(&dbVal, static_cast<int8_t>(Coding::ZigzagDecode64(v64)));
+      break;
+    case PDB_VALUE_TYPE::VAL_INT16:
+      pTmp = Coding::VarintDecode64(pTmp, pBufLimit, &v64);
+      DBVAL_SET_INT16(&dbVal, static_cast<int8_t>(Coding::ZigzagDecode64(v64)));
+      break;
+    case PDB_VALUE_TYPE::VAL_INT32:
+      pTmp = Coding::VarintDecode64(pTmp, pBufLimit, &v64);
+      DBVAL_SET_INT32(&dbVal, static_cast<int8_t>(Coding::ZigzagDecode64(v64)));
+      break;
     case PDB_VALUE_TYPE::VAL_INT64:
       pTmp = Coding::VarintDecode64(pTmp, pBufLimit, &v64);
       DBVAL_SET_INT64(&dbVal, Coding::ZigzagDecode64(v64));
       break;
     case PDB_VALUE_TYPE::VAL_DATETIME:
       pTmp = Coding::VarintDecode64(pTmp, pBufLimit, &v64);
-      if (v64 > MaxMillis)
+      i64 = Coding::ZigzagDecode64(v64);
+      if (i64 < DateTime::MinMicrosecond || i64 > DateTime::MaxMicrosecond)
       {
         return PdbE_INVALID_DATETIME_VAL;
       }
-      DBVAL_SET_DATETIME(&dbVal, v64);
+      DBVAL_SET_DATETIME(&dbVal, i64);
+      break;
+    case PDB_VALUE_TYPE::VAL_FLOAT:
+      v32 = Coding::FixedDecode32(pTmp);
+      DBVAL_SET_FLOAT(&dbVal, Coding::DecodeFloat(v32));
+      pTmp += sizeof(uint32_t);
       break;
     case PDB_VALUE_TYPE::VAL_DOUBLE:
       v64 = Coding::FixedDecode64(pTmp);
@@ -757,7 +774,7 @@ PdbErr_t EventHandle::DecodeInsertSql(InsertSql* pInsertSql, Arena* pArena)
     pInsertSql->AppendFieldName(DBVAL_GET_STRING(&colNameVal), DBVAL_GET_LEN(&colNameVal));
   }
 
-  int64_t nowMillis = DateTime::NowMilliseconds();
+  int64_t nowMicroseconds = DateTime::NowMicrosecond();
   ValueItem* pTmpValItem = nullptr;
   int valType = 0;
   DBVal val;
@@ -785,7 +802,7 @@ PdbErr_t EventHandle::DecodeInsertSql(InsertSql* pInsertSql, Arena* pArena)
         }
         else
         {
-          pTmpValItem = BuildGeneralValueItem(&nonTab, (*valIt), nowMillis);
+          pTmpValItem = BuildGeneralValueItem(&nonTab, (*valIt), nowMicroseconds);
           if (pTmpValItem == nullptr)
           {
             retVal = PdbE_SQL_ERROR;

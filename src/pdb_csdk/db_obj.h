@@ -34,7 +34,11 @@ public:
 
   void AppendNullVal();
   void AppendVal(bool val);
+  void AppendVal(int8_t val);
+  void AppendVal(int16_t val);
+  void AppendVal(int32_t val);
   void AppendVal(int64_t val);
+  void AppendVal(float val);
   void AppendVal(double val);
   PdbErr_t AppendStrVal(const char* pVal, size_t len);
   PdbErr_t AppendBlobVal(const uint8_t* pVal, size_t len);

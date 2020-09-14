@@ -97,7 +97,7 @@ namespace PDB.DotNetSDK
     PdbE_SQL_NOT_QUERY               = 50509, // 不是查询SQL
 
     //设备、索引相关
-    PdbE_RESLT_FULL                  = 50600, // 结果集已满
+    PdbE_RESULT_FULL                  = 50600, // 结果集已满
     PdbE_DEVID_EXISTS                = 50601, // 设备ID已存在
     PdbE_DEV_CAPACITY_FULL           = 50602, // 设备容量已满
     PdbE_USER_EXIST                  = 50603, // 用户已存在

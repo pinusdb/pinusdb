@@ -18,6 +18,7 @@
 #include "util/string_tool.h"
 #include "util/coding.h"
 #include "util/log_util.h"
+#include "query/block_values.h"
 #include "zlib.h"
 
 #define HIS_BLK_LEN  (PDB_KB_BYTES(80))
@@ -26,8 +27,7 @@ CompDataPart::CompDataPart()
 {
   lastQueryTime_ = 0;
   pData_ = nullptr;
-  pDevId_ = nullptr;
-  devCnt_ = 0;
+  fieldIdxCnt_ = 0;
 }
 
 CompDataPart::~CompDataPart()
@@ -40,30 +40,21 @@ PdbErr_t CompDataPart::Open(int32_t partCode, const char* pDataPath)
   dataPath_ = pDataPath;
 
   pData_ = nullptr;
-  pDevId_ = nullptr;
+  fieldIdxCnt_ = 0;
 
-  bgDayTs_ = partCode * MillisPerDay;
-  edDayTs_ = bgDayTs_ + MillisPerDay;
-  return PdbE_OK;
+  bgDayTs_ = partCode * DateTime::MicrosecondPerDay;
+  edDayTs_ = bgDayTs_ + DateTime::MicrosecondPerDay;
+
+  PdbErr_t retVal = InitMemMap();
+
+  return retVal;
 }
 
 void CompDataPart::Close()
 {
   pData_ = nullptr;
-  pDevId_ = nullptr;
-  devCnt_ = 0;
+  fieldIdxCnt_ = 0;
   dataMemMap_.Close();
-}
-
-PdbErr_t CompDataPart::RecoverDW(const char* pPageBuf)
-{
-  return PdbE_FILE_READONLY;
-}
-
-PdbErr_t CompDataPart::InsertRec(uint32_t metaCode, int64_t devId, int64_t tstamp,
-  bool replace, const char* pRec, size_t recLen)
-{
-  return PdbE_FILE_READONLY;
 }
 
 PdbErr_t CompDataPart::UnMap()
@@ -72,193 +63,52 @@ PdbErr_t CompDataPart::UnMap()
   {
     dataMemMap_.Close();
     pData_ = nullptr;
-    pDevId_ = nullptr;
-    devCnt_ = 0;
     LOG_DEBUG("unmap compress data ({})", dataPath_.c_str());
   }
 
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, void* pQueryParam,
+PdbErr_t CompDataPart::QueryDevAsc(int64_t devId, const DataPartQueryParam& queryParam,
   IQuery* pQuery, uint64_t timeOut, bool queryFirst, bool* pIsAdd)
 {
-  PdbErr_t retVal = PdbE_OK;
-  CompDevId compDevId;
-  CompDataIter* pHisIter = (CompDataIter*)pQueryParam;
-  int64_t bgTs = pHisIter->GetBgTs();
-  int64_t edTs = pHisIter->GetEdTs();
-  size_t fieldCnt = pHisIter->GetFieldCnt();
-  int64_t curTs = 0;
-  bool firstPage = true;
-  bool isAdd = false;
-  int32_t curIdxPos = 0;
-
-  if (pData_ == nullptr)
-  {
-    retVal = InitMemMap();
-    if (retVal != PdbE_OK)
-      return retVal;
-  }
-
-  lastQueryTime_ = DateTime::NowTickCount();
-
-  retVal = GetIdx(devId, bgTs, &compDevId, &curIdxPos);
-  if (retVal == PdbE_DEV_NOT_FOUND)
-    return PdbE_OK;
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  const CompBlkIdx* pBlkIdx = (const CompBlkIdx*)(pData_ + compDevId.bgPos_);
-  for (; curIdxPos < compDevId.blkIdxCnt_; curIdxPos++)
-  {
-    retVal = pHisIter->Load((pData_ + pBlkIdx[curIdxPos].blkPos_), pBlkIdx[curIdxPos].blkLen_);
-    if (retVal != PdbE_OK)
-      return retVal;
-
-    if (firstPage)
-    {
-      retVal = pHisIter->SeekTo(bgTs);
-      firstPage = false;
-    }
-    else
-    {
-      retVal = pHisIter->SeekToFirst();
-    }
-    if (retVal != PdbE_OK)
-      return retVal;
-
-    while (pHisIter->Valid())
-    {
-      DBVal* pVals = pHisIter->GetRecord();
-      retVal = pQuery->AppendData(pVals, fieldCnt, &isAdd);
-      if (retVal != PdbE_OK)
-        return retVal;
-
-      if (queryFirst && isAdd)
-      {
-        if (pIsAdd != nullptr)
-          *pIsAdd = true;
-
-        return PdbE_OK;
-      }
-
-      if (pQuery->GetIsFullFlag())
-        return PdbE_OK;
-
-      curTs = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
-      if (curTs >= edTs)
-        return PdbE_OK;
-
-      pHisIter->Next();
-    }
-
-    if (DateTime::NowTickCount() > timeOut)
-      return PdbE_QUERY_TIME_OUT;
-  }
-
-  return PdbE_OK;
+  return QueryDevData<true, false>(devId, queryParam, pQuery, timeOut, queryFirst, pIsAdd);
 }
 
-PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, void* pQueryParam,
+PdbErr_t CompDataPart::QueryDevDesc(int64_t devId, const DataPartQueryParam& queryParam,
   IQuery* pQuery, uint64_t timeOut, bool queryLast, bool* pIsAdd)
 {
-  PdbErr_t retVal = PdbE_OK;
-  CompDevId compDevId;
-  CompDataIter* pHisIter = (CompDataIter*)pQueryParam;
-  int64_t bgTs = pHisIter->GetBgTs();
-  int64_t edTs = pHisIter->GetEdTs();
-  size_t fieldCnt = pHisIter->GetFieldCnt();
-  int64_t curTs = 0;
-  bool firstPage = true;
-  bool isAdd = false;
-  int32_t curIdxPos = 0;
+  return QueryDevData<false, false>(devId, queryParam, pQuery, timeOut, queryLast, pIsAdd);
+}
 
-  if (pData_ == nullptr)
+PdbErr_t CompDataPart::QueryDevSnapshot(int64_t devId, const DataPartQueryParam& queryParam,
+  IQuery* pQuery, uint64_t timeOut, bool* pIsAdd)
+{
+  return QueryDevData<false, true>(devId, queryParam, pQuery, timeOut, true, pIsAdd);
+}
+
+template<bool IsAsc, bool IsSnapshot>
+PdbErr_t CompDataPart::QueryDevData(int64_t devId, const DataPartQueryParam& queryParam,
+  IQuery* pQuery, uint64_t timeOut, bool querySingle, bool* pIsAdd)
+{
+  PdbErr_t retVal = PdbE_OK;
+  std::vector<size_t> idxVec;
+  int64_t bgTs = queryParam.GetBgTs();
+  int64_t edTs = queryParam.GetEdTs();
+  bool isAdd = false;
+
+  if constexpr (IsSnapshot)
   {
-    retVal = InitMemMap();
-    if (retVal != PdbE_OK)
-      return retVal;
+    bgTs = DateTime::MinMicrosecond;
+    edTs = DateTime::MaxMicrosecond;
   }
 
-  lastQueryTime_ = DateTime::NowTickCount();
-
-  retVal = GetIdx(devId, edTs, &compDevId, &curIdxPos);
-  if (retVal == PdbE_DEV_NOT_FOUND)
-    return PdbE_OK;
+  retVal = InitMemMap();
   if (retVal != PdbE_OK)
     return retVal;
 
-  const CompBlkIdx* pBlkIdx = (const CompBlkIdx*)(pData_ + compDevId.bgPos_);
-  for (; curIdxPos >= 0; curIdxPos--)
-  {
-    retVal = pHisIter->Load((pData_ + pBlkIdx[curIdxPos].blkPos_), pBlkIdx[curIdxPos].blkLen_);
-    if (retVal != PdbE_OK)
-      return retVal;
-
-    if (firstPage)
-    {
-      retVal = pHisIter->SeekTo(edTs);
-      firstPage = false;
-    }
-    else
-    {
-      retVal = pHisIter->SeekToLast();
-    }
-    if (retVal != PdbE_OK)
-      return retVal;
-
-    while (pHisIter->Valid())
-    {
-      DBVal* pVals = pHisIter->GetRecord();
-      retVal = pQuery->AppendData(pVals, fieldCnt, &isAdd);
-      if (retVal != PdbE_OK)
-        return retVal;
-
-      if (queryLast && isAdd)
-      {
-        if (pIsAdd != nullptr)
-          *pIsAdd = true;
-
-        return PdbE_OK;
-      }
-
-      if (pQuery->GetIsFullFlag())
-        return PdbE_OK;
-
-      curTs = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
-      if (curTs <= bgTs)
-        return PdbE_OK;
-
-      pHisIter->Prev();
-    }
-
-    if (DateTime::NowTickCount() > timeOut)
-      return PdbE_QUERY_TIME_OUT;
-  }
-
-  return PdbE_OK;
-}
-
-PdbErr_t CompDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
-  IQuery* pQuery, uint64_t timeOut, bool* pIsAdd)
-{
-  PdbErr_t retVal = PdbE_OK;
-  CompDevId compDevId;
-  CompDataIter* pHisIter = (CompDataIter*)pQueryParam;
-  size_t fieldCnt = pHisIter->GetFieldCnt();
-
-  if (pData_ == nullptr)
-  {
-    retVal = InitMemMap();
-    if (retVal != PdbE_OK)
-      return retVal;
-  }
-
-  lastQueryTime_ = DateTime::NowTickCount();
-
-  retVal = GetIdx(devId, MaxMillis, &compDevId, nullptr);
-  if (retVal == PdbE_DEV_NOT_FOUND)
+  retVal = GetDevIdxs(devId, bgTs, edTs, idxVec);
+  if (retVal == PdbE_DEV_NOT_FOUND || retVal == PdbE_IDX_NOT_FOUND)
   {
     if (pIsAdd != nullptr)
       *pIsAdd = false;
@@ -269,29 +119,49 @@ PdbErr_t CompDataPart::QueryDevSnapshot(int64_t devId, void* pQueryParam,
   if (retVal != PdbE_OK)
     return retVal;
 
-  const CompBlkIdx* pBlkIdx = (const CompBlkIdx*)(pData_ + compDevId.bgPos_);
-  int32_t blkPos = compDevId.blkIdxCnt_ - 1;
-  retVal = pHisIter->Load((pData_ + pBlkIdx[blkPos].blkPos_), pBlkIdx[blkPos].blkLen_);
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  retVal = pHisIter->SeekToLast();
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  if (pHisIter->Valid())
+  if constexpr (!IsAsc)
   {
-    DBVal* pVals = pHisIter->GetRecord();
-    retVal = pQuery->AppendData(pVals, fieldCnt, nullptr);
-    if (retVal != PdbE_OK)
-      return retVal;
+    std::reverse(idxVec.begin(), idxVec.end());
   }
 
-  if (pIsAdd != nullptr)
-    *pIsAdd = true;
+  for (auto idxIt = idxVec.begin(); idxIt != idxVec.end(); idxIt++)
+  {
+    retVal = TraversalDataPage<IsAsc>(*idxIt, queryParam, pQuery, &isAdd);
+    if (querySingle)
+    {
+      if (retVal == PdbE_OK && isAdd)
+      {
+        if (pIsAdd != nullptr)
+          *pIsAdd = true;
+
+        return PdbE_OK;
+      }
+    }
+
+    if (retVal == PdbE_RESULT_FULL)
+      return PdbE_OK;
+
+    if (retVal != PdbE_OK)
+      return retVal;
+
+    if (pQuery->GetIsFullFlag())
+      return PdbE_OK;
+
+    if constexpr (IsSnapshot)
+    {
+      if (pIsAdd != nullptr)
+        *pIsAdd = true;
+
+      return PdbE_OK;
+    }
+
+    if (DateTime::NowTickCount() > timeOut)
+      return PdbE_QUERY_TIME_OUT;
+  }
 
   return PdbE_OK;
 }
+
 
 PdbErr_t CompDataPart::InitMemMap()
 {
@@ -303,30 +173,69 @@ PdbErr_t CompDataPart::InitMemMap()
     if (retVal != PdbE_OK)
       return retVal;
 
-    const char* pTmpBase = (char*)dataMemMap_.GetBaseAddr();
+    pData_ = (char*)dataMemMap_.GetBaseAddr();
     size_t dataSize = dataMemMap_.MemMapSize();
 
-    const CompDataFooter* pFooter = (const CompDataFooter*)(pTmpBase + dataSize - sizeof(CompDataFooter));
-    pDevId_ = (const CompDevId*)(pTmpBase + pFooter->devIdsPos_);
-    devCnt_ = static_cast<int32_t>(pFooter->devCnt_);
-    pData_ = pTmpBase;
-    lastQueryTime_ = DateTime::NowTickCount();
-
-    if (fieldVec_.empty())
+    if (fieldInfoVec_.empty())
     {
       FieldInfo finfo;
-      const DataFileMeta* pDataMeta = (const DataFileMeta*)pTmpBase;
-      for (size_t i = 0; i < pDataMeta->fieldCnt_; i++)
+      const DataFileMeta* pDataMeta = (const DataFileMeta*)pData_;
+      size_t fieldCnt = Coding::FixedDecode32(pDataMeta->fieldCnt_);
+      for (size_t i = 0; i < fieldCnt; i++)
       {
-        retVal = finfo.SetFieldInfo(pDataMeta->fieldRec_[i].fieldName_,
-          pDataMeta->fieldRec_[i].fieldType_, false);
+        int fieldType = Coding::FixedDecode32(pDataMeta->fieldRec_[i].fieldType_);
+        retVal = finfo.SetFieldInfo(pDataMeta->fieldRec_[i].fieldName_, fieldType, false);
         if (retVal != PdbE_OK)
         {
           LOG_ERROR("failed to init data file ({}), invalid field name", dataPath_.c_str());
           return retVal;
         }
+        fieldInfoVec_.push_back(finfo);
+        fieldPosVec_.push_back(i);
+      }
 
-        fieldVec_.push_back(finfo);
+      const CmpFooter* pFooter = (const CmpFooter*)(pData_ + dataSize - sizeof(CmpFooter));
+      fieldIdxCnt_ = Coding::FixedDecode32(pFooter->tsIdxCnt_);
+      size_t tsIdxPos = Coding::FixedDecode64(pFooter->tsIdxPos_);
+      idxPosVec_.reserve(fieldInfoVec_.size());
+      idxPosVec_.push_back(0); //devid
+      idxPosVec_.push_back(tsIdxPos); // tstamp
+      size_t tmpPos = tsIdxPos + sizeof(TsBlkIdx) * fieldIdxCnt_;
+      for (size_t idx = (PDB_TSTAMP_INDEX + 1); idx < fieldInfoVec_.size(); idx++)
+      {
+        idxPosVec_.push_back(tmpPos);
+        tmpPos += sizeof(CmpBlkIdx) * fieldIdxCnt_;
+      }
+
+      const TsBlkIdx* pTsIdx = (const TsBlkIdx*)(pData_ + idxPosVec_[PDB_TSTAMP_INDEX]);
+      TsIdxItem idxItem;
+      idxItem.bgPos_ = 0;
+      idxItem.idxCnt_ = 0;
+      int64_t devId = 0;
+      for (size_t idx = 0; idx < fieldIdxCnt_; idx++)
+      {
+        int64_t tmpId = Coding::FixedDecode64(pTsIdx->devId_);
+        if (devId != tmpId)
+        {
+          if (devId > 0)
+          {
+            tsIdxMap_.insert(std::pair<int64_t, TsIdxItem>(devId, idxItem));
+          }
+
+          devId = tmpId;
+          idxItem.bgPos_ = static_cast<uint32_t>(idx);
+          idxItem.idxCnt_ = 1;
+        }
+        else
+        {
+          idxItem.idxCnt_++;
+        }
+
+        pTsIdx++;
+      }
+      if (devId > 0)
+      {
+        tsIdxMap_.insert(std::pair<int64_t, TsIdxItem>(devId, idxItem));
       }
     }
   }
@@ -335,482 +244,389 @@ PdbErr_t CompDataPart::InitMemMap()
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::GetIdx(int64_t devId, int64_t ts, CompDevId* pCompDevId, int* pCurIdx)
+PdbErr_t CompDataPart::GetDevIdxs(int64_t devId, int64_t bgts, int64_t edTs, std::vector<size_t>& idxVec)
 {
-  int32_t lwr = 0;
-  int32_t upr = devCnt_ - 1;
-  int32_t idx = 0;
-  int32_t tmpTs = 0;
-  if (ts < bgDayTs_)
-    tmpTs = 0;
-  else if (ts >= edDayTs_)
-    tmpTs = static_cast<int32_t>(MillisPerDay - 1);
-  else
-    tmpTs = static_cast<int32_t>(ts - bgDayTs_);
-
-  while (lwr <= upr)
-  {
-    idx = (lwr + upr) / 2;
-    if (pDevId_[idx].devId_ == devId)
-      break;
-    else if (pDevId_[idx].devId_ < devId)
-      lwr = idx + 1;
-    else
-      upr = idx - 1;
-  }
-
-  if (pDevId_[idx].devId_ != devId)
+  auto tsIdxIter = tsIdxMap_.find(devId);
+  if (tsIdxIter == tsIdxMap_.end())
     return PdbE_DEV_NOT_FOUND;
 
-  if (pCompDevId != nullptr)
-    *pCompDevId = pDevId_[idx];
+  const TsBlkIdx* pTsIdxs = (const TsBlkIdx*)(pData_ + idxPosVec_[PDB_TSTAMP_INDEX])
+    + tsIdxIter->second.bgPos_;
 
-  int32_t blkCnt = pDevId_[idx].blkIdxCnt_;
-  const CompBlkIdx* pBlkIdx = (const CompBlkIdx*)(pData_ + pDevId_[idx].bgPos_);
-  lwr = 0;
-  upr = blkCnt - 1;
-  idx = 0;
+  int32_t idxCnt = tsIdxIter->second.idxCnt_;
+  int32_t lwr = 0;
+  int32_t upr = idxCnt - 1;
+  int32_t idx = 0;
 
   while (lwr <= upr)
   {
     idx = (lwr + upr) / 2;
-    if (pBlkIdx[idx].bgTsForDay_ > tmpTs)
+    if (Coding::FixedDecode64(pTsIdxs[idx].bgTs_) > bgts)
     {
       upr = idx - 1;
     }
     else
     {
-      if ((idx + 1) == blkCnt)
+      if ((idx + 1) == idxCnt)
         break;
 
-      if (pBlkIdx[(idx + 1)].bgTsForDay_ > tmpTs)
+      if (Coding::FixedDecode64(pTsIdxs[idx + 1].bgTs_) > bgts)
         break;
 
       lwr = idx + 1;
     }
   }
 
-  if (pCurIdx != nullptr)
-    *pCurIdx = idx;
+  while (idx < idxCnt)
+  {
+    if (Coding::FixedDecode64(pTsIdxs[idx].bgTs_) > edTs)
+      break;
+
+    idxVec.push_back(((size_t)tsIdxIter->second.bgPos_ + idx));
+    idx++;
+  }
 
   return PdbE_OK;
 }
 
-void* CompDataPart::InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, int64_t edTs)
+template<bool IsAsc>
+PdbErr_t CompDataPart::TraversalDataPage(size_t idxPos,
+  const DataPartQueryParam& queryParam, IQuery* pQuery, bool* pIsAdd)
 {
   PdbErr_t retVal = PdbE_OK;
-  int32_t queryType = 0;
-  size_t queryPos = 0;
-  std::vector<int> fieldPosVec;
+  Arena arena;
+  if (pQuery == nullptr)
+    return PdbE_INVALID_PARAM;
 
-  if (pData_ == nullptr)
+  lastQueryTime_ = DateTime::NowTickCount();
+  const TsBlkIdx* pTsIdx = (const TsBlkIdx*)(pData_ + idxPosVec_[PDB_TSTAMP_INDEX])
+    + idxPos;
+  size_t recCnt = Coding::FixedDecode32(pTsIdx->recCnt_);
+  int64_t devId = Coding::FixedDecode64(pTsIdx->devId_);
+
+  size_t fieldCnt = queryParam.GetQueryFieldCnt();
+  BlockValues blockValue(fieldCnt);
+  blockValue.SetRecordSize(recCnt);
+
+  DBVal* pDevVals = (DBVal*)arena.AllocateAligned(sizeof(DBVal) * recCnt);
+  for (size_t idx = 0; idx < recCnt; idx++)
   {
-    retVal = InitMemMap();
+    DBVAL_ELE_SET_INT64(pDevVals, idx, devId);
+  }
+  blockValue.SetColumnValues(PDB_DEVID_INDEX, pDevVals);
+
+  std::string rawBuf;
+  rawBuf.reserve(PDB_KB_BYTES(512));
+  const std::vector<FieldQueryMapping>& fieldMapVec = queryParam.GetQueryFieldVec();
+  for (size_t idx = 0; idx < fieldMapVec.size(); idx++)
+  {
+    size_t storeFieldPos = fieldMapVec[idx].storeFieldPos_;
+    DBVal* pVals = (DBVal*)arena.AllocateAligned(sizeof(DBVal) * recCnt);
+
+    const CmpBlockHead* pBlkHead = nullptr;
+    if (storeFieldPos == PDB_TSTAMP_INDEX)
+    {
+      pBlkHead = (const CmpBlockHead*)(pData_ + Coding::FixedDecode64(pTsIdx->blkPos_));
+    }
+    else
+    {
+      const CmpBlkIdx* pBlkIdx = (const CmpBlkIdx*)(pData_ + idxPosVec_[storeFieldPos]) + idxPos;
+      pBlkHead = (const CmpBlockHead*)(pData_ + Coding::FixedDecode64(pBlkIdx->blkPos_));
+    }
+
+    if (Coding::FixedDecode32(pBlkHead->recCnt_) != recCnt)
+      return PdbE_RECORD_FAIL;
+
+    size_t dataLen = Coding::FixedDecode32(pBlkHead->dataLen_);
+
+    char* pRawBuf = &rawBuf[0];
+    uLongf destLen = rawBuf.capacity();
+    if (uncompress((Bytef*)pRawBuf, &destLen, (uint8_t*)(pBlkHead + 1), dataLen) != Z_OK)
+    {
+      return PdbE_PAGE_ERROR;
+    }
+
+    switch (fieldMapVec[idx].fieldType_)
+    {
+    case PDB_FIELD_TYPE::TYPE_BOOL:
+      retVal = DecodeBoolVals<IsAsc>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_INT8:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_INT8>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_INT16:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_INT16>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_INT32:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_INT32>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_INT64:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_INT64>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_DATETIME:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_DATETIME>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_FLOAT:
+      retVal = DecodeFloatVals<IsAsc>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_DOUBLE:
+      retVal = DecodeDoubleVals<IsAsc>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_STRING:
+      retVal = DecodeBlockVals<IsAsc, PDB_FIELD_TYPE::TYPE_STRING>(pVals, recCnt, pRawBuf, (pRawBuf + destLen), arena);
+      break;
+    case PDB_FIELD_TYPE::TYPE_BLOB:
+      retVal = DecodeBlockVals<IsAsc, PDB_FIELD_TYPE::TYPE_BLOB>(pVals, recCnt, pRawBuf, (pRawBuf + destLen), arena);
+      break;
+    case PDB_FIELD_TYPE::TYPE_REAL2:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_REAL2>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_REAL3:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_REAL3>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_REAL4:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_REAL4>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    case PDB_FIELD_TYPE::TYPE_REAL6:
+      retVal = DecodeIntVals<IsAsc, PDB_FIELD_TYPE::TYPE_REAL6>(pVals, recCnt, pRawBuf, (pRawBuf + destLen));
+      break;
+    }
+
     if (retVal != PdbE_OK)
-      return nullptr;
+      return retVal;
+
+    blockValue.SetColumnValues(fieldMapVec[idx].queryFieldPos_, pVals);
   }
 
-  fieldPosVec.resize(fieldVec_.size());
-  CompDataIter* pCompIter = new (std::nothrow)CompDataIter();
-  if (pCompIter == nullptr)
-    return nullptr;
-
-  for (size_t idx = 0; idx < fieldPosVec.size(); idx++)
-  {
-    fieldPosVec[idx] = -1;
-  }
-
-  for (size_t idx = 0; idx < fieldVec_.size(); idx++)
-  {
-    retVal = pQueryInfo->GetFieldInfo(fieldVec_[idx].GetFieldNameCrc(), &queryPos, &queryType);
-    if (retVal == PdbE_OK)
-    {
-      int32_t tmpType = fieldVec_[idx].GetFieldType();
-      if (PDB_TYPE_IS_REAL(tmpType))
-        tmpType = PDB_FIELD_TYPE::TYPE_DOUBLE;
-
-      if (tmpType == queryType)
-        fieldPosVec[idx] = static_cast<int>(queryPos);
-    }
-  }
-
-  retVal = pCompIter->Init(fieldVec_, fieldPosVec.data(), pQueryInfo->GetFieldCnt(), bgTs, edTs);
-  if (retVal != PdbE_OK)
-  {
-    delete pCompIter;
-    return nullptr;
-  }
-
-  return pCompIter;
+  return pQuery->AppendArray(blockValue, pIsAdd);
 }
 
-void CompDataPart::ClearQueryParam(void* pQueryParam)
+
+template<bool IsAsc>
+PdbErr_t CompDataPart::DecodeBoolVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit)
 {
-  CompDataIter* pHisIter = (CompDataIter*)pQueryParam;
-  delete pHisIter;
-}
+  if (pBuf + ((valCnt + 7) / 8) > pLimit)
+    return PdbE_INVALID_PARAM;
 
-CompDataPart::CompDataIter::CompDataIter()
-{
-  fieldCnt_ = 0;
-  pTypes_ = nullptr;
-  pFieldPos_ = nullptr;
-  pQueryVals_ = nullptr;
-  pRawBuf_ = nullptr;
-  bgTs_ = 0;
-  edTs_ = 0;
-
-  recCnt_ = 0;
-  curIdx_ = 0;
-  totalValCnt_ = 0;
-  pAllVals_ = nullptr;
-}
-
-CompDataPart::CompDataIter::~CompDataIter()
-{
-  if (pAllVals_ != nullptr)
-    delete[] pAllVals_;
-}
-
-PdbErr_t CompDataPart::CompDataIter::Init(const std::vector<FieldInfo>& fieldVec,
-  int* pFieldPos, size_t queryFieldCnt, int64_t bgTs, int64_t edTs)
-{
-  mateCnt_ = 0;
-  fieldCnt_ = fieldVec.size();
-  pTypes_ = (int*)arena_.AllocateAligned((sizeof(int) * fieldCnt_));
-  pFieldPos_ = (int*)arena_.AllocateAligned((sizeof(int) * fieldCnt_));
-  pQueryVals_ = (DBVal*)arena_.AllocateAligned((sizeof(DBVal) * fieldCnt_));
-  pRawBuf_ = arena_.AllocateAligned(HIS_BLK_LEN);
-
-  if (pTypes_ == nullptr || pFieldPos_ == nullptr || pQueryVals_ == nullptr || pRawBuf_ == nullptr)
-    return PdbE_NOMEM;
-
-  for (size_t idx = 0; idx < queryFieldCnt; idx++)
+  DBVal* pVal = IsAsc ? pValsBg : (pValsBg + valCnt - 1);
+  for (size_t idx = 0; idx < valCnt; idx++)
   {
-    DBVAL_ELE_SET_NULL(pQueryVals_, idx);
-  }
+    DBVAL_SET_BOOL(pVal, (BIT_MAP_IS_SET(pBuf, idx) != 0));
 
-  for (size_t idx = 0; idx < fieldCnt_; idx++)
-  {
-    pTypes_[idx] = fieldVec[idx].GetFieldType();
-    pFieldPos_[idx] = pFieldPos[idx];
-
-    if (pFieldPos_[idx] > 0) // ÅÅ³ýdevId
-      mateCnt_++;
-  }
-
-  bgTs_ = bgTs;
-  edTs_ = edTs;
-  
-  recCnt_ = 0;
-  curIdx_ = 0;
-  totalValCnt_ = 0;
-
-  return PdbE_OK;
-}
-
-PdbErr_t CompDataPart::CompDataIter::Load(const char* pBuf, size_t bufLen)
-{
-  PdbErr_t retVal = PdbE_OK;
-  uint32_t u32 = 0;
-  const CompBlockHead* pCompBlkHead = (const CompBlockHead*)pBuf;
-  if (pCompBlkHead->magic_ != HIS_BLOCK_DATA_MAGIC ||
-    pCompBlkHead->dataLen_ != (bufLen - sizeof(CompBlockHead)))
-  {
-    return PdbE_PAGE_ERROR;
-  }
-
-  uLongf rawLen = HIS_BLK_LEN;
-  if (uncompress((uint8_t*)pRawBuf_, &rawLen, 
-    (uint8_t*)(pBuf + sizeof(CompBlockHead)), pCompBlkHead->dataLen_) != Z_OK)
-  {
-    return PdbE_PAGE_ERROR;
-  }
-
-  const CompPageHead* pCompPageHead = (const CompPageHead*)pRawBuf_;
-  if (pCompPageHead->fieldCnt_ != fieldCnt_)
-  {
-    return PdbE_PAGE_ERROR;
-  }
-
-  recCnt_ = pCompPageHead->recCnt_;
-  if (pAllVals_ == nullptr || totalValCnt_ < (mateCnt_ * recCnt_))
-  {
-    if (pAllVals_ != nullptr)
-      delete[] pAllVals_;
-
-    pAllVals_ = new (std::nothrow) DBVal[mateCnt_ * recCnt_];
-    if (pAllVals_ == nullptr)
-      return PdbE_NOMEM;
-
-    totalValCnt_ = mateCnt_ * recCnt_;
-  }
-
-  const char* pBlkLimit = pRawBuf_ + rawLen;
-  const char* pTmp = pRawBuf_ + sizeof(CompPageHead);
-  const char* pValsLimit = nullptr;
-
-  //devid
-  DBVAL_ELE_SET_INT64(pQueryVals_, PDB_DEVID_INDEX, pCompPageHead->devId_);
-
-  DBVal* pValsBg = pAllVals_;
-  //tstamp
-  pTmp = Coding::VarintDecode32(pTmp, pBlkLimit, &u32);
-  pValsLimit = pTmp + u32;
-  DecodeTstampVals(pValsBg, pTmp, pValsLimit);
-  pValsBg += recCnt_;
-
-  for (size_t fieldIdx = (PDB_TSTAMP_INDEX + 1); fieldIdx < fieldCnt_; fieldIdx++)
-  {
-    pTmp = pValsLimit;
-    pTmp = Coding::VarintDecode32(pTmp, pBlkLimit, &u32);
-    pValsLimit = pTmp + u32;
-
-    if (pFieldPos_[fieldIdx] > 0)
-    {
-      switch (pTypes_[fieldIdx])
-      {
-      case PDB_FIELD_TYPE::TYPE_BOOL:
-        retVal = DecodeBoolVals(pValsBg, pTmp, pValsLimit);
-        break;
-      case PDB_FIELD_TYPE::TYPE_INT64:
-        retVal = DecodeBigIntVals(pValsBg, pTmp, pValsLimit);
-        break;
-      case PDB_FIELD_TYPE::TYPE_DATETIME:
-        retVal = DecodeDateTimeVals(pValsBg, pTmp, pValsLimit);
-        break;
-      case PDB_FIELD_TYPE::TYPE_DOUBLE:
-        retVal = DecodeDoubleVals(pValsBg, pTmp, pValsLimit);
-        break;
-      case PDB_FIELD_TYPE::TYPE_STRING:
-        retVal = DecodeStringVals(pValsBg, pTmp, pValsLimit);
-        break;
-      case PDB_FIELD_TYPE::TYPE_BLOB:
-        retVal = DecodeBlobVals(pValsBg, pTmp, pValsLimit);
-        break;
-      case PDB_FIELD_TYPE::TYPE_REAL2:
-        retVal = DecodeRealVals(pValsBg, pTmp, pValsLimit, DBVAL_REAL2_MULTIPLE);
-        break;
-      case PDB_FIELD_TYPE::TYPE_REAL3:
-        retVal = DecodeRealVals(pValsBg, pTmp, pValsLimit, DBVAL_REAL3_MULTIPLE);
-        break;
-      case PDB_FIELD_TYPE::TYPE_REAL4:
-        retVal = DecodeRealVals(pValsBg, pTmp, pValsLimit, DBVAL_REAL4_MULTIPLE);
-        break;
-      case PDB_FIELD_TYPE::TYPE_REAL6:
-        retVal = DecodeRealVals(pValsBg, pTmp, pValsLimit, DBVAL_REAL6_MULTIPLE);
-        break;
-      default:
-        retVal = PdbE_INVALID_FIELD_TYPE;
-      }
-
-      if (retVal != PdbE_OK)
-        return retVal;
-
-      pValsBg += recCnt_;
-    }
+    if constexpr (IsAsc)
+      pVal++;
+    else
+      pVal--;
   }
 
   return PdbE_OK;
 }
 
-bool CompDataPart::CompDataIter::Valid() const
+template<bool IsAsc, int FieldType>
+PdbErr_t CompDataPart::DecodeIntVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit)
 {
-  return curIdx_ >= 0 && curIdx_ < recCnt_;
-}
+  DBVal* pVal = IsAsc ? pValsBg : (pValsBg + valCnt - 1);
+  int64_t preVal = 0;
+  int64_t preDelta = 0;
+  int64_t delta = 0;
+  int64_t curVal = 0;
+  uint64_t tmpVal = 0;
 
-PdbErr_t CompDataPart::CompDataIter::SeekTo(int64_t tstamp)
-{
-  int32_t lwr = 0;
-  int32_t upr = recCnt_ - 1;
-  int32_t idx = 0;
-  int64_t curTs = 0;
+#define SetInnerIntValue do { \
+  if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_INT8) \
+    DBVAL_SET_INT8(pVal, static_cast<int8_t>(curVal)); \
+  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_INT16) \
+    DBVAL_SET_INT16(pVal, static_cast<int16_t>(curVal)); \
+  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_INT32) \
+    DBVAL_SET_INT32(pVal, static_cast<int32_t>(curVal)); \
+  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_INT64) \
+    DBVAL_SET_INT64(pVal, curVal); \
+  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_DATETIME) \
+    DBVAL_SET_DATETIME(pVal, curVal); \
+  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_REAL2) \
+    DBVAL_SET_DOUBLE(pVal, (curVal / 100.0)); \
+  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_REAL3) \
+    DBVAL_SET_DOUBLE(pVal, (curVal / 1000.0)); \
+  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_REAL4) \
+    DBVAL_SET_DOUBLE(pVal, (curVal / 10000.0)); \
+  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_REAL6) \
+    DBVAL_SET_DOUBLE(pVal, (curVal / 1000000.0)); \
+} while(false)
 
-  if (recCnt_ == 0)
+  pBuf = Coding::VarintDecode64(pBuf, pLimit, &tmpVal);
+  curVal = Coding::ZigzagDecode64(tmpVal);
+  SetInnerIntValue;
+
+  if constexpr (IsAsc)
+    pVal++;
+  else
+    pVal--;
+
+  if (pBuf == nullptr)
+    return PdbE_RECORD_FAIL;
+
+  if (valCnt == 1)
     return PdbE_OK;
 
-  while (lwr <= upr)
-  {
-    idx = (lwr + upr) / 2;
-    curTs = DBVAL_ELE_GET_DATETIME(pAllVals_, idx);
+  preVal = curVal;
+  pBuf = Coding::VarintDecode64(pBuf, pLimit, &tmpVal);
+  delta = Coding::ZigzagDecode64(tmpVal);
+  curVal = preVal + delta;
+  SetInnerIntValue;
 
-    if (tstamp == curTs)
-      break;
-    else if (tstamp < curTs)
-      upr = idx - 1;
+  if constexpr (IsAsc)
+    pVal++;
+  else
+    pVal--;
+
+  if (pBuf == nullptr)
+    return PdbE_RECORD_FAIL;
+  
+  preDelta = curVal - preVal;
+  preVal = curVal;
+  for (size_t idx = 2; idx < valCnt; idx++)
+  {
+    pBuf = Coding::VarintDecode64(pBuf, pLimit, &tmpVal);
+    delta = Coding::ZigzagDecode64(tmpVal);
+    curVal = preVal + preDelta + delta;
+
+    SetInnerIntValue;
+
+    if constexpr (IsAsc)
+      pVal++;
     else
-      lwr = idx + 1;
+      pVal--;
+
+    if (pBuf == nullptr)
+      return PdbE_RECORD_FAIL;
+
+    preDelta = curVal - preVal;
+    preVal = curVal;
   }
 
-  curIdx_ = idx;
+#undef SetInnerIntValue
+
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::SeekToFirst()
+template<bool IsAsc>
+PdbErr_t CompDataPart::DecodeFloatVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit)
 {
-  curIdx_ = 0;
-  return PdbE_OK;
-}
+  uint32_t u32Val = 0;
+  uint32_t u32Tmp = 0;
+  uint8_t u8 = 0;
 
-PdbErr_t CompDataPart::CompDataIter::SeekToLast()
-{
-  curIdx_ = recCnt_ - 1;
-  return PdbE_OK;
-}
+  DBVal* pVal = IsAsc ? pValsBg : (pValsBg + valCnt - 1);
 
-PdbErr_t CompDataPart::CompDataIter::Next()
-{
-  curIdx_++;
-  return PdbE_OK;
-}
-
-PdbErr_t CompDataPart::CompDataIter::Prev()
-{
-  curIdx_--;
-  return PdbE_OK;
-}
-
-DBVal* CompDataPart::CompDataIter::GetRecord()
-{
-  if (curIdx_ >= 0 && curIdx_ < recCnt_)
+  for (size_t idx = 0; idx < valCnt; idx++)
   {
-    const DBVal* pValsBg = pAllVals_;
+    u32Tmp = 0;
+    u8 = *pBuf++;
 
-    for (size_t idx = PDB_TSTAMP_INDEX; idx < fieldCnt_; idx++)
+    if ((u8 & 0x8) != 0)
     {
-      if (pFieldPos_[idx] > 0)
-      {
-        pQueryVals_[pFieldPos_[idx]] = pValsBg[curIdx_];
-        pValsBg += recCnt_;
-      }
+      pBuf = Coding::VarintDecode32(pBuf, pLimit, &u32Tmp);
+      if (pBuf == nullptr)
+        return PdbE_RECORD_FAIL;
     }
 
-    return pQueryVals_;
+    u32Tmp = ((u32Tmp) << 3) | (u8 & 0x7);
+    u32Tmp <<= (((u8 & 0xF0) >> 4) * 2);
+
+    u32Val ^= u32Tmp;
+    DBVAL_SET_FLOAT(pVal, Coding::DecodeFloat(u32Val));
+
+    if constexpr (IsAsc)
+      pVal++;
+    else
+      pVal--;
   }
 
-  return nullptr;
-}
-
-PdbErr_t CompDataPart::CompDataIter::DecodeTstampVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
-{
-  uint64_t u64 = 0;
-  int64_t tstamp = 0;
-  for (int i = 0; i < recCnt_; i++)
-  {
-    pBuf = Coding::VarintDecode64(pBuf, pLimit, &u64);
-    tstamp += u64;
-    DBVAL_ELE_SET_DATETIME(pValBg, i, tstamp);
-  }
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeBoolVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
-{
-  for (int i = 0; i < recCnt_; i++)
-  {
-    DBVAL_ELE_SET_BOOL(pValBg, i, (BIT_MAP_IS_SET(pBuf, i) != 0));
-  }
-  return PdbE_OK;
-}
-
-PdbErr_t CompDataPart::CompDataIter::DecodeBigIntVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
-{
-  uint64_t u64 = 0;
-  int64_t i64 = 0;
-  for (int i = 0; i < recCnt_; i++)
-  {
-    pBuf = Coding::VarintDecode64(pBuf, pLimit, &u64);
-    i64 += Coding::ZigzagDecode64(u64);
-
-    DBVAL_ELE_SET_INT64(pValBg, i, i64);
-  }
-  return PdbE_OK;
-}
-
-PdbErr_t CompDataPart::CompDataIter::DecodeDateTimeVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
-{
-  uint64_t u64 = 0;
-  int64_t i64 = 0;
-  for (int i = 0; i < recCnt_; i++)
-  {
-    pBuf = Coding::VarintDecode64(pBuf, pLimit, &u64);
-    i64 += Coding::ZigzagDecode64(u64);
-
-    DBVAL_ELE_SET_DATETIME(pValBg, i, i64);
-  }
-  return PdbE_OK;
-}
-
-PdbErr_t CompDataPart::CompDataIter::DecodeDoubleVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
+template<bool IsAsc>
+PdbErr_t CompDataPart::DecodeDoubleVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit)
 {
   uint64_t u64Val = 0;
   uint64_t u64Tmp = 0;
   uint8_t u8 = 0;
 
-  for (int i = 0; i < recCnt_; i++)
+  DBVal* pVal = IsAsc ? pValsBg : (pValsBg + valCnt - 1);
+
+  for (size_t idx = 0; idx < valCnt; idx++)
   {
     u64Tmp = 0;
-    u8 = *pBuf;
-    pBuf++;
+    u8 = *pBuf++;
 
     if ((u8 & 0x4) != 0)
     {
       pBuf = Coding::VarintDecode64(pBuf, pLimit, &u64Tmp);
+      if (pBuf == nullptr)
+        return PdbE_RECORD_FAIL;
     }
 
-    u64Tmp = ((u64Tmp << 2) | (u8 & 0x3));
+    u64Tmp = (((u64Tmp) << 2) | (u8 & 0x3));
     u64Tmp <<= (((u8 & 0xF8) >> 3) * 2);
 
     u64Val ^= u64Tmp;
-    DBVAL_ELE_SET_DOUBLE_FOR_UINT64(pValBg, i, u64Val);
+    DBVAL_SET_DOUBLE(pVal, Coding::DecodeDouble(u64Val));
+
+    if constexpr (IsAsc)
+      pVal++;
+    else
+      pVal--;
   }
 
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeStringVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
+template<bool IsAsc, int FieldType>
+PdbErr_t CompDataPart::DecodeBlockVals(DBVal* pValsBg, size_t valCnt, const char* pBuf, const char* pLimit, Arena& arena)
 {
   uint32_t u32 = 0;
+  char* pData = nullptr;
 
-  for (int i = 0; i < recCnt_; i++)
+  DBVal* pVal = IsAsc ? pValsBg : (pValsBg + valCnt - 1);
+  for (size_t idx = 0; idx < valCnt; idx++)
   {
     pBuf = Coding::VarintDecode32(pBuf, pLimit, &u32);
-    DBVAL_ELE_SET_STRING(pValBg, i, pBuf, u32);
+    if (u32 > 0)
+    {
+      pData = arena.Allocate(u32);
+      memcpy(pData, pBuf, u32);
+
+      if (FieldType == PDB_FIELD_TYPE::TYPE_STRING)
+        DBVAL_SET_STRING(pVal, pData, u32);
+      else
+        DBVAL_SET_BLOB(pVal, pData, u32);
+    }
+    else
+    {
+      if (FieldType == PDB_FIELD_TYPE::TYPE_STRING)
+        DBVAL_SET_STRING(pVal, nullptr, 0);
+      else
+        DBVAL_SET_BLOB(pVal, nullptr, 0);
+    }
+
     pBuf += u32;
+
+    if constexpr (IsAsc)
+      pVal++;
+    else
+      pVal--;
   }
 
   return PdbE_OK;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeBlobVals(DBVal* pValBg, const char* pBuf, const char* pLimit)
+
+const std::vector<FieldInfo>& CompDataPart::GetFieldInfoVec() const
 {
-  uint32_t u32 = 0;
-
-  for (int i = 0; i < recCnt_; i++)
-  {
-    pBuf = Coding::VarintDecode32(pBuf, pLimit, &u32);
-    DBVAL_ELE_SET_BLOB(pValBg, i, pBuf, u32);
-    pBuf += u32;
-  }
-
-  return PdbE_OK;
+  return fieldInfoVec_;
 }
 
-PdbErr_t CompDataPart::CompDataIter::DecodeRealVals(DBVal* pValBg, const char* pBuf, const char* pLimit, double multiple)
+const std::vector<size_t>& CompDataPart::GetFieldPosVec() const
 {
-  int64_t i64 = 0;
-  uint64_t u64 = 0;
-
-  for (int i = 0; i < recCnt_; i++)
-  {
-    pBuf = Coding::VarintDecode64(pBuf, pLimit, &u64);
-    i64 += Coding::ZigzagDecode64(u64);
-    DBVAL_ELE_SET_DOUBLE(pValBg, i, (i64 / multiple));
-  }
-
-  return PdbE_OK;
+  return fieldPosVec_;
 }
-
-
-
-

@@ -1,3 +1,19 @@
+/*
+* Copyright (c) 2020 ChangSha JuSong Soft Inc. <service@pinusdb.cn>.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; version 3 of the License.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program; If not, see <http://www.gnu.org/licenses>
+*/
+
 #include "expr/expr_value.h"
 #include "expr/parse.h"
 #include "util/string_tool.h"
@@ -121,19 +137,19 @@ ExprValue* ExprValue::MakeTimeValue(bool negative, Token* pVal, Token* pUnit)
     {
     case 's':
     case 'S':
-      tmpVal *= MillisPerSecond;
+      tmpVal *= DateTime::MicrosecondPerSecond;
       break;
     case 'm':
     case 'M':
-      tmpVal *= MillisPerMinute;
+      tmpVal *= DateTime::MicrosecondPerMinute;
       break;
     case 'h':
     case 'H':
-      tmpVal *= MillisPerHour;
+      tmpVal *= DateTime::MicrosecondPerHour;
       break;
     case 'd':
     case 'D':
-      tmpVal *= MillisPerDay;
+      tmpVal *= DateTime::MicrosecondPerDay;
       break;
     default:
       return pNew;

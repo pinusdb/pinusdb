@@ -11,11 +11,15 @@ class ByteStream {
 	private List<ByteBuffer> bufList_;
 
 	private final byte DType_Bool = (byte)1;
-	private final byte DType_Long = (byte)2;
-	private final byte DType_DateTime = (byte)3;
-	private final byte DType_Double = (byte)4;
-	private final byte DType_String = (byte)5;
-	private final byte DType_Blob = (byte)6;
+	private final byte DType_TinyInt = (byte)2;
+	private final byte DType_SmallInt = (byte)3;
+	private final byte DType_Int = (byte)4;
+	private final byte DType_Long = (byte)5;
+	private final byte DType_DateTime = (byte)6;
+	private final byte DType_Float = (byte)7;
+	private final byte DType_Double = (byte)8;
+	private final byte DType_String = (byte)9;
+	private final byte DType_Blob = (byte)10;
 	
 	ByteStream(){
 		curBuf_ = null;
@@ -66,18 +70,51 @@ class ByteStream {
 		write(buf, 0, 2);
 	}
 	
+	void writeTinyInt(byte val) {
+		byte[] buf = new byte[11];
+		buf[0] = (byte)DType_TinyInt;
+		int offset = writeVarint64(buf, 1, encodeZigZag64(val));
+		write(buf, 0, offset);
+	}
+	
+	void writeSmallInt(short val) {
+		byte[] buf = new byte[11];
+		buf[0] = (byte)DType_SmallInt;
+		int offset = writeVarint64(buf, 1, encodeZigZag64(val));
+		write(buf, 0, offset);
+	}
+	
+	void writeInt(int val) {
+		byte[] buf = new byte[11];
+		buf[0] = (byte)DType_Int;
+		int offset = writeVarint64(buf, 1, encodeZigZag64(val));
+		write(buf, 0, offset);
+	}
+	
 	void writeLong(long val) {
-		byte[] buf = new byte[10];
+		byte[] buf = new byte[11];
 		buf[0] = (byte)DType_Long;
 		int offset =writeVarint64(buf, 1, encodeZigZag64(val));
 		write(buf, 0, offset);
 	}
 	
 	void writeDateTime(Timestamp ts) {
-		byte[] buf = new byte[10];
+		byte[] buf = new byte[11];
 		buf[0] = (byte)DType_DateTime;
-		int offset = writeVarint64(buf, 1, ts.getTime());
+		long tsval = ts.getTime() * 1000 + (ts.getNanos() / 1000) % 1000;
+		int offset = writeVarint64(buf, 1, encodeZigZag64(tsval));
 		write(buf, 0, offset);
+	}
+	
+	void writeFloat(float val) {
+		byte[] buf= new byte[5];
+		buf[0] = (byte)DType_Float;
+		int tmpVal = Float.floatToRawIntBits(val);
+		buf[1] = (byte)(tmpVal & 0xFF);
+		buf[2] = (byte)((tmpVal >> 8) & 0xFF);
+		buf[3] = (byte)((tmpVal >> 16) & 0xFF);
+		buf[4] = (byte)((tmpVal >> 24) & 0xFF);
+		write(buf, 0, 5);
 	}
 	
 	void writeDouble(double val) {

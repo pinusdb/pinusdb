@@ -281,7 +281,7 @@ PdbErr_t TableConfig::QueryTable(IQuery* pQuery)
   {
     DBVAL_ELE_SET_STRING(vals, 0, sysTabNames[sysTabIdx], strlen(sysTabNames[sysTabIdx]));
 
-    retVal = pQuery->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendSingle(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
 
@@ -298,7 +298,7 @@ PdbErr_t TableConfig::QueryTable(IQuery* pQuery)
 
     DBVAL_ELE_SET_STRING(vals, 0, tabName.c_str(), tabName.size());
 
-    retVal = pQuery->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendSingle(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
 
@@ -341,7 +341,7 @@ PdbErr_t TableConfig::QueryPart(IQuery* pQuery)
         DBVAL_ELE_SET_STRING(vals, 2, nullptr, 0);
       }
 
-      retVal = pQuery->AppendData(vals, valCnt, nullptr);
+      retVal = pQuery->AppendSingle(vals, valCnt, nullptr);
       if (retVal != PdbE_OK)
         return retVal;
 

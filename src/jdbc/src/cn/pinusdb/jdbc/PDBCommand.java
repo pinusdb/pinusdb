@@ -145,10 +145,18 @@ public class PDBCommand {
 		for(Object val : valList) {
 			if (val instanceof Boolean) {
 				packetStream.writeBoolean((Boolean)val);
+			} else if (val instanceof Byte) {
+				packetStream.writeTinyInt((Byte)val);
+			} else if (val instanceof Short) {
+				packetStream.writeSmallInt((Short)val);
+			} else if (val instanceof Integer) {
+				packetStream.writeInt((Integer)val);
 			} else if (val instanceof Long) {
 				packetStream.writeLong((Long)val);
 			} else if (val instanceof Timestamp) {
 				packetStream.writeDateTime((Timestamp)val);
+			} else if (val instanceof Float) {
+				packetStream.writeFloat((Float)val);
 			} else if (val instanceof Double) {
 				packetStream.writeDouble((Double)val);
 			} else if (val instanceof String) {
@@ -249,10 +257,18 @@ public class PDBCommand {
 				ColumnInfo colInfo = null;
 				if (partArr[0].compareTo("bool") == 0) {
 					colInfo = new ColumnInfo(partArr[1], PDBDataType.PDB_Bool);
+				} else if (partArr[0].compareTo("tinyint") == 0) {
+					colInfo = new ColumnInfo(partArr[1], PDBDataType.PDB_TinyInt);
+				} else if (partArr[0].compareTo("smallint") == 0) {
+					colInfo = new ColumnInfo(partArr[1], PDBDataType.PDB_SmallInt);
+				} else if (partArr[0].compareTo("int") == 0) {
+					colInfo = new ColumnInfo(partArr[1], PDBDataType.PDB_Int);
 				} else if (partArr[0].compareTo("bigint") == 0) {
 					colInfo = new ColumnInfo(partArr[1], PDBDataType.PDB_BigInt);
 				} else if (partArr[0].compareTo("datetime") == 0) {
 					colInfo = new ColumnInfo(partArr[1], PDBDataType.PDB_DateTime);
+				} else if (partArr[0].compareTo("float") == 0) {
+					colInfo = new ColumnInfo(partArr[1], PDBDataType.PDB_Float);
 				} else if (partArr[0].compareTo("double") == 0) {
 					colInfo = new ColumnInfo(partArr[1], PDBDataType.PDB_Double);
 				} else if (partArr[0].compareTo("string") == 0) {
@@ -290,11 +306,15 @@ public class PDBCommand {
 			switch(valType) {
 			case 0: break;
 			case 1: objVal = binReader.readBoolean(); break;
-			case 2: objVal = binReader.readLongByVarint(); break;
-			case 3: objVal = binReader.readDateTime(); break;
-			case 4: objVal = binReader.readDouble(); break;
-			case 5: objVal = binReader.readString(); break;
-			case 6: objVal = binReader.readBlob(); break;
+			case 2: objVal = binReader.readTinyInt(); break;
+			case 3: objVal = binReader.readSmallInt(); break;
+			case 4: objVal = binReader.readInt(); break;
+			case 5: objVal = binReader.readLongByVarint(); break;
+			case 6: objVal = binReader.readDateTime(); break;
+			case 7: objVal = binReader.readFloat(); break;
+			case 8: objVal = binReader.readDouble(); break;
+			case 9: objVal = binReader.readString(); break;
+			case 10: objVal = binReader.readBlob(); break;
 			default:
 				throw new SQLException("±¨ÎÄ´íÎó", "58005", PDBErrCode.PdbE_PACKET_ERROR);
 			}

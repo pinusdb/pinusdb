@@ -1,3 +1,19 @@
+/*
+* Copyright (c) 2020 ChangSha JuSong Soft Inc. <service@pinusdb.cn>.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; version 3 of the License.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program; If not, see <http://www.gnu.org/licenses>
+*/
+
 #include "env.h"
 #include "util/log_util.h"
 #include <algorithm>
@@ -141,9 +157,6 @@ public:
     if (fd_ < 0)
       return PdbE_INVALID_HANDLE;
 
-    int retryCnt = 0;
-    size_t needWrite = bytes;
-    ssize_t ret = 0;
     const char* pTmp = pBuf;
     
     while (bytes > 0) {
@@ -171,7 +184,7 @@ public:
       return PdbE_INVALID_HANDLE;
 
     ssize_t ret = pread(fd_, pBuf, bytes, offset);
-    if (ret == bytes)
+    if (ret == (ssize_t)bytes)
       return PdbE_OK;
     
     LOG_ERROR("failed to read({}) offset({}) count({}) pBuf({}) err:{}",
@@ -539,7 +552,6 @@ public:
   {
     DIR* pDir = nullptr;
     struct dirent* ptr = nullptr;
-    char base[1000];
 
     if ((pDir = opendir(pPath)) == nullptr) {
       return PdbE_IOERR;

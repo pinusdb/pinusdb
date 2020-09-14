@@ -258,7 +258,7 @@ PdbErr_t UserConfig::Query(IQuery* pQuery)
     DBVAL_ELE_SET_STRING(vals, 0, userName.c_str(), userName.size());
     DBVAL_ELE_SET_STRING(vals, 1, roleName.c_str(), roleName.size());
 
-    retVal = pQuery->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendSingle(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       break;
 

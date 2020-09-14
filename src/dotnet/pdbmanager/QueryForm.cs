@@ -66,7 +66,7 @@ namespace PDBManager
             colHeader.TextAlign = HorizontalAlignment.Right;
 
           if (colInfo.DataType == typeof(DateTime))
-            colHeader.Width = 160;
+            colHeader.Width = 180;
           else if (colInfo.DataType == typeof(string))
             colHeader.Width = 120;
           else
@@ -249,8 +249,8 @@ namespace PDBManager
         return ((short)obj).ToString();
       else if (obj is int)
         return ((int)obj).ToString();
-      else if (obj is Int64)
-        return ((Int64)obj).ToString();
+      else if (obj is long)
+        return ((long)obj).ToString();
       else if (obj is float)
         return ((float)obj).ToString();
       else if (obj is double)
@@ -258,7 +258,7 @@ namespace PDBManager
       else if (obj is string)
         return ((string)obj).ToString();
       else if (obj is DateTime)
-        return ((DateTime)obj).ToString("yyyy-MM-dd HH:mm:ss.fff");
+        return ((DateTime)obj).ToString("yyyy-MM-dd HH:mm:ss.ffffff");
       else if (obj is byte[])
       {
         StringBuilder blobBuilder = new StringBuilder();

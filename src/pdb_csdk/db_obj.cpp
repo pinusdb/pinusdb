@@ -48,10 +48,38 @@ void DBObj::AppendVal(bool val)
   fieldVec_.push_back(tmpVal);
 }
 
+void DBObj::AppendVal(int8_t val)
+{
+  DBVal tmpVal;
+  DBVAL_SET_INT8(&tmpVal, val);
+  fieldVec_.push_back(tmpVal);
+}
+
+void DBObj::AppendVal(int16_t val)
+{
+  DBVal tmpVal;
+  DBVAL_SET_INT16(&tmpVal, val);
+  fieldVec_.push_back(tmpVal);
+}
+
+void DBObj::AppendVal(int32_t val)
+{
+  DBVal tmpVal;
+  DBVAL_SET_INT32(&tmpVal, val);
+  fieldVec_.push_back(tmpVal);
+}
+
 void DBObj::AppendVal(int64_t val)
 {
   DBVal tmpVal;
   DBVAL_SET_INT64(&tmpVal, val);
+  fieldVec_.push_back(tmpVal);
+}
+
+void DBObj::AppendVal(float val)
+{
+  DBVal tmpVal;
+  DBVAL_SET_FLOAT(&tmpVal, val);
   fieldVec_.push_back(tmpVal);
 }
 
@@ -167,13 +195,30 @@ PdbErr_t DBObj::ParseTrans(size_t fieldCnt, const char* pData,
       AppendVal((*pTmp == PDB_BOOL_TRUE));
       pTmp++;
       break;
+    case PDB_VALUE_TYPE::VAL_INT8:
+      pTmp = Coding::VarintDecode64(pTmp, pLimit, &v64);
+      AppendVal(static_cast<int8_t>(Coding::ZigzagDecode64(v64)));
+      break;
+    case PDB_VALUE_TYPE::VAL_INT16:
+      pTmp = Coding::VarintDecode64(pTmp, pLimit, &v64);
+      AppendVal(static_cast<int16_t>(Coding::ZigzagDecode64(v64)));
+      break;
+    case PDB_VALUE_TYPE::VAL_INT32:
+      pTmp = Coding::VarintDecode64(pTmp, pLimit, &v64);
+      AppendVal(static_cast<int32_t>(Coding::ZigzagDecode64(v64)));
+      break;
     case PDB_VALUE_TYPE::VAL_INT64:
       pTmp = Coding::VarintDecode64(pTmp, pLimit, &v64);
       AppendVal(Coding::ZigzagDecode64(v64));
       break;
     case PDB_VALUE_TYPE::VAL_DATETIME:
       pTmp = Coding::VarintDecode64(pTmp, pLimit, &v64);
-      AppendDateTime((int64_t)v64);
+      AppendDateTime(Coding::ZigzagDecode64(v64));
+      break;
+    case PDB_VALUE_TYPE::VAL_FLOAT:
+      v32 = Coding::FixedDecode32(pTmp);
+      AppendVal(Coding::DecodeFloat(v32));
+      pTmp += sizeof(float);
       break;
     case PDB_VALUE_TYPE::VAL_DOUBLE:
       v64 = Coding::FixedDecode64(pTmp);

@@ -55,64 +55,36 @@ public:
   virtual size_t GetDirtyPageCnt() { return dirtyList_.size(); }
 
 protected:
-  virtual PdbErr_t QueryDevAsc(int64_t devId, void* pQueryParam,
+  virtual PdbErr_t QueryDevAsc(int64_t devId, const DataPartQueryParam& queryParam,
     IQuery* pQuery, uint64_t timeOut, bool queryFirst, bool* pIsAdd);
-  virtual PdbErr_t QueryDevDesc(int64_t devId, void* pQueryParam,
+  virtual PdbErr_t QueryDevDesc(int64_t devId, const DataPartQueryParam& queryParam,
     IQuery* pQuery, uint64_t timeOut, bool queryLast, bool* pIsAdd);
-  virtual PdbErr_t QueryDevSnapshot(int64_t devId, void* pQueryParam,
+  virtual PdbErr_t QueryDevSnapshot(int64_t devId, const DataPartQueryParam& queryParam,
     IQuery* pQuery, uint64_t timeOut, bool* pIsAdd);
+
+  template<bool IsAsc, bool IsSnapshot>
+  PdbErr_t QueryDevData(int64_t devId, const DataPartQueryParam& queryParam,
+    IQuery* pQuery, uint64_t timeOut, bool querySingle, bool* pIsAdd);
+
+  template<bool QuerySingle, bool IsAsc, bool IsSnapshot>
+  PdbErr_t TraversalDataPage(const NormalDataPage* pDataPage, int64_t devId,
+    const DataPartQueryParam& queryParam, IQuery* pQuery, bool* pIsAdd);
+
+  PdbErr_t DumpToCompPartId(int64_t devId, CompPartBuilder* pPartBuilder);
 
   PdbErr_t GetPage(int32_t pageNo, PageRef* pPageRef);
   PdbErr_t AllocPage(PageRef* pPageRef);
   PdbErr_t WritePages(const std::vector<PageHdr*>& hdrVec, OSFile* pDwFile);
 
-  virtual void* InitQueryParam(const TableInfo* pQueryInfo, int64_t bgTs, int64_t edTs);
-  virtual void ClearQueryParam(void* pQueryParam);
-
-  class PageDataIter
-  {
-  public:
-    PageDataIter();
-    ~PageDataIter();
-
-    PdbErr_t Init(const std::vector<FieldInfo>& fieldVec,
-      int* pFieldPos, size_t queryFieldCnt, int64_t bgTs, int64_t edTs);
-    PdbErr_t InitForDump(const std::vector<FieldInfo>& fieldVec);
-    PdbErr_t Load(PageHdr* pHdr);
-    bool Valid() const;
-    PdbErr_t SeekTo(int64_t tstamp);
-    PdbErr_t SeekToFirst();
-    PdbErr_t SeekToLast();
-    PdbErr_t Next();
-    PdbErr_t Prev();
-
-    size_t GetFieldCnt() const { return fieldCnt_; }
-    int64_t GetBgTs() const { return bgTs_; }
-    int64_t GetEdTs() const { return edTs_; }
-    DBVal* GetRecord();
-
-  private:
-    Arena arena_;
-    size_t fieldCnt_;
-    int* pTypes_;
-    int* pFieldPos_;
-    DBVal* pQueryVals_;
-    int64_t bgTs_;
-    int64_t edTs_;
-
-    PageHdr* pHdr_;
-    NormalDataPage normalPage_;
-    int64_t devId_;
-    size_t curIdx_;
-  };
-
-  PdbErr_t DumpToCompPartId(int64_t devId, PageDataIter* pDataIter, CompPartBuilder* pPartBuilder);
-
+  const std::vector<FieldInfo>& GetFieldInfoVec() const override { return fieldInfoVec_; }
+  const std::vector<size_t>& GetFieldPosVec() const override { return fieldPosVec_; }
+  
 private:
   std::mutex allocPageMutex_;
   std::mutex dirtyMutex_;
   std::list<PageHdr*> dirtyList_;
-  std::vector<FieldInfo> fieldVec_;
+  std::vector<FieldInfo> fieldInfoVec_;
+  std::vector<size_t> fieldPosVec_;
   uint32_t partMetaCode_;
   bool readOnly_;
 

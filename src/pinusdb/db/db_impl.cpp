@@ -296,7 +296,7 @@ PdbErr_t DBImpl::RecoverDataLog()
         tabCrc = rec->tabCrc;
       }
 
-      Coding::VarintDecode64((rec->pRec + 2), (rec->pRec + rec->recLen), &tstamp);
+      tstamp = Coding::FixedDecode64((rec->pRec + 2));
       retVal = pTab->InsertByDataLog(rec->metaCrc, rec->devId, tstamp, rec->pRec, rec->recLen);
       if (retVal != PdbE_OK && retVal != PdbE_TABLE_FIELD_MISMATCH)
       {

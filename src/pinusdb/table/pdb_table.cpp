@@ -27,6 +27,8 @@
 #include "storage/normal_data_part.h"
 #include "storage/comp_data_part.h"
 
+const uint64_t TicksPerSecond = 1000;
+
 bool PartComp(const DataPart* pA, const DataPart* pB)
 {
   return pA->GetPartCode() < pB->GetPartCode();
@@ -183,11 +185,11 @@ PdbErr_t PDBTable::RecoverDW()
         return retVal;
 
       NormalDataHead* pPageHead = (NormalDataHead*)pPageBuf;
-      uint32_t fileCrc = StringTool::CRC32(pPageBuf, 
-        (NORMAL_PAGE_SIZE * SYNC_PAGE_CNT - sizeof(uint32_t)), sizeof(uint32_t));
-      if (pPageHead->pageCrc_ != 0 && fileCrc == pPageHead->pageCrc_)
+      uint32_t fileCrc = StringTool::CRC32(pPageBuf, (NORMAL_PAGE_SIZE * SYNC_PAGE_CNT - sizeof(uint32_t)), sizeof(uint32_t));
+      uint32_t firstPageCrc = NormalDataHead_GetPageCrc(pPageHead);
+      if (firstPageCrc != 0 && fileCrc == firstPageCrc)
       {
-        int32_t partCode = static_cast<int32_t>(pPageHead->idxTs_ / MillisPerDay);
+        int32_t partCode = static_cast<int32_t>(NormalDataHead_GetIdxTs(pPageHead) / DateTime::MicrosecondPerDay);
         UPDATE_NORMAL_DATA_PAGE_CRC(pPageHead);
         DataPart* pDataPart = GetDataPart(partCode, &partRef);
         if (pDataPart != nullptr)
@@ -442,53 +444,26 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
   if (retVal != PdbE_OK)
     return retVal;
 
-  int32_t fieldType = 0;
   uint32_t tabMetaCode = pTabInfo->GetMetaCode();
-  size_t fieldCnt = pTabInfo->GetFieldCnt();
 
   std::string recBuf;
-  std::vector<DBVal> valsVec;
-  valsVec.resize(fieldCnt);
-  recBuf.reserve(PDB_MAX_REC_LEN);
-
-  DBVal* pVals = valsVec.data();
-  //将所有字段设置为默认值
-  memset(pVals, 0, sizeof(DBVal) * fieldCnt);
-  for (size_t i = 0; i < fieldCnt; i++)
-  {
-    pTabInfo->GetFieldInfo(i, &fieldType);
-    switch (fieldType)
-    {
-    case PDB_FIELD_TYPE::TYPE_BOOL: DBVAL_ELE_SET_BOOL(pVals, i, false); break;
-    case PDB_FIELD_TYPE::TYPE_INT64: DBVAL_ELE_SET_INT64(pVals, i, 0); break;
-    case PDB_FIELD_TYPE::TYPE_DATETIME: DBVAL_ELE_SET_DATETIME(pVals, i, 0); break;
-    case PDB_FIELD_TYPE::TYPE_DOUBLE: DBVAL_ELE_SET_DOUBLE(pVals, i, 0); break;
-    case PDB_FIELD_TYPE::TYPE_STRING: DBVAL_ELE_SET_STRING(pVals, i, nullptr, 0); break;
-    case PDB_FIELD_TYPE::TYPE_BLOB: DBVAL_ELE_SET_BLOB(pVals, i, nullptr, 0); break;
-    }
-  }
-
-  int32_t invalidDays = pGlbSysCfg->GetInsertValidDay();
-  int64_t invalidTstampBg = (DateTime::NowDayCode() - invalidDays) * MillisPerDay;
-  int64_t invalidTstampEd = invalidTstampBg + invalidDays * MillisPerDay * 2 + MillisPerDay;
+  int64_t invalidDays = pGlbSysCfg->GetInsertValidDay();
+  int64_t invalidTstampBg = (DateTime::NowDayCode() - invalidDays) * DateTime::MicrosecondPerDay;
+  int64_t invalidTstampEd = invalidTstampBg + invalidDays * DateTime::MicrosecondPerDay * 2 + DateTime::MicrosecondPerDay;
 
   int64_t devId = 0;
   int64_t tstamp = 0;
   DataPart* pDataPart = nullptr;
-  uint16_t recLen = 0;
   int curPartDay = -1;
   int curRecDay = 0;
   while (!pInsertSql->IsEnd() && glbRunning)
   {
-    retVal = pInsertSql->GetNextRec(pVals, fieldCnt);
+    retVal = pInsertSql->GetNextRecBinary(recBuf, devId, tstamp);
     if (retVal != PdbE_OK)
     {
       LOG_DEBUG("failed to insert record, get next record error {}", retVal);
       INSERT_REC_ERROR_OCCUR;
     }
-
-    devId = DBVAL_ELE_GET_INT64(pVals, PDB_DEVID_INDEX);
-    tstamp = DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX);
 
     //判断时间戳是否有效
     if (tstamp < invalidTstampBg || tstamp > invalidTstampEd)
@@ -504,40 +479,7 @@ PdbErr_t PDBTable::Insert(InsertSql* pInsertSql,
       INSERT_REC_ERROR_OCCUR;
     }
 
-    recBuf.resize(2);
-    for (size_t i = PDB_TSTAMP_INDEX; i < fieldCnt; i++)
-    {
-      switch (DBVAL_ELE_GET_TYPE(pVals, i))
-      {
-      case PDB_VALUE_TYPE::VAL_BOOL:
-        Coding::PutVarint64(&recBuf, (DBVAL_ELE_GET_BOOL(pVals, i) ? PDB_BOOL_TRUE : PDB_BOOL_FALSE));
-        break;
-      case PDB_VALUE_TYPE::VAL_INT64:
-        Coding::PutVarint64(&recBuf, Coding::ZigzagEncode64(DBVAL_ELE_GET_INT64(pVals, i)));
-        break;
-      case PDB_VALUE_TYPE::VAL_DATETIME:
-        Coding::PutVarint64(&recBuf, DBVAL_ELE_GET_INT64(pVals, i));
-        break;
-      case PDB_VALUE_TYPE::VAL_DOUBLE:
-        Coding::PutFixed64(&recBuf, DBVAL_ELE_GET_UINT64(pVals, i));
-        break;
-      case PDB_VALUE_TYPE::VAL_STRING:
-      case PDB_VALUE_TYPE::VAL_BLOB:
-        Coding::PutVarint64(&recBuf, DBVAL_ELE_GET_LEN(pVals, i));
-        recBuf.append(DBVAL_ELE_GET_STRING(pVals, i), DBVAL_ELE_GET_LEN(pVals, i));
-        break;
-      }
-    }
-
-    if (recBuf.size() >= PDB_MAX_REC_LEN)
-    {
-      retVal = PdbE_RECORD_TOO_LONG;
-      INSERT_REC_ERROR_OCCUR;
-    }
-
-    Coding::FixedEncode16(&(recBuf[0]), static_cast<uint16_t>(recBuf.size()));
-
-    curRecDay = static_cast<int32_t>(tstamp / MillisPerDay);
+    curRecDay = static_cast<int32_t>(tstamp / DateTime::MicrosecondPerDay);
     if (curPartDay != curRecDay)
     {
       retVal = GetOrCreateNormalPart(curRecDay, &partRef);
@@ -583,7 +525,7 @@ PdbErr_t PDBTable::InsertByDataLog(uint32_t metaCode, int64_t devId,
   int64_t tstamp, const char* pRec, size_t recLen)
 {
   RefUtil partRef;
-  int32_t recDay = static_cast<int32_t>(tstamp / MillisPerDay);
+  int32_t recDay = static_cast<int32_t>(tstamp / DateTime::MicrosecondPerDay);
   DataPart* pDataPart = GetDataPart(recDay, &partRef);
   if (pDataPart != nullptr)
     return pDataPart->InsertRec(metaCode, devId, tstamp, true, pRec, recLen);
@@ -611,7 +553,7 @@ PdbErr_t PDBTable::InsertByReplicate(std::vector<LogRecInfo>& recVec, size_t beg
       if (nullptr != Coding::VarintDecode64((recVec[idx].pRec + 2),
         (recVec[idx].pRec + recVec[idx].recLen), &tstamp))
       {
-        tmpCode = static_cast<int32_t>(tstamp / MillisPerDay);
+        tmpCode = static_cast<int32_t>(tstamp / DateTime::MicrosecondPerDay);
         if (pDataPart == nullptr || partCode != tmpCode)
         {
           retVal = GetOrCreateNormalPart(tmpCode, &partRef);
@@ -654,7 +596,6 @@ PdbErr_t PDBTable::InsertByReplicate(std::vector<LogRecInfo>& recVec, size_t beg
 PdbErr_t PDBTable::ExecQuery(const QueryParam* pQueryParam,
   std::string& resultData, uint32_t* pFieldCnt, uint32_t* pRecordCnt)
 {
-  PdbErr_t retVal = PdbE_OK;
   bool groupQuery = false;
   if (pQueryParam == nullptr)
     return PdbE_INVALID_PARAM;
@@ -716,7 +657,7 @@ PdbErr_t PDBTable::ExecQuerySnapshot(const QueryParam* pQueryParam,
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabInfoRef;
-  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * TicksPerSecond;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
   if (pQueryParam->pGroup_ != nullptr)
@@ -941,7 +882,7 @@ PdbErr_t PDBTable::ExecQueryGroupAll(const QueryParam* pQueryParam,
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabInfoRef;
-  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * TicksPerSecond;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
   QueryGroupAll* pGroupQuery = new QueryGroupAll();
   std::list<int64_t> devIdList;
@@ -988,7 +929,7 @@ PdbErr_t PDBTable::ExecQueryGroupDevId(const QueryParam* pQueryParam,
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabInfoRef;
-  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * TicksPerSecond;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
   QueryGroupDevID* pGroupQuery = new QueryGroupDevID();
   std::list<int64_t> devIdList;
@@ -1040,7 +981,7 @@ PdbErr_t PDBTable::ExecQueryGroupTstamp(const QueryParam* pQueryParam,
 {
   PdbErr_t retVal = PdbE_OK;
   RefUtil tabInfoRef;
-  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * TicksPerSecond;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
   QueryGroupTstamp* pGroupQuery = new QueryGroupTstamp();
   QueryRaw* pRawQuery = new QueryRaw();
@@ -1104,8 +1045,7 @@ PdbErr_t PDBTable::ExecQueryRawData(const QueryParam* pQueryParam,
   PdbErr_t retVal = PdbE_OK;
   bool isAsc = true;
   RefUtil tabInfoRef;
-  int64_t nowMillis = DateTime::NowMilliseconds();
-  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * MillisPerSecond;
+  uint64_t timeOutTick = DateTime::NowTickCount() + pGlbSysCfg->GetQueryTimeOut() * TicksPerSecond;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
   QueryRaw* pRawQuery = new QueryRaw();
   std::list<int64_t> devIdList;
@@ -1163,8 +1103,8 @@ PdbErr_t PDBTable::QueryLast(std::list<int64_t>& devIdList, IQuery* pQuery, uint
   int64_t minTs, maxTs;
 
   pQuery->GetTstampRange(&minTs, &maxTs);
-  minQueryDay = static_cast<int>(minTs / MillisPerDay);
-  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
+  minQueryDay = static_cast<int>(minTs / DateTime::MicrosecondPerDay);
+  maxQueryDay = static_cast<int>(maxTs / DateTime::MicrosecondPerDay);
   int curDay = maxQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1177,7 +1117,7 @@ PdbErr_t PDBTable::QueryLast(std::list<int64_t>& devIdList, IQuery* pQuery, uint
       break;
 
     retVal = pDataPart->QueryLast(devIdList, pTabInfo, pQuery, queryTimeOut);
-    if (retVal == PdbE_RESLT_FULL)
+    if (retVal == PdbE_RESULT_FULL)
       return PdbE_OK;
 
     if (retVal != PdbE_OK)
@@ -1202,8 +1142,8 @@ PdbErr_t PDBTable::QueryFirst(std::list<int64_t>& devIdList, IQuery* pQuery, uin
   int64_t minTs, maxTs;
 
   pQuery->GetTstampRange(&minTs, &maxTs);
-  minQueryDay = static_cast<int>(minTs / MillisPerDay);
-  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
+  minQueryDay = static_cast<int>(minTs / DateTime::MicrosecondPerDay);
+  maxQueryDay = static_cast<int>(maxTs / DateTime::MicrosecondPerDay);
   int curDay = minQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1216,7 +1156,7 @@ PdbErr_t PDBTable::QueryFirst(std::list<int64_t>& devIdList, IQuery* pQuery, uin
       break;
 
     retVal = pDataPart->QueryFirst(devIdList, pTabInfo, pQuery, queryTimeOut);
-    if (retVal == PdbE_RESLT_FULL)
+    if (retVal == PdbE_RESULT_FULL)
       return PdbE_OK;
 
     if (retVal != PdbE_OK)
@@ -1241,8 +1181,8 @@ PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList, IQuery* pQuery, uint6
   int64_t minTs, maxTs;
 
   pQuery->GetTstampRange(&minTs, &maxTs);
-  minQueryDay = static_cast<int>(minTs / MillisPerDay);
-  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
+  minQueryDay = static_cast<int>(minTs / DateTime::MicrosecondPerDay);
+  maxQueryDay = static_cast<int>(maxTs / DateTime::MicrosecondPerDay);
   int curDay = minQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1255,7 +1195,7 @@ PdbErr_t PDBTable::QueryAsc(std::list<int64_t>& devIdList, IQuery* pQuery, uint6
       break;
 
     retVal = pDataPart->QueryAsc(devIdList, pTabInfo, pQuery, queryTimeOut);
-    if (retVal == PdbE_RESLT_FULL)
+    if (retVal == PdbE_RESULT_FULL)
       return PdbE_OK;
 
     if (retVal != PdbE_OK)
@@ -1280,8 +1220,8 @@ PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList, IQuery* pQuery, uint
   int64_t minTs, maxTs;
 
   pQuery->GetTstampRange(&minTs, &maxTs);
-  minQueryDay = static_cast<int>(minTs / MillisPerDay);
-  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
+  minQueryDay = static_cast<int>(minTs / DateTime::MicrosecondPerDay);
+  maxQueryDay = static_cast<int>(maxTs / DateTime::MicrosecondPerDay);
   int curDay = maxQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1294,7 +1234,7 @@ PdbErr_t PDBTable::QueryDesc(std::list<int64_t>& devIdList, IQuery* pQuery, uint
       break;
 
     retVal = pDataPart->QueryDesc(devIdList, pTabInfo, pQuery, queryTimeOut);
-    if (retVal == PdbE_RESLT_FULL)
+    if (retVal == PdbE_RESULT_FULL)
       return PdbE_OK;
 
     if (retVal != PdbE_OK)
@@ -1319,8 +1259,8 @@ PdbErr_t PDBTable::QuerySnapshotData(std::list<int64_t>& devIdList, IQuery* pQue
   int64_t minTs, maxTs;
 
   pQuery->GetTstampRange(&minTs, &maxTs);
-  minQueryDay = static_cast<int>(minTs / MillisPerDay);
-  maxQueryDay = static_cast<int>(maxTs / MillisPerDay);
+  minQueryDay = static_cast<int>(minTs / DateTime::MicrosecondPerDay);
+  maxQueryDay = static_cast<int>(maxTs / DateTime::MicrosecondPerDay);
   int curDay = maxQueryDay;
   TableInfo* pTabInfo = GetTableInfo(&tabInfoRef);
 
@@ -1339,7 +1279,7 @@ PdbErr_t PDBTable::QuerySnapshotData(std::list<int64_t>& devIdList, IQuery* pQue
       break;
 
     retVal = pDataPart->QuerySnapshot(devIdList, pTabInfo, pQuery, queryTimeOut);
-    if (retVal == PdbE_RESLT_FULL)
+    if (retVal == PdbE_RESULT_FULL)
       return PdbE_OK;
 
     if (retVal != PdbE_OK)
@@ -1532,7 +1472,7 @@ PdbErr_t PDBTable::BuildPartPath(uint32_t partCode, bool isNormal, bool createPa
   int partMonth = 0;
   int partDay = 0;
 
-  DateTime dtPart((partCode * MillisPerDay));
+  DateTime dtPart((partCode * DateTime::MicrosecondPerDay));
   dtPart.GetDatePart(&partYear, &partMonth, &partDay);
 
   sprintf(pathBuf, "%04d-%02d-%02d", partYear, partMonth, partDay);

@@ -113,7 +113,7 @@ PdbErrorMsg::PdbErrorMsg()
   errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_SQL_NOT_QUERY, "不是查询SQL"));
 
   //设备、索引相关
-  errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_RESLT_FULL, "结果集已满"));
+  errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_RESULT_FULL, "结果集已满"));
   errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_DEVID_EXISTS, "设备ID已存在"));
   errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_DEV_CAPACITY_FULL, "设备容量已满"));
   errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_USER_EXIST, "用户已存在"));
@@ -200,7 +200,7 @@ PdbErrorMsg::PdbErrorMsg()
   errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_SQL_NOT_QUERY, "not query sql"));
 
   //设备、索引相关
-  errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_RESLT_FULL, "result full"));
+  errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_RESULT_FULL, "result full"));
   errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_DEVID_EXISTS, "device exists"));
   errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_DEV_CAPACITY_FULL, "device capacity full"));
   errMsgMap_.insert(std::make_pair<PdbErr_t, std::string>(PdbE_USER_EXIST, "user exist"));

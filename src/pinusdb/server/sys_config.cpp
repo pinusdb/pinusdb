@@ -217,7 +217,7 @@ bool SysConfig::LoadConfig()
 }
 
 #define APPEND_DATA_CFG   do {                          \
-  retVal = pQuery->AppendData(vals, valCnt, nullptr);  \
+  retVal = pQuery->AppendSingle(vals, valCnt, nullptr);  \
   if (retVal != PdbE_OK) return retVal;                 \
   if (pQuery->GetIsFullFlag()) return PdbE_OK;         \
 }while(false)

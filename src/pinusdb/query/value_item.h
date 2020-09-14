@@ -1,3 +1,19 @@
+/*
+* Copyright (c) 2020 ChangSha JuSong Soft Inc. <service@pinusdb.cn>.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; version 3 of the License.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program; If not, see <http://www.gnu.org/licenses>
+*/
+
 #pragma once
 #include "internal.h"
 #include "util/string_tool.h"
@@ -5,7 +21,8 @@
 #include "util/date_time.h"
 #include "expr/expr_value.h"
 #include "table/table_info.h"
-#include "query/query_field.h"
+#include "query/group_field.h"
+#include "query/block_values.h"
 #include <list>
 
 class ValueItem
@@ -16,12 +33,14 @@ public:
 
   //获取值
   virtual PdbErr_t GetValue(const DBVal* pVals, DBVal* pResult) const = 0;
+  virtual PdbErr_t GetValueArray(const BlockValues& blockValues, std::vector<DBVal>& resultVec) const = 0;
   //获取值类型
   virtual int32_t GetValueType() const = 0;
   //是否符合规则
   virtual bool IsValid() const = 0;
   //是否是常数值
   virtual bool IsConstValue() const = 0;
+  virtual void GetUseFields(std::unordered_set<size_t>& fieldSet) const = 0;
 
   virtual bool IsDevIdCondition() const { return false; }
   virtual bool IsTstampCondition() const { return false; }
@@ -50,7 +69,7 @@ public:
     if (isTime)
     {
       this->valType_ = PDB_VALUE_TYPE::VAL_DATETIME;
-      if (value >= MinMillis && value < MaxMillis)
+      if (value >= DateTime::MinMicrosecond && value < DateTime::MaxMicrosecond)
       {
         DBVAL_SET_DATETIME(&val_, value);
       }
@@ -107,6 +126,31 @@ public:
     return PdbE_OK;
   }
 
+  PdbErr_t GetValueArray(const BlockValues& blockValues, std::vector<DBVal>& resultVec) const override
+  {
+    size_t recordSize = blockValues.GetRecordSize();
+    const uint8_t* pFilter = blockValues.GetFilter();
+    if (pFilter == nullptr)
+    {
+      for (size_t idx = 0; idx < recordSize; idx++)
+      {
+        resultVec.push_back(val_);
+      }
+    }
+    else
+    {
+      for (size_t idx = 0; idx < recordSize; idx++)
+      {
+        if (pFilter[idx] == PDB_BOOL_TRUE)
+        {
+          resultVec.push_back(val_);
+        }
+      }
+    }
+    return PdbE_OK;
+  }
+
+
   bool IsValid() const override
   {
     return true;
@@ -117,6 +161,11 @@ public:
     return true;
   }
 
+  void GetUseFields(std::unordered_set<size_t>& fieldSet) const override
+  {
+    return;
+  }
+
 private:
   int32_t valType_;
   DBVal val_;
@@ -124,13 +173,13 @@ private:
 
 
 //字段值
+template<int FieldType>
 class FieldValue : public ValueItem
 {
 public:
-  FieldValue(size_t fieldPos, int32_t fieldType)
+  FieldValue(size_t fieldPos)
   {
     fieldPos_ = fieldPos;
-    fieldType_ = fieldType;
   }
 
   virtual ~FieldValue()
@@ -138,7 +187,7 @@ public:
 
   int32_t GetValueType() const override
   {
-    return fieldType_;
+    return FieldType;
   }
 
   PdbErr_t GetValue(const DBVal* pVals, DBVal* pResult) const override
@@ -149,13 +198,63 @@ public:
     if (pResult == nullptr)
       return PdbE_OK;
 
-    if (DBVAL_ELE_GET_TYPE(pVals, fieldPos_) == fieldType_)
+    if (DBVAL_ELE_GET_TYPE(pVals, fieldPos_) == FieldType)
     {
       *pResult = pVals[fieldPos_];
     }
     else
     {
       DBVAL_SET_NULL(pResult);
+    }
+
+    return PdbE_OK;
+  }
+
+  PdbErr_t GetValueArray(const BlockValues& blockValues, std::vector<DBVal>& resultVec) const override
+  {
+    size_t recordSize = blockValues.GetRecordSize();
+    size_t resultSize = blockValues.GetResultSize();
+    const uint8_t* pFilter = blockValues.GetFilter();
+    const DBVal* pVals = blockValues.GetColumnValues(fieldPos_);
+
+    if (resultSize == recordSize)
+      pFilter = nullptr;
+
+    DBVal nullVal;
+    DBVAL_SET_NULL(&nullVal);
+
+    if (pVals == nullptr)
+    {
+      for (size_t idx = 0; idx < resultSize; idx++)
+      {
+        resultVec.push_back(nullVal);
+      }
+    }
+    else 
+    {
+      if (pFilter == nullptr)
+      {
+        for (size_t idx = 0; idx < recordSize; idx++)
+        {
+          if (DBVAL_ELE_GET_TYPE(pVals, idx) == FieldType)
+            resultVec.push_back(pVals[idx]);
+          else
+            resultVec.push_back(nullVal);
+        }
+      }
+      else
+      {
+        for (size_t idx = 0; idx < recordSize; idx++)
+        {
+          if (pFilter[idx] != PDB_BOOL_FALSE)
+          {
+            if (DBVAL_ELE_GET_TYPE(pVals, idx) == FieldType)
+              resultVec.push_back(pVals[idx]);
+            else
+              resultVec.push_back(nullVal);
+          }
+        }
+      }
     }
 
     return PdbE_OK;
@@ -171,14 +270,20 @@ public:
     return false;
   }
 
+  void GetUseFields(std::unordered_set<size_t>& fieldSet) const override
+  {
+    fieldSet.insert(fieldPos_);
+  }
+
 private:
   size_t fieldPos_;
-  int32_t fieldType_;
 };
 
-ValueItem* BuildGeneralValueItem(const TableInfo* pTableInfo, const ExprValue* pExpr, int64_t nowMillis);
+ValueItem* CreateFieldValue(int fieldType, size_t fieldPos);
+
+ValueItem* BuildGeneralValueItem(const TableInfo* pTableInfo, const ExprValue* pExpr, int64_t nowMicroseconds);
 PdbErr_t BuildTargetGroupItem(const TableInfo* pTableInfo, const ExprValue* pExpr,
-  TableInfo* pGroupInfo, std::vector<QueryField*>& fieldVec, int64_t nowMillis);
+  TableInfo* pGroupInfo, std::vector<GroupField*>& fieldVec, int64_t nowMicroseconds);
 
 bool IncludeAggFunction(const ExprValue* pExpr);
 

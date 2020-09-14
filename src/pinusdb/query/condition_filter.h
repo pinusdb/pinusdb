@@ -17,6 +17,7 @@
 #pragma once
 
 #include "internal.h"
+#include <unordered_set>
 #include "table/db_value.h"
 #include "table/table_info.h"
 #include "query/value_item.h"
@@ -29,12 +30,14 @@ public:
   ~ConditionFilter();
 
   PdbErr_t BuildCondition(const TableInfo* pTabInfo, 
-    const ExprValue* pCondition, int64_t nowMillis);
+    const ExprValue* pCondition, int64_t nowMicroseconds);
   PdbErr_t RunCondition(const DBVal* pVals, size_t valCnt, bool& resultVal) const;
+  PdbErr_t RunConditionArray(BlockValues& blkValues) const;
   bool AlwaysFalse() const { return alwaysFalse_ || minDevId_ > maxDevId_ || minTstamp_ > maxTstamp_; }
   void GetDevIdRange(int64_t* pMinDevId, int64_t* pMaxDevId) const;
   void GetTstampRange(int64_t* pMinTstamp, int64_t* pMaxTstamp) const;
   bool FilterDevId(int64_t devId) const;
+  void GetUseFields(std::unordered_set<size_t>& fieldSet) const;
 
 private:
   bool alwaysFalse_;

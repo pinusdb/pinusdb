@@ -17,45 +17,39 @@
 #pragma once
 #include "internal.h"
 
-typedef struct _CompBlkIdx
+typedef struct _CmpBlockHead
 {
-  int64_t blkPos_;
-  int32_t blkLen_;
-  int32_t bgTsForDay_;
-}CompBlkIdx;
+  char fieldType_[2];
+  char fieldPos_[2];
+  char recCnt_[4];
+  char dataLen_[4];
+  char dataCrc_[4];
+  char crc_[4];
+}CmpBlockHead;
 
-typedef struct _CompDevId
+typedef struct _TsBlkIdx
 {
-  int64_t devId_;
-  int64_t bgPos_;
-  int32_t blkIdxCnt_;
-  uint32_t allBlkIdxCrc_;
-}CompDevId;
+  char devId_[8];
+  char bgTs_[8];
+  char blkPos_[8];
+  char recCnt_[4];
+  char crc_[4];
+}TsBlkIdx;
 
-typedef struct _CompDataFooter
+typedef struct _CmpBlkIdx
 {
-  int64_t blkDataLen_;
-  int64_t devIdsPos_;
-  int64_t devCnt_;
-  uint32_t devCrc_;
-  uint32_t footCrc_;
-}CompDataFooter;
+  char blkPos_[8];
+  char blkLen_[4];
+  char crc_[4];
+}CmpBlkIdx;
 
-#define HIS_BLOCK_DATA_MAGIC    0x7CEF82D9 
-#define HIS_BLOCK_PAD_MAGIC     0xD9EF7C82
-
-typedef struct _CompBlockHead
+constexpr uint32_t CmpFooterMagic = 0x7FEC8D92;
+typedef struct _CmpFooter
 {
-  uint32_t magic_;
-  uint32_t dataLen_;
-}CompBlockHead;
+  char magic_[4];
+  char tsIdxCnt_[4];  //时间戳索引的数据块数量
+  char tsIdxPos_[8];  //索引的起始地址
+  char pad32_[4];
+  char crc_[4];
+}CmpFooter;
 
-typedef struct _CompPageHead
-{
-  uint32_t pageCrc_;
-  uint32_t dataLen_;
-  int64_t  devId_;
-  uint16_t fieldCnt_;
-  uint16_t recCnt_;
-  uint32_t padding_;
-}CompPageHead;

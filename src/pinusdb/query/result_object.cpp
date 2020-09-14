@@ -17,7 +17,7 @@
 #include "query/result_object.h"
 #include "pdb_error.h"
 
-ResultObject::ResultObject(const std::vector<QueryField*>& fieldVec,
+ResultObject::ResultObject(const std::vector<GroupField*>& fieldVec,
   int64_t devId, int64_t tstamp)
 {
   for (auto fieldIter = fieldVec.begin(); fieldIter != fieldVec.end(); fieldIter++)
@@ -34,12 +34,25 @@ ResultObject::~ResultObject()
   }
 }
 
-PdbErr_t ResultObject::AppendData(const DBVal* pVals, size_t valCnt)
+PdbErr_t ResultObject::AppendSingle(const DBVal* pVals, size_t valCnt)
 {
   PdbErr_t retVal = PdbE_OK;
   for (auto fieldIt = fieldVec_.begin(); fieldIt != fieldVec_.end(); fieldIt++)
   {
-    retVal = (*fieldIt)->AppendData(pVals, valCnt);
+    retVal = (*fieldIt)->AppendSingle(pVals, valCnt);
+    if (retVal != PdbE_OK)
+      return retVal;
+  }
+
+  return PdbE_OK;
+}
+
+PdbErr_t ResultObject::AppendArray(BlockValues& blockValues, uint64_t groupId, const std::vector<size_t>& groupIdVec)
+{
+  PdbErr_t retVal = PdbE_OK;
+  for (auto fieldIt = fieldVec_.begin(); fieldIt != fieldVec_.end(); fieldIt++)
+  {
+    retVal = (*fieldIt)->AppendArray(blockValues, groupId, groupIdVec);
     if (retVal != PdbE_OK)
       return retVal;
   }

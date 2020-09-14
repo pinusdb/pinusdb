@@ -1,7 +1,22 @@
+/*
+* Copyright (c) 2020 ChangSha JuSong Soft Inc. <service@pinusdb.cn>.
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License as published by
+* the Free Software Foundation; version 3 of the License.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+
+* You should have received a copy of the GNU General Public License
+* along with this program; If not, see <http://www.gnu.org/licenses>
+*/
 
 #include "query/query_group.h"
 #include "pdb_error.h"
-#include "query/group_field.h"
+#include "query/group_function.h"
 #include "util/coding.h"
 #include "server/proto_header.h"
 
@@ -31,7 +46,7 @@ QueryGroup::~QueryGroup()
   }
 }
 
-PdbErr_t QueryGroup::AppendData(const DBVal* pVals, size_t valCnt, bool* pIsAdded)
+PdbErr_t QueryGroup::AppendSingle(const DBVal* pVals, size_t valCnt, bool* pIsAdded)
 {
   bool resultVal = true;
   PdbErr_t retVal = PdbE_OK;
@@ -57,10 +72,62 @@ PdbErr_t QueryGroup::AppendData(const DBVal* pVals, size_t valCnt, bool* pIsAdde
     pLastObj_ = objIter->second;
   }
 
-  retVal = pLastObj_->AppendData(pVals, valCnt);
+  retVal = pLastObj_->AppendSingle(pVals, valCnt);
   if (pIsAdded != nullptr)
   {
     *pIsAdded = (retVal == PdbE_OK);
+  }
+
+  return PdbE_OK;
+}
+
+PdbErr_t QueryGroup::AppendArray(BlockValues& blockValues, bool* pIsAdded)
+{
+  PdbErr_t retVal = PdbE_OK;
+  bool singleGroup = false;
+  std::vector<uint64_t> groupIdVec;
+
+  retVal = condiFilter_.RunConditionArray(blockValues);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  retVal = GetGroupArray(blockValues, groupIdVec, singleGroup);
+  if (retVal != PdbE_OK)
+    return retVal;
+
+  pLastObj_ = nullptr;
+
+  std::vector<uint64_t> emptyIdVec;
+  if (groupIdVec.size() == 1)
+  {
+    auto objIter = objMap_.find(groupIdVec[0]);
+    if (objIter != objMap_.end())
+    {
+      retVal = objIter->second->AppendArray(blockValues, groupIdVec[0], emptyIdVec);
+      if (retVal != PdbE_OK)
+        return retVal;
+    }
+
+    if (blockValues.GetResultSize() > 0)
+    {
+      if (pIsAdded != nullptr)
+        *pIsAdded = true;
+    }
+  }
+  else
+  {
+    std::unordered_set<uint64_t> groupIdSet;
+    for (size_t idx = 0; idx < groupIdVec.size(); idx++)
+    {
+      if (groupIdSet.find(groupIdVec[idx]) == groupIdSet.end())
+      {
+        groupIdSet.insert(groupIdVec[idx]);
+        auto objIter = objMap_.find(groupIdVec[idx]);
+        retVal = objIter->second->AppendArray(blockValues, groupIdVec[idx], groupIdVec);
+        if (retVal != PdbE_OK)
+          return retVal;
+      }
+    }
   }
 
   return PdbE_OK;
@@ -104,14 +171,26 @@ PdbErr_t QueryGroup::GetResult(std::string& dataBuf, uint32_t* pFieldCnt, uint32
       case PDB_VALUE_TYPE::VAL_BOOL:
         dataBuf.push_back(static_cast<char>(DBVAL_GET_BOOL(&tmpVal) ? PDB_BOOL_TRUE : PDB_BOOL_FALSE));
         break;
+      case PDB_VALUE_TYPE::VAL_INT8:
+        Coding::PutVarint64(&dataBuf, Coding::ZigzagEncode64(DBVAL_GET_INT8(&tmpVal)));
+        break;
+      case PDB_VALUE_TYPE::VAL_INT16:
+        Coding::PutVarint64(&dataBuf, Coding::ZigzagEncode64(DBVAL_GET_INT16(&tmpVal)));
+        break;
+      case PDB_VALUE_TYPE::VAL_INT32:
+        Coding::PutVarint64(&dataBuf, Coding::ZigzagEncode64(DBVAL_GET_INT32(&tmpVal)));
+        break;
       case PDB_VALUE_TYPE::VAL_INT64:
         Coding::PutVarint64(&dataBuf, Coding::ZigzagEncode64(DBVAL_GET_INT64(&tmpVal)));
         break;
       case PDB_VALUE_TYPE::VAL_DATETIME:
-        Coding::PutVarint64(&dataBuf, static_cast<uint64_t>(DBVAL_GET_INT64(&tmpVal)));
+        Coding::PutVarint64(&dataBuf, Coding::ZigzagEncode64(DBVAL_GET_DATETIME(&tmpVal)));
+        break;
+      case PDB_VALUE_TYPE::VAL_FLOAT:
+        Coding::PutFixed32(&dataBuf, Coding::EncodeFloat(DBVAL_GET_FLOAT(&tmpVal)));
         break;
       case PDB_VALUE_TYPE::VAL_DOUBLE:
-        dataBuf.append(reinterpret_cast<const char*>(DBVAL_GET_BYTES(&tmpVal)), 8);
+        Coding::PutFixed64(&dataBuf, Coding::EncodeDouble(DBVAL_GET_DOUBLE(&tmpVal)));
         break;
       case PDB_VALUE_TYPE::VAL_STRING:
       case PDB_VALUE_TYPE::VAL_BLOB:
@@ -160,6 +239,15 @@ size_t QueryGroup::GetQueryRecord() const
   return queryRecord_;
 }
 
+void QueryGroup::GetUseFields(std::unordered_set<size_t>& fieldSet) const
+{
+  condiFilter_.GetUseFields(fieldSet);
+  for (size_t idx = 0; idx < grpFieldVec_.size(); idx++)
+  {
+    grpFieldVec_[idx]->GetUseFields(fieldSet);
+  }
+}
+
 bool QueryGroup::IsQueryLast() const
 {
   for (auto fieldIt = grpFieldVec_.begin(); fieldIt != grpFieldVec_.end(); fieldIt++)
@@ -192,10 +280,10 @@ PdbErr_t QueryGroup::BuildQuery(const QueryParam* pQueryParam, const TableInfo* 
   size_t fieldPos = 0;
   DBVal nameVal;
   std::string fieldName;
-  int64_t nowMillis = DateTime::NowMilliseconds();
+  int64_t nowMicroseconds = DateTime::NowMicrosecond();
   if (pQueryParam->pWhere_ != nullptr)
   {
-    retVal = condiFilter_.BuildCondition(pTabInfo, pQueryParam->pWhere_, nowMillis);
+    retVal = condiFilter_.BuildCondition(pTabInfo, pQueryParam->pWhere_, nowMicroseconds);
     if (retVal != PdbE_OK)
       return retVal;
   }
@@ -237,7 +325,7 @@ PdbErr_t QueryGroup::BuildQuery(const QueryParam* pQueryParam, const TableInfo* 
     if (tagIt->first->GetValueType() == TK_STAR)
       return PdbE_SQL_ERROR;
 
-    retVal = BuildTargetGroupItem(pTabInfo, tagIt->first, &groupInfo_, grpFieldVec_, nowMillis);
+    retVal = BuildTargetGroupItem(pTabInfo, tagIt->first, &groupInfo_, grpFieldVec_, nowMicroseconds);
     if (retVal != PdbE_OK)
       return retVal;
   }
@@ -258,7 +346,7 @@ PdbErr_t QueryGroup::BuildQuery(const QueryParam* pQueryParam, const TableInfo* 
         if (retVal != PdbE_OK)
           break;
 
-        pTagItem = new FieldValue(fieldPos, fieldType);
+        pTagItem = CreateFieldValue(fieldType, fieldPos);
       } while (false);
 
       if (pTagItem == nullptr)
@@ -273,7 +361,7 @@ PdbErr_t QueryGroup::BuildQuery(const QueryParam* pQueryParam, const TableInfo* 
     }
     else
     {
-      ValueItem* pNewValue = BuildGeneralValueItem(&groupInfo_, tagIt->first, nowMillis);
+      ValueItem* pNewValue = BuildGeneralValueItem(&groupInfo_, tagIt->first, nowMicroseconds);
       if (pNewValue == nullptr)
         return PdbE_SQL_ERROR;
 
@@ -308,6 +396,14 @@ bool QueryGroupAll::IsEmptySet() const
 int64_t QueryGroupAll::GetGroupId(const DBVal* pVals, size_t valCnt)
 {
   return 0;
+}
+
+
+PdbErr_t QueryGroupAll::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup)
+{
+  singleGroup = true;
+  groupIdVec.push_back(0);
+  return PdbE_OK;
 }
 
 PdbErr_t QueryGroupAll::CustomBuild(const QueryParam* pQueryParam)
@@ -352,9 +448,30 @@ PdbErr_t QueryGroupDevID::InitGroupDevID(const std::list<int64_t>& devIdList)
   return PdbE_OK;
 }
 
+void QueryGroupDevID::GetUseFields(std::unordered_set<size_t>& fieldSet) const
+{
+  fieldSet.insert(PDB_DEVID_INDEX);
+  condiFilter_.GetUseFields(fieldSet);
+  for (size_t idx = 0; idx < grpFieldVec_.size(); idx++)
+  {
+    grpFieldVec_[idx]->GetUseFields(fieldSet);
+  }
+}
+
 int64_t QueryGroupDevID::GetGroupId(const DBVal* pVals, size_t valCnt)
 {
   return DBVAL_ELE_GET_INT64(pVals, PDB_DEVID_INDEX);
+}
+
+PdbErr_t QueryGroupDevID::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup)
+{
+  const DBVal* pDevIdVals = blockValues.GetColumnValues(PDB_DEVID_INDEX);
+  if (pDevIdVals == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  singleGroup = true;
+  groupIdVec.push_back(DBVAL_GET_INT64(pDevIdVals));
+  return PdbE_OK;
 }
 
 QueryGroupTstamp::QueryGroupTstamp()
@@ -383,9 +500,42 @@ void QueryGroupTstamp::GetTstampRange(int64_t* pMinTstamp, int64_t* pMaxTstamp) 
     *pMaxTstamp = maxTstamp_;
 }
 
+void QueryGroupTstamp::GetUseFields(std::unordered_set<size_t>& fieldSet) const
+{
+  fieldSet.insert(PDB_TSTAMP_INDEX);
+  condiFilter_.GetUseFields(fieldSet);
+  for (size_t idx = 0; idx < grpFieldVec_.size(); idx++)
+  {
+    grpFieldVec_[idx]->GetUseFields(fieldSet);
+  }
+}
+
 int64_t QueryGroupTstamp::GetGroupId(const DBVal* pVals, size_t valCnt)
 {
   return (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) - minTstamp_) / timeGroupRange_;
+}
+
+PdbErr_t QueryGroupTstamp::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup)
+{
+  const DBVal* pTsVals = blockValues.GetColumnValues(PDB_TSTAMP_INDEX);
+  size_t recCnt = blockValues.GetRecordSize();
+  if (pTsVals == nullptr)
+    return PdbE_INVALID_PARAM;
+
+  singleGroup = false;
+  for (size_t idx = 0; idx < recCnt; idx++)
+  {
+    if (DBVAL_ELE_GET_DATETIME(pTsVals, idx) < minTstamp_ || DBVAL_ELE_GET_DATETIME(pTsVals, idx) > maxTstamp_)
+    {
+      groupIdVec.push_back(UINT64_MAX);
+    }
+    else
+    {
+      groupIdVec.push_back((DBVAL_ELE_GET_DATETIME(pTsVals, idx) - minTstamp_) / timeGroupRange_);
+    }
+  }
+
+  return PdbE_OK;
 }
 
 PdbErr_t QueryGroupTstamp::CustomBuild(const QueryParam* pQueryParam)

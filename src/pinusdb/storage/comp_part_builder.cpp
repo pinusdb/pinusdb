@@ -21,126 +21,164 @@
 
 CompPartBuilder::CompPartBuilder()
 {
+  devId_ = -1;
+  bgTstamp_ = 0;
   dataOffset_ = 0;
-  dayBgTs_ = 0;
-  pCompBuf_ = nullptr;
-  pRawBuf_ = nullptr;
+  pArena_ = nullptr;
+  flushSize_ = 0;
 }
 
 CompPartBuilder::~CompPartBuilder()
 {
+  if (pArena_ != nullptr)
+    delete pArena_;
+
+  for (size_t idx = 0; idx < valBuilderVec_.size(); idx++)
+  {
+    delete valBuilderVec_[idx];
+  }
+  valBuilderVec_.clear();
 }
 
 PdbErr_t CompPartBuilder::Create(uint32_t partCode, const char* pDataPath,
   const std::vector<FieldInfo>& fieldVec)
 {
+  Arena arena;
   PdbErr_t retVal = PdbE_OK;
-  dayBgTs_ = MillisPerDay * partCode;
   dataPath_ = pDataPath;
   tmpDataPath_ = dataPath_ + ".tmp";
-  devIdxList_.clear();
+  tmpIdxPath_ = dataPath_ + ".idx.tmp";
 
-  if (pCompBuf_ == nullptr)
+  for (size_t idx = 0; idx < valBuilderVec_.size(); idx++)
   {
-    pCompBuf_ = (uint8_t*)arena_.Allocate(NORMAL_PAGE_SIZE + PDB_KB_BYTES(16));
-    pRawBuf_ = (uint8_t*)arena_.Allocate(NORMAL_PAGE_SIZE + PDB_KB_BYTES(16));
-
-    if (pCompBuf_ == nullptr || pRawBuf_ == nullptr)
-      return PdbE_NOMEM;
+    delete valBuilderVec_[idx];
   }
+  valBuilderVec_.clear();
+  typeVec_.clear();
+
+  DataFileMeta* pMeta = (DataFileMeta*)arena.AllocateAligned(sizeof(DataFileMeta));
 
   if (FileTool::FileExists(tmpDataPath_.c_str()))
     FileTool::RemoveFile(tmpDataPath_.c_str());
+
+  if (FileTool::FileExists(tmpIdxPath_.c_str()))
+    FileTool::RemoveFile(tmpIdxPath_.c_str());
+
+  retVal = idxFile_.OpenNew(tmpIdxPath_.c_str());
+  if (retVal != PdbE_OK)
+    return retVal;
 
   retVal = dataFile_.OpenNew(tmpDataPath_.c_str());
   if (retVal != PdbE_OK)
     return retVal;
 
-  DataFileMeta fileMeta;
-  memset(&fileMeta, 0, sizeof(DataFileMeta));
-  strncpy(fileMeta.headStr_, COMPRESS_DATA_FILE_HEAD_STR, sizeof(fileMeta.headStr_));
-  fileMeta.fieldCnt_ = static_cast<uint32_t>(fieldVec.size());
-  fileMeta.partCode_ = partCode;
-  fileMeta.tableType_ = PDB_PART_TYPE_COMPRESS_VAL;
+  memset(pMeta, 0, sizeof(DataFileMeta));
+  strncpy(pMeta->headStr_, COMPRESS_DATA_FILE_HEAD_STR, sizeof(pMeta->headStr_));
+  Coding::FixedEncode32(pMeta->pageSize_, 0);
+  Coding::FixedEncode32(pMeta->fieldCnt_, static_cast<uint32_t>(fieldVec.size()));
+  Coding::FixedEncode32(pMeta->partCode_, partCode);
+  Coding::FixedEncode32(pMeta->tableType_, PDB_PART_TYPE_COMPRESS_VAL);
 
   for (size_t idx = 0; idx < fieldVec.size(); idx++)
   {
-    strncpy(fileMeta.fieldRec_[idx].fieldName_, fieldVec[idx].GetFieldName(), PDB_FILED_NAME_LEN);
-    fileMeta.fieldRec_[idx].fieldType_ = fieldVec[idx].GetFieldType();
+    int32_t fieldType = fieldVec[idx].GetFieldType();
+    typeVec_.push_back(fieldType);
+    strncpy(pMeta->fieldRec_[idx].fieldName_, fieldVec[idx].GetFieldName(), PDB_FILED_NAME_LEN);
+    Coding::FixedEncode32(pMeta->fieldRec_[idx].fieldType_, fieldType);
+    switch (fieldType)
+    {
+    case PDB_FIELD_TYPE::TYPE_BOOL:
+      valBuilderVec_.push_back(new CompBoolValBuilder());
+      break;
+    case PDB_FIELD_TYPE::TYPE_INT8:
+      valBuilderVec_.push_back(new CompIntValBuilder<PDB_FIELD_TYPE::TYPE_INT8>());
+      break;
+    case PDB_FIELD_TYPE::TYPE_INT16:
+      valBuilderVec_.push_back(new CompIntValBuilder<PDB_FIELD_TYPE::TYPE_INT16>());
+      break;
+    case PDB_FIELD_TYPE::TYPE_INT32:
+      valBuilderVec_.push_back(new CompIntValBuilder<PDB_FIELD_TYPE::TYPE_INT32>());
+      break;
+    case PDB_FIELD_TYPE::TYPE_REAL2:
+    case PDB_FIELD_TYPE::TYPE_REAL3:
+    case PDB_FIELD_TYPE::TYPE_REAL4:
+    case PDB_FIELD_TYPE::TYPE_REAL6:
+    case PDB_FIELD_TYPE::TYPE_INT64:
+      valBuilderVec_.push_back(new CompIntValBuilder<PDB_FIELD_TYPE::TYPE_INT64>());
+      break;
+    case PDB_FIELD_TYPE::TYPE_DATETIME:
+      valBuilderVec_.push_back(new CompIntValBuilder<PDB_FIELD_TYPE::TYPE_DATETIME>());
+      break;
+    case PDB_FIELD_TYPE::TYPE_FLOAT:
+      valBuilderVec_.push_back(new CompFloatValBuilder());
+      break;
+    case PDB_FIELD_TYPE::TYPE_DOUBLE:
+      valBuilderVec_.push_back(new CompDoubleValBuilder());
+      break;
+    case PDB_FIELD_TYPE::TYPE_STRING:
+      valBuilderVec_.push_back(new CompStrBlobBuilder<PDB_FIELD_TYPE::TYPE_STRING>());
+      break;
+    case PDB_FIELD_TYPE::TYPE_BLOB:
+      valBuilderVec_.push_back(new CompStrBlobBuilder<PDB_FIELD_TYPE::TYPE_BLOB>());
+      break;
+    }
   }
 
-  fileMeta.crc_ = StringTool::CRC32(&fileMeta, (sizeof(DataFileMeta) - 4));
-  retVal = blkBuilder_.Init(fieldVec);
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  retVal = dataFile_.Write(&fileMeta, sizeof(DataFileMeta), 0);
+  uint32_t crc = StringTool::CRC32(pMeta, (sizeof(DataFileMeta) - 4));
+  Coding::FixedEncode32(pMeta->crc_, crc);
+  retVal = dataFile_.Write(pMeta, sizeof(DataFileMeta), 0);
   if (retVal != PdbE_OK)
     return retVal;
 
   dataOffset_ = sizeof(DataFileMeta);
-  return PdbE_OK;
+  
+  size_t idxVecSize = 1024;
+  if (fieldVec.size() < 32)
+    idxVecSize = 8192;
+  else if (fieldVec.size() < 64)
+    idxVecSize = 4096;
+  else if (fieldVec.size() < 128)
+    idxVecSize = 2048;
 
+  tsIdxVec_.reserve(idxVecSize);
+  cmpIdxVec_.reserve(idxVecSize * (fieldVec.size() - 2));
+
+  devId_ = -1;
+  flushSize_ = 0;
+  return PdbE_OK;
 }
 
 PdbErr_t CompPartBuilder::Append(const DBVal* pVal, size_t fieldCnt)
 {
-  PdbErr_t retVal = blkBuilder_.Append(pVal, fieldCnt);
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  if (blkBuilder_.GetBlkLen() >= NORMAL_PAGE_SIZE)
-  {
-    return Flush();
-  }
-
-  return PdbE_OK;
-}
-
-PdbErr_t CompPartBuilder::Flush()
-{
   PdbErr_t retVal = PdbE_OK;
-  CompBlkIdx blkIdx;
-  size_t recCnt = 0;
-  int64_t bgTs = 0;
-  int64_t edTs = 0;
-
-  int64_t devId = blkBuilder_.GetDevId();
-  size_t rawLen = NORMAL_PAGE_SIZE + PDB_KB_BYTES(16);
-  retVal = blkBuilder_.Flush(pRawBuf_, &rawLen, &recCnt, &bgTs, &edTs);
-  if (retVal == PdbE_NODATA)
-    return PdbE_OK;
-
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  uLongf compLen = NORMAL_PAGE_SIZE + PDB_KB_BYTES(16) - sizeof(CompBlockHead);
-  CompBlockHead* pCompHead = (CompBlockHead*)pCompBuf_;
-
-  int compRet = compress((Bytef*)(pCompBuf_ + sizeof(CompBlockHead)), &compLen,
-    (Bytef*)pRawBuf_, (uLong)rawLen);
-  if (compRet != Z_OK)
-    return PdbE_COMPRESS_ERROR;
-
-  pCompHead->magic_ = HIS_BLOCK_DATA_MAGIC;
-  pCompHead->dataLen_ = static_cast<uint32_t>(compLen);
-
-  retVal = dataFile_.Write(pCompBuf_, (compLen + sizeof(CompBlockHead)), dataOffset_);
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  if (devIdxList_.size() == 0 || devIdxList_.back().first != devId)
+  int64_t devId = DBVAL_ELE_GET_INT64(pVal, PDB_DEVID_INDEX);
+  if (devId != devId_)
   {
-    DevIdxType devIdPair(devId, std::vector<CompBlkIdx>());
-    devIdxList_.push_back(devIdPair);
+    if (devId_ > 0)
+    {
+      Flush();
+    }
+
+    devId_ = devId;
+    bgTstamp_ = DBVAL_ELE_GET_DATETIME(pVal, PDB_TSTAMP_INDEX);
   }
 
-  blkIdx.blkPos_ = dataOffset_;
-  blkIdx.blkLen_ = static_cast<int32_t>(compLen + sizeof(CompBlockHead));
-  blkIdx.bgTsForDay_ = static_cast<int32_t>(bgTs - dayBgTs_);
-  devIdxList_.back().second.push_back(blkIdx);
+  bool flushFlag = false;
+  for (size_t idx = PDB_TSTAMP_INDEX; idx < fieldCnt; idx++)
+  {
+    retVal = valBuilderVec_[idx]->AppendVal(pVal[idx]);
+    if (retVal != PdbE_OK)
+      return retVal;
 
-  dataOffset_ += (compLen + sizeof(CompBlockHead));
+    if (valBuilderVec_[idx]->GetValLen() >= PDB_KB_BYTES(490))
+      flushFlag = true;
+  }
+
+  if (flushFlag || valBuilderVec_[PDB_TSTAMP_INDEX]->GetValCnt() >= 8192)
+  {
+    Flush();
+  }
+
   return PdbE_OK;
 }
 
@@ -153,6 +191,10 @@ PdbErr_t CompPartBuilder::Finish()
     if (retVal != PdbE_OK)
       break;
 
+    retVal = Sync(true);
+    if (retVal != PdbE_OK)
+      break;
+
     retVal = WriteIdxBlk();
     if (retVal != PdbE_OK)
       break;
@@ -160,6 +202,9 @@ PdbErr_t CompPartBuilder::Finish()
 
   dataFile_.Sync();
   dataFile_.Close();
+
+  idxFile_.Close();
+  FileTool::RemoveFile(tmpIdxPath_.c_str());
 
   if (retVal != PdbE_OK)
     FileTool::RemoveFile(tmpDataPath_.c_str());
@@ -172,68 +217,230 @@ PdbErr_t CompPartBuilder::Finish()
 PdbErr_t CompPartBuilder::Abandon()
 {
   dataFile_.Close();
+  idxFile_.Close();
   FileTool::RemoveFile(tmpDataPath_.c_str());
+  FileTool::RemoveFile(tmpIdxPath_.c_str());
+  return PdbE_OK;
+}
+
+PdbErr_t CompPartBuilder::Flush()
+{
+  PdbErr_t retVal = PdbE_OK;
+  std::string tmpBuf;
+  tmpBuf.reserve(PDB_KB_BYTES(512));
+
+  uint32_t crc32 = 0;
+  int compRet = 0;
+  size_t rawSize = 0;
+  uLongf compSize = 0;
+  char* pRawBuf = nullptr;
+  char* pCmpBuf = &tmpBuf[0];
+
+  if (devId_ > 0)
+  {
+    for (size_t idx = PDB_TSTAMP_INDEX; idx < valBuilderVec_.size(); idx++)
+    {
+      valBuilderVec_[idx]->GetData(&pRawBuf, &rawSize);
+
+      compSize = tmpBuf.capacity() - sizeof(CmpBlockHead);
+      compRet = compress((Bytef*)(pCmpBuf + sizeof(CmpBlockHead)), &compSize,
+        (Bytef*)pRawBuf, (uLong)rawSize);
+      if (compRet != Z_OK)
+        return PdbE_COMPRESS_ERROR;
+
+      CmpBlockHead* pCmpHead = (CmpBlockHead*)pCmpBuf;
+      Coding::FixedEncode16(pCmpHead->fieldType_, static_cast<uint16_t>(typeVec_[idx]));
+      Coding::FixedEncode16(pCmpHead->fieldPos_, static_cast<uint16_t>(idx));
+      Coding::FixedEncode32(pCmpHead->recCnt_, static_cast<uint32_t>(valBuilderVec_[idx]->GetValCnt()));
+      Coding::FixedEncode32(pCmpHead->dataLen_, static_cast<uint32_t>(compSize));
+      crc32 = StringTool::CRC32((pCmpBuf + sizeof(CmpBlockHead)), compSize);
+      Coding::FixedEncode32(pCmpHead->dataCrc_, crc32);
+      crc32 = StringTool::CRC32(pCmpBuf, (sizeof(CmpBlockHead) - sizeof(CmpBlockHead::crc_)));
+      Coding::FixedEncode32(pCmpHead->crc_, crc32);
+
+      if (idx == PDB_TSTAMP_INDEX)
+      {
+        retVal = dataFile_.Write(pCmpBuf, (sizeof(CmpBlockHead) + compSize), dataOffset_);
+        if (retVal != PdbE_OK)
+          return retVal;
+
+        TsBlkIdx tsIdx;
+        Coding::FixedEncode64(tsIdx.devId_, devId_);
+        Coding::FixedEncode64(tsIdx.bgTs_, bgTstamp_);
+        Coding::FixedEncode64(tsIdx.blkPos_, dataOffset_);
+        Coding::FixedEncode32(tsIdx.recCnt_, static_cast<uint32_t>(valBuilderVec_[PDB_TSTAMP_INDEX]->GetValCnt()));
+        crc32 = StringTool::CRC32(&tsIdx, (sizeof(TsBlkIdx) - sizeof(TsBlkIdx::crc_)));
+        Coding::FixedEncode32(tsIdx.crc_, crc32);
+        tsIdxVec_.push_back(tsIdx);
+
+        dataOffset_ += (sizeof(CmpBlockHead) + compSize);
+      }
+      else
+      {
+        if (pArena_ == nullptr)
+        {
+          pArena_ = new Arena();
+        }
+
+        CmpBlkIdx blkIdx;
+        char* pTmp = pArena_->Allocate(sizeof(CmpBlockHead) + compSize);
+        Coding::FixedEncode64(blkIdx.blkPos_, reinterpret_cast<intptr_t>(pTmp));
+        Coding::FixedEncode32(blkIdx.blkLen_, static_cast<uint32_t>(sizeof(CmpBlockHead) + compSize));
+        Coding::FixedEncode32(blkIdx.crc_, static_cast<uint32_t>(idx));
+        memcpy(pTmp, pCmpBuf, (sizeof(CmpBlockHead) + compSize));
+        cmpIdxVec_.push_back(blkIdx);
+      }
+    
+      valBuilderVec_[idx]->Reset();
+    }
+  }
+
+  devId_ = -1;
+  if (pArena_->MemoryUsage() > PDB_MB_BYTES(256)
+    || tsIdxVec_.size() == tsIdxVec_.capacity())
+  {
+    retVal = Sync();
+    if (retVal != PdbE_OK)
+      return retVal;
+  }
+
+  return PdbE_OK;
+}
+
+PdbErr_t CompPartBuilder::Sync(bool syncAll /* = false*/)
+{
+  PdbErr_t retVal = PdbE_OK;
+  if (tsIdxVec_.size() == 0)
+    return PdbE_OK;
+
+  for (size_t fieldIdx = PDB_TSTAMP_INDEX + 1; fieldIdx < valBuilderVec_.size(); fieldIdx++)
+  {
+    size_t idx = flushSize_ + fieldIdx - (PDB_TSTAMP_INDEX + 1);
+    while (idx < cmpIdxVec_.size())
+    {
+      CmpBlkIdx* pBlkIdx = cmpIdxVec_.data() + idx;
+
+      uint64_t pos = Coding::FixedDecode64(pBlkIdx->blkPos_);
+      const char* pData = reinterpret_cast<const char*>(pos);
+      Coding::FixedEncode64(pBlkIdx->blkPos_, dataOffset_);
+      size_t blkLen = Coding::FixedDecode32(pBlkIdx->blkLen_);
+      uint32_t crc = StringTool::CRC32(pBlkIdx, (sizeof(CmpBlkIdx) - sizeof(CmpBlkIdx::crc_)));
+      Coding::FixedEncode32(pBlkIdx->crc_, crc);
+
+      retVal = dataFile_.Write(pData, blkLen, dataOffset_);
+      if (retVal != PdbE_OK)
+      {
+        return retVal;
+      }
+
+      dataOffset_ += blkLen;
+      idx += (valBuilderVec_.size() - 2);
+    }
+  }
+
+  if (tsIdxVec_.size() == tsIdxVec_.capacity() || syncAll)
+  {
+    size_t idxFileSize = idxFile_.FileSize();
+    retVal = idxFile_.Write(tsIdxVec_.data(), (tsIdxVec_.size() * sizeof(TsBlkIdx)), idxFileSize);
+    if (retVal != PdbE_OK)
+      return retVal;
+
+    idxFileSize += tsIdxVec_.size() * sizeof(TsBlkIdx);
+    std::string tmp;
+    tmp.reserve(sizeof(CmpBlkIdx) * tsIdxVec_.size());
+
+    for (size_t fieldIdx = PDB_TSTAMP_INDEX + 1; fieldIdx < valBuilderVec_.size(); fieldIdx++)
+    {
+      CmpBlkIdx* pBlkIdx = (CmpBlkIdx*)tmp.data();
+      size_t idx = fieldIdx - (PDB_TSTAMP_INDEX + 1);
+      while (idx < cmpIdxVec_.size())
+      {
+        *pBlkIdx = cmpIdxVec_[idx];
+        pBlkIdx++;
+        idx += (valBuilderVec_.size() - 2);
+      }
+      retVal = idxFile_.Write(tmp.data(), (sizeof(CmpBlkIdx) * tsIdxVec_.size()), idxFileSize);
+      if (retVal != PdbE_OK)
+        return retVal;
+
+      idxFileSize += (sizeof(CmpBlkIdx) * tsIdxVec_.size());
+    }
+
+    idxFile_.Sync();
+
+    idxNumVec_.push_back(tsIdxVec_.size());
+    tsIdxVec_.clear();
+    cmpIdxVec_.clear();
+  }
+
+  flushSize_ = cmpIdxVec_.size();
+  delete pArena_;
+  pArena_ = nullptr;
   return PdbE_OK;
 }
 
 PdbErr_t CompPartBuilder::WriteIdxBlk()
 {
+  CmpFooter footer;
   PdbErr_t retVal = PdbE_OK;
-  const int align = PDB_KB_BYTES(8);
-  size_t pos = 0;
-  CompDataFooter footer;
-  std::vector<CompDevId> devIdxVec;
-  devIdxVec.resize(devIdxList_.size());
+  uint32_t crc = 0;
+  std::string buf;
+  buf.reserve(sizeof(TsBlkIdx) * tsIdxVec_.capacity());
+  char* pBuf = &buf[0];
 
-  memset(&footer, 0, sizeof(CompDataFooter));
-  footer.blkDataLen_ = dataOffset_;
-
-  //Ð´ÈëÌî³ä¿é
-  int curMod = (dataOffset_ + sizeof(CompBlockHead)) & (align - 1);
-  int slop = (curMod == 0 ? 0 : align - curMod);
-  memset(pRawBuf_, 0, (slop + sizeof(CompBlockHead)));
-  ((CompBlockHead*)pRawBuf_)->magic_ = HIS_BLOCK_PAD_MAGIC;
-  ((CompBlockHead*)pRawBuf_)->dataLen_ = slop;
-  retVal = dataFile_.Write(pRawBuf_, (slop + sizeof(CompBlockHead)), dataOffset_);
+  CmpBlockHead* pBlkHead = (CmpBlockHead*)pBuf;
+  size_t alignPad = 1024 - ((dataOffset_ + sizeof(CmpBlockHead)) % 1024);
+  memset(pBuf, 0, (sizeof(CmpBlockHead) + alignPad));
+  Coding::FixedEncode32(pBlkHead->dataLen_, static_cast<uint32_t>(alignPad));
+  crc = StringTool::CRC32(pBlkHead, (sizeof(CmpBlockHead) - sizeof(CmpBlockHead::crc_)));
+  Coding::FixedEncode32(pBlkHead->crc_, crc);
+  retVal = dataFile_.Write(pBuf, (sizeof(CmpBlockHead) + alignPad), dataOffset_);
   if (retVal != PdbE_OK)
     return retVal;
-  dataOffset_ += (slop + sizeof(CompBlockHead));
 
-  for (auto devIt = devIdxList_.begin(); devIt != devIdxList_.end(); devIt++)
+  dataOffset_ += (sizeof(CmpBlockHead) + alignPad);
+
+  Coding::FixedEncode32(footer.magic_, CmpFooterMagic);
+  Coding::FixedEncode64(footer.tsIdxPos_, dataOffset_);
+  Coding::FixedEncode32(footer.pad32_, 0);
+  size_t tsIdxCnt = 0;
+  size_t partPos = 0;
+  for (size_t idx = 0; idx < idxNumVec_.size(); idx++)
   {
-    const CompBlkIdx* pBlkIdxs = devIt->second.data();
-    size_t idxDataLen = sizeof(CompBlkIdx) * devIt->second.size();
-    devIdxVec[pos].devId_ = devIt->first;
-    devIdxVec[pos].bgPos_ = dataOffset_;
-    devIdxVec[pos].blkIdxCnt_ = static_cast<int32_t>(devIt->second.size());
-    devIdxVec[pos].allBlkIdxCrc_ = StringTool::CRC32(pBlkIdxs, idxDataLen);
-
-    retVal = dataFile_.Write(pBlkIdxs, idxDataLen, dataOffset_);
+    retVal = idxFile_.Read(pBuf, sizeof(TsBlkIdx) * idxNumVec_[idx], partPos);
     if (retVal != PdbE_OK)
       return retVal;
 
-    dataOffset_ += idxDataLen;
-    pos++;
+    retVal = dataFile_.Write(pBuf, sizeof(TsBlkIdx) * idxNumVec_[idx], dataOffset_);
+    if (retVal != PdbE_OK)
+      return retVal;
+
+    dataOffset_ += sizeof(TsBlkIdx) * idxNumVec_[idx];
+    partPos += (sizeof(TsBlkIdx) + sizeof(CmpBlkIdx) * (valBuilderVec_.size() - 2)) * idxNumVec_[idx];
+    tsIdxCnt += idxNumVec_[idx];
+  }
+  Coding::FixedEncode32(footer.tsIdxCnt_, static_cast<uint32_t>(tsIdxCnt));
+  crc = StringTool::CRC32(&footer, (sizeof(CmpFooter) - sizeof(CmpFooter::crc_)));
+  Coding::FixedEncode32(footer.crc_, crc);
+
+  for (size_t fieldIdx = 0; fieldIdx < (valBuilderVec_.size() - 2); fieldIdx++)
+  {
+    partPos = 0;
+    for (size_t idx = 0; idx < idxNumVec_.size(); idx++)
+    {
+      size_t offsetPos = (sizeof(TsBlkIdx) + sizeof(CmpBlkIdx) * fieldIdx) * idxNumVec_[idx];
+      retVal = idxFile_.Read(pBuf, sizeof(CmpBlkIdx) * idxNumVec_[idx], (partPos + offsetPos));
+      if (retVal != PdbE_OK)
+        return retVal;
+
+      retVal = dataFile_.Write(pBuf, sizeof(CmpBlkIdx) * idxNumVec_[idx], dataOffset_);
+      if (retVal != PdbE_OK)
+        return retVal;
+
+      dataOffset_ += sizeof(CmpBlkIdx) * idxNumVec_[idx];
+      partPos += (sizeof(TsBlkIdx) + sizeof(CmpBlkIdx) * (valBuilderVec_.size() - 2)) * idxNumVec_[idx];
+    }
   }
 
-  const CompDevId* pDevIds = devIdxVec.data();
-  size_t devDataLen = sizeof(CompDevId) * devIdxVec.size();
-  retVal = dataFile_.Write(pDevIds, devDataLen, dataOffset_);
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  footer.devIdsPos_ = dataOffset_;
-  footer.devCnt_ = devIdxVec.size();
-  footer.devCrc_ = StringTool::CRC32(pDevIds, devDataLen);
-
-  footer.footCrc_ = StringTool::CRC32(&footer, (sizeof(CompDataFooter) - 4));
-
-  dataOffset_ += devDataLen;
-  retVal = dataFile_.Write(&footer, sizeof(CompDataFooter), dataOffset_);
-  if (retVal != PdbE_OK)
-    return retVal;
-
-  dataOffset_ += sizeof(CompDataFooter);
-
-  return PdbE_OK;
+  return dataFile_.Write(&footer, sizeof(CmpFooter), dataOffset_);
 }

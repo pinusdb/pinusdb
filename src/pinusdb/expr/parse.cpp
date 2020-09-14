@@ -93,32 +93,32 @@ void pdbInsert(SQLParser* pParse, Token* pTabName, TargetList* pColList, RecordL
 */
 /*  */
 #define YYCODETYPE unsigned char
-#define YYNOCODE 92
+#define YYNOCODE 96
 #define YYACTIONTYPE unsigned short int
 #define pdbParseTOKENTYPE Token
 typedef union {
   pdbParseTOKENTYPE yy0;
-  ExprValue* yy21;
-  GroupOpt* yy25;
-  ColumnList* yy27;
-  ColumnItem* yy40;
-  LimitOpt* yy45;
-  Token yy98;
-  ExprValueList* yy123;
-  TargetList* yy126;
-  OrderByOpt* yy139;
-  RecordList* yy142;
-  int yy183;
+  Token yy68;
+  GroupOpt* yy73;
+  ColumnItem* yy114;
+  TargetList* yy120;
+  LimitOpt* yy133;
+  ExprValue* yy137;
+  ExprValueList* yy161;
+  ColumnList* yy167;
+  OrderByOpt* yy177;
+  RecordList* yy180;
+  int yy191;
 } YYMINORTYPE;
 #define YYSTACKDEPTH 100
 #define pdbParseARG_SDECL SQLParser *pParse;
 #define pdbParseARG_PDECL ,SQLParser *pParse
 #define pdbParseARG_FETCH SQLParser *pParse = yypParser->pParse
 #define pdbParseARG_STORE yypParser->pParse = pParse
-#define YYNSTATE 202
-#define YYNRULE 83
-#define YYERRORSYMBOL 78
-#define YYERRSYMDT yy183
+#define YYNSTATE 206
+#define YYNRULE 87
+#define YYERRORSYMBOL 82
+#define YYERRSYMDT yy191
 #define YY_NO_ACTION      (YYNSTATE+YYNRULE+2)
 #define YY_ACCEPT_ACTION  (YYNSTATE+YYNRULE+1)
 #define YY_ERROR_ACTION   (YYNSTATE+YYNRULE)
@@ -171,137 +171,143 @@ typedef union {
 **  yy_default[]       Default action for each state.
 */
 static YYACTIONTYPE yy_action[] = {
- /*     0 */   123,  132,   36,   96,  114,  128,  130,   93,   97,  132,
- /*    10 */   232,   94,   11,  286,   99,   68,   69,   70,   71,   72,
- /*    20 */    73,   74,   75,   76,   77,  100,   14,  132,   37,   17,
- /*    30 */   200,  168,  136,  134,  128,  130,   93,   97,  122,   91,
- /*    40 */   103,  134,  128,  130,   93,   97,  132,   98,  101,  102,
- /*    50 */   105,  109,  113,  119,  156,  127,  170,   86,  136,  134,
- /*    60 */   128,  130,   93,   97,  127,  167,  199,    1,  139,  141,
- /*    70 */   149,  201,  145,   10,   22,  132,  177,  136,  134,  128,
- /*    80 */   130,   93,   97,   38,   49,  172,  181,  164,   58,   79,
- /*    90 */   171,  127,  152,  127,  147,  174,  126,  122,  127,  125,
- /*   100 */   179,  165,  241,  122,  127,  120,  136,  134,  128,  130,
- /*   110 */    93,   97,   23,  121,  180,  142,  144,   32,    8,  176,
- /*   120 */   122,  110,  153,  106,  116,  118,  242,  161,    9,  122,
- /*   130 */   195,  196,  148,  112,  172,  108,  188,  160,   84,  122,
- /*   140 */   190,   63,  176,   83,   78,   65,  205,    2,   65,   62,
- /*   150 */    78,   50,   39,  198,   53,   42,   40,  194,   41,  193,
- /*   160 */   209,    3,  243,   43,  191,   45,   44,  189,   46,  230,
- /*   170 */   187,   48,   47,  186,  211,    4,  185,   35,  210,   52,
- /*   180 */   192,  184,   51,   54,  197,   91,   56,  183,   57,   55,
- /*   190 */   182,    5,  212,    6,  178,   34,   59,   61,   60,  175,
- /*   200 */     7,  173,  202,   64,   67,  166,  214,  229,  163,   66,
- /*   210 */   169,   33,  162,   13,   12,  159,  157,  158,  203,   15,
- /*   220 */   151,  150,   16,  146,  208,  140,  137,  143,   20,   81,
- /*   230 */    18,  135,   21,   19,   80,  213,  204,   85,  231,  215,
- /*   240 */    82,  124,  133,   24,   90,  228,  131,   88,  129,  111,
- /*   250 */   117,   87,  107,  138,   26,  115,   89,   31,   27,   25,
- /*   260 */   104,   30,   28,   29,  176,  176,  176,  176,  176,  176,
- /*   270 */   176,  176,   92,  176,  176,  176,  176,  155,   95,  176,
- /*   280 */   176,  176,  154,
+ /*     0 */    68,   69,   70,   71,   72,   73,   74,   75,   76,   77,
+ /*    10 */    78,   79,   80,   81,  127,  136,   11,  100,  118,  132,
+ /*    20 */   134,   97,  101,  136,  205,   98,  120,  122,  103,   23,
+ /*    30 */    14,  110,  114,   17,   32,  104,  131,  124,  176,  185,
+ /*    40 */   130,  136,   50,  112,  116,   53,    8,  126,  131,  129,
+ /*    50 */   140,  138,  132,  134,   97,  101,    9,  125,  107,  138,
+ /*    60 */   132,  134,   97,  101,  126,  102,  105,  106,  109,  113,
+ /*    70 */   117,  123,  160,  199,  200,   90,  140,  138,  132,  134,
+ /*    80 */    97,  101,  143,  145,  153,    1,  149,   87,   82,  146,
+ /*    90 */   148,   10,   22,  152,  181,  188,  136,  131,  151,  201,
+ /*   100 */   126,   38,   49,  157,  136,   63,   58,   83,  131,  156,
+ /*   110 */   126,  250,   65,   62,   82,  168,  249,  165,  164,  131,
+ /*   120 */   171,  172,  183,  180,  176,  194,  131,  174,  126,  169,
+ /*   130 */   240,  140,  138,  132,  134,   97,  101,   36,  175,  140,
+ /*   140 */   138,  132,  134,   97,  101,  126,  184,   39,   88,  178,
+ /*   150 */    42,  180,   37,  209,  192,   65,  187,   95,   35,   40,
+ /*   160 */   186,   41,   34,   95,  213,  189,   43,  182,   44,   33,
+ /*   170 */    45,  179,   46,    3,  177,   47,    4,   48,  215,  208,
+ /*   180 */    31,   51,  190,  191,   52,   30,  214,    5,  170,   54,
+ /*   190 */    55,  237,  238,   57,   56,  167,  216,  173,   59,   29,
+ /*   200 */   166,   60,   61,  193,   67,   28,   27,   64,  218,  161,
+ /*   210 */   163,   66,  195,   26,  162,  147,  155,   16,  251,    6,
+ /*   220 */   154,   25,  144,  206,    7,  141,   24,  150,  197,  217,
+ /*   230 */   212,  202,   21,  128,  198,    2,  219,   20,  139,  137,
+ /*   240 */   135,  196,  121,  203,  133,  115,  111,  108,  119,   85,
+ /*   250 */    19,  142,   84,   86,   18,  207,   89,   13,   91,   12,
+ /*   260 */    92,  239,   94,  236,  184,  184,  184,  204,  184,   15,
+ /*   270 */   184,  184,  184,  184,  184,  184,  184,   93,  184,  184,
+ /*   280 */   184,  158,   99,  184,  184,  184,  184,  184,  184,  184,
+ /*   290 */   184,  184,  184,  184,  184,  184,  184,  184,  184,  159,
+ /*   300 */   184,  184,  184,  184,  294,  184,  184,  184,  184,  184,
+ /*   310 */   184,   96,
 };
 static YYCODETYPE yy_lookahead[] = {
- /*     0 */    18,   28,   32,   30,   22,   61,   62,   63,   64,   28,
- /*    10 */    23,   29,   19,   79,   32,   41,   42,   43,   44,   45,
- /*    20 */    46,   47,   48,   49,   50,   29,   33,   28,   23,   36,
- /*    30 */    89,   30,   59,   60,   61,   62,   63,   64,   37,   52,
- /*    40 */    58,   60,   61,   62,   63,   64,   28,   65,   66,   67,
- /*    50 */    68,   69,   70,   71,    5,   89,   90,    8,   59,   60,
- /*    60 */    61,   62,   63,   64,   89,   90,   32,   18,   72,   73,
- /*    70 */    74,   23,   76,   24,   25,   28,   77,   59,   60,   61,
- /*    80 */    62,   63,   64,   34,   35,   37,   38,   23,   39,   40,
- /*    90 */    30,   89,   90,   89,   90,   77,   30,   37,   89,   90,
- /*   100 */    51,   37,   23,   37,   89,   90,   59,   60,   61,   62,
- /*   110 */    63,   64,   26,   30,   84,   74,   75,   31,   22,   89,
- /*   120 */    37,   58,   30,   58,   74,   75,   23,   30,   32,   37,
- /*   130 */    55,   56,   30,   70,   37,   70,   57,   84,   30,   37,
- /*   140 */    37,   30,   89,   81,   82,   37,    0,   19,   37,   81,
- /*   150 */    82,   33,   33,   21,   36,   36,   32,   32,   23,   21,
- /*   160 */     0,   80,   23,   22,   58,   22,   37,   58,   38,    0,
- /*   170 */    23,   23,   32,   88,    0,   20,   87,   28,    0,   23,
- /*   180 */    54,   86,   32,   22,   53,   52,   32,   83,   23,   38,
- /*   190 */    32,   21,    0,   22,   32,   80,   33,   29,   32,   32,
- /*   200 */    23,   89,    0,   23,   32,   29,    0,    0,   85,   82,
- /*   210 */    29,   27,    7,   23,   80,   29,    6,   32,    0,   32,
- /*   220 */    29,   76,   23,   29,    0,   22,   89,   75,   32,   32,
- /*   230 */    22,   89,   23,   38,   33,    0,    0,   23,    0,    0,
- /*   240 */    29,   29,   89,   27,   23,    0,   89,   32,   89,   32,
- /*   250 */    75,   38,   32,   89,   28,   73,   83,   23,   26,   80,
- /*   260 */    32,   30,   29,   22,   91,   91,   91,   91,   91,   91,
- /*   270 */    91,   91,   89,   91,   91,   91,   91,   89,   89,   91,
- /*   280 */    91,   91,   89,
+ /*     0 */    41,   42,   43,   44,   45,   46,   47,   48,   49,   50,
+ /*    10 */    51,   52,   53,   54,   18,   28,   19,   30,   22,   65,
+ /*    20 */    66,   67,   68,   28,   23,   29,   78,   79,   32,   26,
+ /*    30 */    33,   62,   62,   36,   31,   29,   93,   94,   37,   38,
+ /*    40 */    30,   28,   33,   74,   74,   36,   22,   37,   93,   94,
+ /*    50 */    63,   64,   65,   66,   67,   68,   32,   30,   62,   64,
+ /*    60 */    65,   66,   67,   68,   37,   69,   70,   71,   72,   73,
+ /*    70 */    74,   75,    5,   59,   60,    8,   63,   64,   65,   66,
+ /*    80 */    67,   68,   76,   77,   78,   18,   80,   85,   86,   78,
+ /*    90 */    79,   24,   25,   30,   81,   90,   28,   93,   94,   57,
+ /*   100 */    37,   34,   35,   30,   28,   30,   39,   40,   93,   94,
+ /*   110 */    37,   23,   37,   85,   86,   23,   23,   30,   88,   93,
+ /*   120 */    94,   30,   55,   93,   37,   37,   93,   94,   37,   37,
+ /*   130 */    23,   63,   64,   65,   66,   67,   68,   32,   30,   63,
+ /*   140 */    64,   65,   66,   67,   68,   37,   88,   33,   30,   81,
+ /*   150 */    36,   93,   23,    0,   61,   37,   87,   56,   28,   32,
+ /*   160 */    32,   23,   84,   56,    0,   91,   22,   32,   37,   27,
+ /*   170 */    22,   32,   38,   84,   93,   32,   20,   23,    0,    0,
+ /*   180 */    23,   32,   92,   23,   23,   30,    0,   21,   29,   22,
+ /*   190 */    38,    0,    0,   23,   32,   89,    0,   29,   33,   22,
+ /*   200 */     7,   32,   29,   62,   32,   29,   26,   23,    0,    6,
+ /*   210 */    29,   86,   62,   28,   32,   79,   29,   23,   23,   22,
+ /*   220 */    80,   84,   22,    0,   23,   93,   27,   29,   21,    0,
+ /*   230 */     0,   21,   23,   29,   32,   19,    0,   32,   93,   93,
+ /*   240 */    93,   58,   79,   32,   93,   32,   32,   32,   77,   32,
+ /*   250 */    38,   93,   33,   29,   22,    0,   23,   23,   38,   84,
+ /*   260 */    32,    0,   23,    0,   95,   95,   95,   93,   95,   32,
+ /*   270 */    95,   95,   95,   95,   95,   95,   95,   87,   95,   95,
+ /*   280 */    95,   93,   93,   95,   95,   95,   95,   95,   95,   95,
+ /*   290 */    95,   95,   95,   95,   95,   95,   95,   95,   95,   93,
+ /*   300 */    95,   95,   95,   95,   83,   95,   95,   95,   95,   95,
+ /*   310 */    95,   93,
 };
-#define YY_SHIFT_USE_DFLT (-57)
+#define YY_SHIFT_USE_DFLT (-53)
 static short yy_shift_ofst[] = {
- /*     0 */    49,  128,   96,  155,  170,  171,  177,  202,  -57,  -57,
- /*    10 */    -7,   96,  190,  218,  187,  199,  224,  208,  195,  196,
- /*    20 */   209,  235,   86,  216,   96,  226,  232,  233,  241,  231,
- /*    30 */   234,  236,  184,   96,  149,  -30,    5,  146,  119,  124,
- /*    40 */   135,  160,  141,  129,  143,  130,  140,  148,  174,  118,
- /*    50 */   150,  156,  178,  161,  151,  154,  165,  192,  163,  166,
- /*    60 */   168,  172,  111,  180,  206,  172,  -57,  -26,  -57,  -57,
- /*    70 */   -57,  -57,  -57,  -57,  -57,  -57,  -57,  -57,  -57,  201,
- /*    80 */   197,  211,  172,  108,  214,  239,  213,  215,  -13,  221,
- /*    90 */   245,  -18,   47,  -18,  -18,  -27,  -57,  -18,  -57,   -4,
- /*   100 */   -18,  -57,  -57,  228,  -57,   65,  220,  -57,  -57,   63,
- /*   110 */   217,  -57,  -57,  -57,  182,   50,  175,  -57,  -57,  -57,
- /*   120 */    83,  -57,  -18,  212,  -18,   66,  -57,   47,  -18,  -57,
- /*   130 */   -18,  -57,  -18,  -56,  -18,  -56,  -18,  -19,   47,  203,
- /*   140 */   -57,   41,  152,  -57,  -57,  194,  -18,  102,  -57,  145,
- /*   150 */   191,  -18,   92,  -57,  -57,  -57,  210,  185,  186,  -18,
- /*   160 */    97,  205,  181,   64,  207,  176,  -18,    1,  -57,  -18,
- /*   170 */    60,  -57,  -18,   18,  167,  -57,   -1,  162,  -57,  -18,
- /*   180 */    48,  158,  133,  131,  126,   79,  147,  169,  109,  103,
- /*   190 */   106,  139,  138,  125,   75,  -57,  -57,  132,   34,  -18,
- /*   200 */    47,  238,
+ /*     0 */    67,  216,   24,  156,  166,  197,  201,  223,  -53,  -53,
+ /*    10 */    -3,   24,  234,  255,  237,  194,  230,  232,  212,  205,
+ /*    20 */   209,  229,    3,  199,   24,  185,  180,  176,  177,  155,
+ /*    30 */   157,  179,  142,   24,  130,  105,  129,  153,  114,  127,
+ /*    40 */   138,  164,  144,  131,  148,  134,  143,  154,  178,    9,
+ /*    50 */   149,  161,  186,  167,  152,  162,  170,  196,  165,  169,
+ /*    60 */   173,  172,   75,  184,  208,  172,  -53,  -41,  -53,  -53,
+ /*    70 */   -53,  -53,  -53,  -53,  -53,  -53,  -53,  -53,  -53,  -53,
+ /*    80 */   -53,  -53,  -53,  219,  217,  224,  172,  118,  233,  236,
+ /*    90 */   220,  228,  107,  239,  263,   -4,   76,   -4,   -4,  -13,
+ /*   100 */   -53,   -4,  -53,    6,   -4,  -53,  -53,  215,  -53,  -31,
+ /*   110 */   214,  -53,  -53,  -30,  213,  -53,  -53,  -53,  171,  -52,
+ /*   120 */   163,  -53,  -53,  -53,   27,  -53,   -4,  204,   -4,   10,
+ /*   130 */   -53,   76,   -4,  -53,   -4,  -53,   -4,  -46,   -4,  -46,
+ /*   140 */    -4,   -5,   76,  200,  -53,   11,  136,  -53,  -53,  198,
+ /*   150 */    -4,   63,  -53,  140,  187,   -4,   73,  -53,  -53,  -53,
+ /*   160 */   203,  182,  181,   -4,   87,  193,  168,   92,  191,  159,
+ /*   170 */    -4,   91,  -53,   -4,  108,  -53,   -4,   68,  139,  -53,
+ /*   180 */    13,  135,  -53,   -4,    1,  128,  101,   42,  183,   93,
+ /*   190 */   160,  192,  141,   88,  150,  195,  207,  202,   14,  -53,
+ /*   200 */   -53,  210,  211,   -4,   76,  261,
 };
-#define YY_REDUCE_USE_DFLT (-67)
+#define YY_REDUCE_USE_DFLT (-58)
 static short yy_reduce_ofst[] = {
- /*     0 */   -66,  -67,   81,  -67,  -67,  -67,  -67,  -67,  -67,  -67,
- /*    10 */   -67,  134,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,
- /*    20 */   -67,  -67,  -67,  -67,  179,  -67,  -67,  -67,  -67,  -67,
- /*    30 */   -67,  -67,  -67,  115,  -67,  -67,  -67,  -67,  -67,  -67,
- /*    40 */   -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,
- /*    50 */   -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,
- /*    60 */   -67,   68,  -67,  -67,  -67,  127,  -67,  -67,  -67,  -67,
- /*    70 */   -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,
- /*    80 */   -67,  -67,   62,  -67,  -67,  -67,  -67,  -67,  173,  -67,
- /*    90 */   -67,  183,  -67,  188,  189,  -67,  -67,  193,  -67,  -67,
- /*   100 */    15,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,
- /*   110 */   -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,
- /*   120 */   -67,  -67,  164,  -67,    9,  -67,  -67,  -67,  159,  -67,
- /*   130 */   157,  -67,  153,  -67,  142,  -67,  137,  -67,  -67,  -67,
- /*   140 */   -67,  -67,  -67,  -67,  -67,  -67,    4,  -67,  -67,  -67,
- /*   150 */   -67,    2,  -67,  -67,  -67,  -67,  -67,  -67,  -67,   53,
- /*   160 */   -67,  -67,  123,  -67,  -67,  -67,  -25,  -67,  -67,  -34,
- /*   170 */   -67,  -67,  112,  -67,  -67,  -67,  -67,  -67,  -67,   30,
- /*   180 */   -67,  -67,  104,   95,   89,   85,  -67,  -67,  -67,  -67,
- /*   190 */   -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -67,  -59,
- /*   200 */   -67,  -67,
+ /*     0 */   221,  -58,   89,  -58,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*    10 */   -58,  175,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*    20 */   -58,  -58,  -58,  -58,  137,  -58,  -58,  -58,  -58,  -58,
+ /*    30 */   -58,  -58,  -58,   78,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*    40 */   -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*    50 */   -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*    60 */   -58,   28,  -58,  -58,  -58,  125,  -58,  -58,  -58,  -58,
+ /*    70 */   -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*    80 */   -58,  -58,  -58,  -58,  -58,  -58,    2,  -58,  -58,  -58,
+ /*    90 */   -58,  -58,  190,  -58,  -58,  218,  -58,  206,  189,  -58,
+ /*   100 */   -58,  188,  -58,  -58,  -57,  -58,  -58,  -58,  -58,  -58,
+ /*   110 */   -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*   120 */   -58,  -58,  -58,  -58,  -58,  -58,  158,  -58,  -45,  -58,
+ /*   130 */   -58,  -58,  151,  -58,  147,  -58,  146,  -58,  145,  -58,
+ /*   140 */   132,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*   150 */     4,  -58,  -58,  -58,  -58,   15,  -58,  -58,  -58,  -58,
+ /*   160 */   -58,  -58,  -58,   30,  -58,  -58,  106,  -58,  -58,  -58,
+ /*   170 */    26,  -58,  -58,   33,  -58,  -58,   81,  -58,  -58,  -58,
+ /*   180 */   -58,  -58,  -58,   58,  -58,  -58,   69,    5,   74,   90,
+ /*   190 */   -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,  -58,
+ /*   200 */   -58,  -58,  -58,  174,  -58,  -58,
 };
 static YYACTIONTYPE yy_default[] = {
- /*     0 */   285,  285,  285,  285,  285,  285,  285,  285,  206,  207,
- /*    10 */   285,  285,  285,  285,  285,  285,  285,  285,  285,  285,
- /*    20 */   285,  285,  285,  285,  285,  285,  285,  285,  285,  285,
- /*    30 */   285,  285,  285,  285,  285,  285,  285,  285,  285,  285,
- /*    40 */   285,  285,  285,  285,  285,  285,  285,  285,  285,  285,
- /*    50 */   285,  285,  285,  285,  285,  285,  285,  285,  285,  285,
- /*    60 */   285,  285,  285,  285,  285,  285,  216,  285,  218,  219,
- /*    70 */   220,  221,  222,  223,  224,  225,  226,  227,  217,  285,
- /*    80 */   285,  285,  285,  285,  285,  285,  285,  285,  285,  285,
- /*    90 */   285,  285,  233,  285,  285,  285,  246,  285,  247,  248,
- /*   100 */   278,  249,  250,  251,  259,  285,  252,  260,  255,  285,
- /*   110 */   253,  261,  256,  254,  257,  285,  285,  274,  275,  258,
- /*   120 */   285,  262,  285,  285,  278,  285,  263,  279,  285,  266,
- /*   130 */   285,  267,  285,  268,  285,  269,  285,  270,  280,  285,
- /*   140 */   271,  285,  285,  272,  273,  285,  278,  285,  276,  285,
- /*   150 */   285,  278,  285,  277,  265,  264,  285,  285,  285,  285,
- /*   160 */   285,  285,  285,  285,  285,  285,  278,  285,  245,  278,
- /*   170 */   285,  244,  285,  283,  285,  284,  281,  285,  282,  285,
- /*   180 */   285,  285,  232,  234,  237,  285,  285,  285,  285,  285,
- /*   190 */   285,  285,  285,  285,  238,  239,  240,  285,  285,  235,
- /*   200 */   236,  285,
+ /*     0 */   293,  293,  293,  293,  293,  293,  293,  293,  210,  211,
+ /*    10 */   293,  293,  293,  293,  293,  293,  293,  293,  293,  293,
+ /*    20 */   293,  293,  293,  293,  293,  293,  293,  293,  293,  293,
+ /*    30 */   293,  293,  293,  293,  293,  293,  293,  293,  293,  293,
+ /*    40 */   293,  293,  293,  293,  293,  293,  293,  293,  293,  293,
+ /*    50 */   293,  293,  293,  293,  293,  293,  293,  293,  293,  293,
+ /*    60 */   293,  293,  293,  293,  293,  293,  220,  293,  222,  223,
+ /*    70 */   224,  225,  226,  227,  228,  229,  230,  231,  232,  233,
+ /*    80 */   234,  235,  221,  293,  293,  293,  293,  293,  293,  293,
+ /*    90 */   293,  293,  293,  293,  293,  293,  241,  293,  293,  293,
+ /*   100 */   254,  293,  255,  256,  286,  257,  258,  259,  267,  293,
+ /*   110 */   260,  268,  263,  293,  261,  269,  264,  262,  265,  293,
+ /*   120 */   293,  282,  283,  266,  293,  270,  293,  293,  286,  293,
+ /*   130 */   271,  287,  293,  274,  293,  275,  293,  276,  293,  277,
+ /*   140 */   293,  278,  288,  293,  279,  293,  293,  280,  281,  293,
+ /*   150 */   286,  293,  284,  293,  293,  286,  293,  285,  273,  272,
+ /*   160 */   293,  293,  293,  293,  293,  293,  293,  293,  293,  293,
+ /*   170 */   286,  293,  253,  286,  293,  252,  293,  291,  293,  292,
+ /*   180 */   289,  293,  290,  293,  293,  293,  240,  242,  245,  293,
+ /*   190 */   293,  293,  293,  293,  293,  293,  293,  293,  246,  247,
+ /*   200 */   248,  293,  293,  243,  244,  293,
 };
 #define YY_SZ_ACTTAB (sizeof(yy_action)/sizeof(yy_action[0]))
 
@@ -397,7 +403,8 @@ static const char *yyTokenName[] = {
   "EQ",            "LP",            "RP",            "ROLE",        
   "ID",            "TABLE",         "ATTACH",        "DETACH",      
   "DATAFILE",      "COMMA",         "FROM",          "CREATE",      
-  "ALTER",         "BOOL_TYPE",     "BIGINT_TYPE",   "DOUBLE_TYPE", 
+  "ALTER",         "BOOL_TYPE",     "TINYINT_TYPE",  "SMALLINT_TYPE",
+  "INT_TYPE",      "BIGINT_TYPE",   "FLOAT_TYPE",    "DOUBLE_TYPE", 
   "STRING_TYPE",   "BLOB_TYPE",     "DATETIME_TYPE",  "REAL2_TYPE",  
   "REAL3_TYPE",    "REAL4_TYPE",    "REAL6_TYPE",    "SELECT",      
   "WHERE",         "GROUP",         "ORDER",         "ASC",         
@@ -434,72 +441,76 @@ static const char *yyRuleName[] = {
  /*  14 */ "cre_columnlist ::= cre_columnlist COMMA cre_column",
  /*  15 */ "cre_columnlist ::= cre_column",
  /*  16 */ "cre_column ::= ID BOOL_TYPE",
- /*  17 */ "cre_column ::= ID BIGINT_TYPE",
- /*  18 */ "cre_column ::= ID DOUBLE_TYPE",
- /*  19 */ "cre_column ::= ID STRING_TYPE",
- /*  20 */ "cre_column ::= ID BLOB_TYPE",
- /*  21 */ "cre_column ::= ID DATETIME_TYPE",
- /*  22 */ "cre_column ::= ID REAL2_TYPE",
- /*  23 */ "cre_column ::= ID REAL3_TYPE",
- /*  24 */ "cre_column ::= ID REAL4_TYPE",
- /*  25 */ "cre_column ::= ID REAL6_TYPE",
- /*  26 */ "cmd ::= DELETE FROM ID where_opt SEMI",
- /*  27 */ "cmd ::= INSERT INTO ID LP target_list RP VALUES record_list SEMI",
- /*  28 */ "cmd ::= SELECT target_list FROM ID where_opt groupby_opt orderby_opt limit_opt SEMI",
- /*  29 */ "cmd ::= SELECT target_list SEMI",
- /*  30 */ "where_opt ::=",
- /*  31 */ "where_opt ::= WHERE expr_val",
- /*  32 */ "groupby_opt ::=",
- /*  33 */ "groupby_opt ::= GROUP BY ID",
- /*  34 */ "groupby_opt ::= GROUP BY ID expr_val",
- /*  35 */ "orderby_opt ::=",
- /*  36 */ "orderby_opt ::= ORDER BY ID",
- /*  37 */ "orderby_opt ::= ORDER BY ID ASC",
- /*  38 */ "orderby_opt ::= ORDER BY ID DESC",
- /*  39 */ "limit_opt ::=",
- /*  40 */ "limit_opt ::= LIMIT INTEGER",
- /*  41 */ "limit_opt ::= LIMIT INTEGER COMMA INTEGER",
- /*  42 */ "record_list ::= LP expr_val_list RP",
- /*  43 */ "record_list ::= record_list COMMA LP expr_val_list RP",
- /*  44 */ "expr_val ::= LP expr_val RP",
- /*  45 */ "expr_val ::= STAR",
- /*  46 */ "expr_val ::= ID",
- /*  47 */ "expr_val ::= TRUE",
- /*  48 */ "expr_val ::= FALSE",
- /*  49 */ "expr_val ::= INTEGER",
- /*  50 */ "expr_val ::= PLUS INTEGER",
- /*  51 */ "expr_val ::= MINUS INTEGER",
- /*  52 */ "expr_val ::= DOUBLE",
- /*  53 */ "expr_val ::= PLUS DOUBLE",
- /*  54 */ "expr_val ::= MINUS DOUBLE",
- /*  55 */ "expr_val ::= STRING",
- /*  56 */ "expr_val ::= BLOB",
- /*  57 */ "expr_val ::= INTEGER ID",
- /*  58 */ "expr_val ::= PLUS INTEGER ID",
- /*  59 */ "expr_val ::= MINUS INTEGER ID",
- /*  60 */ "expr_val ::= ID LP expr_val_list RP",
- /*  61 */ "expr_val ::= ADD LP expr_val_list RP",
- /*  62 */ "expr_val ::= expr_val LT expr_val",
- /*  63 */ "expr_val ::= expr_val LE expr_val",
- /*  64 */ "expr_val ::= expr_val GT expr_val",
- /*  65 */ "expr_val ::= expr_val GE expr_val",
- /*  66 */ "expr_val ::= expr_val EQ expr_val",
- /*  67 */ "expr_val ::= expr_val NE expr_val",
- /*  68 */ "expr_val ::= expr_val AND expr_val",
- /*  69 */ "expr_val ::= ID LIKE STRING",
- /*  70 */ "expr_val ::= ID IS NOT NULL",
- /*  71 */ "expr_val ::= ID IS NULL",
- /*  72 */ "expr_val ::= STRING IS NOT NULL",
- /*  73 */ "expr_val ::= STRING IS NULL",
- /*  74 */ "expr_val ::= ID IN LP expr_val_list RP",
- /*  75 */ "expr_val ::= ID NOT IN LP expr_val_list RP",
- /*  76 */ "expr_val_list ::=",
- /*  77 */ "expr_val_list ::= expr_val",
- /*  78 */ "expr_val_list ::= expr_val_list COMMA expr_val",
- /*  79 */ "target_list ::= expr_val",
- /*  80 */ "target_list ::= expr_val AS ID",
- /*  81 */ "target_list ::= target_list COMMA expr_val",
- /*  82 */ "target_list ::= target_list COMMA expr_val AS ID",
+ /*  17 */ "cre_column ::= ID TINYINT_TYPE",
+ /*  18 */ "cre_column ::= ID SMALLINT_TYPE",
+ /*  19 */ "cre_column ::= ID INT_TYPE",
+ /*  20 */ "cre_column ::= ID BIGINT_TYPE",
+ /*  21 */ "cre_column ::= ID FLOAT_TYPE",
+ /*  22 */ "cre_column ::= ID DOUBLE_TYPE",
+ /*  23 */ "cre_column ::= ID STRING_TYPE",
+ /*  24 */ "cre_column ::= ID BLOB_TYPE",
+ /*  25 */ "cre_column ::= ID DATETIME_TYPE",
+ /*  26 */ "cre_column ::= ID REAL2_TYPE",
+ /*  27 */ "cre_column ::= ID REAL3_TYPE",
+ /*  28 */ "cre_column ::= ID REAL4_TYPE",
+ /*  29 */ "cre_column ::= ID REAL6_TYPE",
+ /*  30 */ "cmd ::= DELETE FROM ID where_opt SEMI",
+ /*  31 */ "cmd ::= INSERT INTO ID LP target_list RP VALUES record_list SEMI",
+ /*  32 */ "cmd ::= SELECT target_list FROM ID where_opt groupby_opt orderby_opt limit_opt SEMI",
+ /*  33 */ "cmd ::= SELECT target_list SEMI",
+ /*  34 */ "where_opt ::=",
+ /*  35 */ "where_opt ::= WHERE expr_val",
+ /*  36 */ "groupby_opt ::=",
+ /*  37 */ "groupby_opt ::= GROUP BY ID",
+ /*  38 */ "groupby_opt ::= GROUP BY ID expr_val",
+ /*  39 */ "orderby_opt ::=",
+ /*  40 */ "orderby_opt ::= ORDER BY ID",
+ /*  41 */ "orderby_opt ::= ORDER BY ID ASC",
+ /*  42 */ "orderby_opt ::= ORDER BY ID DESC",
+ /*  43 */ "limit_opt ::=",
+ /*  44 */ "limit_opt ::= LIMIT INTEGER",
+ /*  45 */ "limit_opt ::= LIMIT INTEGER COMMA INTEGER",
+ /*  46 */ "record_list ::= LP expr_val_list RP",
+ /*  47 */ "record_list ::= record_list COMMA LP expr_val_list RP",
+ /*  48 */ "expr_val ::= LP expr_val RP",
+ /*  49 */ "expr_val ::= STAR",
+ /*  50 */ "expr_val ::= ID",
+ /*  51 */ "expr_val ::= TRUE",
+ /*  52 */ "expr_val ::= FALSE",
+ /*  53 */ "expr_val ::= INTEGER",
+ /*  54 */ "expr_val ::= PLUS INTEGER",
+ /*  55 */ "expr_val ::= MINUS INTEGER",
+ /*  56 */ "expr_val ::= DOUBLE",
+ /*  57 */ "expr_val ::= PLUS DOUBLE",
+ /*  58 */ "expr_val ::= MINUS DOUBLE",
+ /*  59 */ "expr_val ::= STRING",
+ /*  60 */ "expr_val ::= BLOB",
+ /*  61 */ "expr_val ::= INTEGER ID",
+ /*  62 */ "expr_val ::= PLUS INTEGER ID",
+ /*  63 */ "expr_val ::= MINUS INTEGER ID",
+ /*  64 */ "expr_val ::= ID LP expr_val_list RP",
+ /*  65 */ "expr_val ::= ADD LP expr_val_list RP",
+ /*  66 */ "expr_val ::= expr_val LT expr_val",
+ /*  67 */ "expr_val ::= expr_val LE expr_val",
+ /*  68 */ "expr_val ::= expr_val GT expr_val",
+ /*  69 */ "expr_val ::= expr_val GE expr_val",
+ /*  70 */ "expr_val ::= expr_val EQ expr_val",
+ /*  71 */ "expr_val ::= expr_val NE expr_val",
+ /*  72 */ "expr_val ::= expr_val AND expr_val",
+ /*  73 */ "expr_val ::= ID LIKE STRING",
+ /*  74 */ "expr_val ::= ID IS NOT NULL",
+ /*  75 */ "expr_val ::= ID IS NULL",
+ /*  76 */ "expr_val ::= STRING IS NOT NULL",
+ /*  77 */ "expr_val ::= STRING IS NULL",
+ /*  78 */ "expr_val ::= ID IN LP expr_val_list RP",
+ /*  79 */ "expr_val ::= ID NOT IN LP expr_val_list RP",
+ /*  80 */ "expr_val_list ::=",
+ /*  81 */ "expr_val_list ::= expr_val",
+ /*  82 */ "expr_val_list ::= expr_val_list COMMA expr_val",
+ /*  83 */ "target_list ::= expr_val",
+ /*  84 */ "target_list ::= expr_val AS ID",
+ /*  85 */ "target_list ::= target_list COMMA expr_val",
+ /*  86 */ "target_list ::= target_list COMMA expr_val AS ID",
 };
 #endif /* NDEBUG */
 
@@ -557,55 +568,55 @@ static void yy_destructor(YYCODETYPE yymajor, YYMINORTYPE *yypminor){
     ** which appear on the RHS of the rule, but which are not used
     ** inside the C code.
     */
-    case 81:
-#line 113 "parse.y"
-{ ColumnList::FreeColumnList((yypminor->yy27)); }
-#line 563 "parse.c"
-      break;
-    case 82:
-#line 115 "parse.y"
-{ ColumnItem::FreeColumnItem((yypminor->yy40)); }
-#line 568 "parse.c"
-      break;
-    case 83:
-#line 166 "parse.y"
-{ ExprValue::FreeExprValue((yypminor->yy21)); }
-#line 573 "parse.c"
-      break;
-    case 84:
-#line 251 "parse.y"
-{ TargetList::FreeTargetList((yypminor->yy126)); }
-#line 578 "parse.c"
-      break;
     case 85:
-#line 198 "parse.y"
-{ RecordList::FreeRecordList((yypminor->yy142)); }
-#line 583 "parse.c"
+#line 113 "parse.y"
+{ ColumnList::FreeColumnList((yypminor->yy167)); }
+#line 574 "parse.c"
       break;
     case 86:
-#line 172 "parse.y"
-{ delete ((yypminor->yy25)); }
-#line 588 "parse.c"
+#line 115 "parse.y"
+{ ColumnItem::FreeColumnItem((yypminor->yy114)); }
+#line 579 "parse.c"
       break;
     case 87:
-#line 179 "parse.y"
-{ delete ((yypminor->yy139)); }
-#line 593 "parse.c"
+#line 170 "parse.y"
+{ ExprValue::FreeExprValue((yypminor->yy137)); }
+#line 584 "parse.c"
       break;
     case 88:
-#line 187 "parse.y"
-{ delete ((yypminor->yy45)); }
-#line 598 "parse.c"
+#line 255 "parse.y"
+{ TargetList::FreeTargetList((yypminor->yy120)); }
+#line 589 "parse.c"
       break;
     case 89:
-#line 206 "parse.y"
-{ ExprValue::FreeExprValue((yypminor->yy21)); }
-#line 603 "parse.c"
+#line 202 "parse.y"
+{ RecordList::FreeRecordList((yypminor->yy180)); }
+#line 594 "parse.c"
       break;
     case 90:
-#line 244 "parse.y"
-{ ExprValueList::FreeExprValueList((yypminor->yy123)); }
-#line 608 "parse.c"
+#line 176 "parse.y"
+{ delete ((yypminor->yy73)); }
+#line 599 "parse.c"
+      break;
+    case 91:
+#line 183 "parse.y"
+{ delete ((yypminor->yy177)); }
+#line 604 "parse.c"
+      break;
+    case 92:
+#line 191 "parse.y"
+{ delete ((yypminor->yy133)); }
+#line 609 "parse.c"
+      break;
+    case 93:
+#line 210 "parse.y"
+{ ExprValue::FreeExprValue((yypminor->yy137)); }
+#line 614 "parse.c"
+      break;
+    case 94:
+#line 248 "parse.y"
+{ ExprValueList::FreeExprValueList((yypminor->yy161)); }
+#line 619 "parse.c"
       break;
     default:  break;   /* If no destructor action specified: do nothing */
   }
@@ -781,89 +792,93 @@ static struct {
   YYCODETYPE lhs;         /* Symbol on the left-hand side of the rule */
   unsigned char nrhs;     /* Number of right-hand side symbols in the rule */
 } yyRuleInfo[] = {
-  { 79, 7 },
-  { 79, 4 },
-  { 79, 10 },
-  { 79, 7 },
-  { 80, 1 },
-  { 80, 1 },
-  { 79, 4 },
-  { 79, 4 },
-  { 79, 4 },
-  { 79, 8 },
-  { 79, 6 },
-  { 79, 6 },
-  { 79, 7 },
-  { 79, 7 },
-  { 81, 3 },
-  { 81, 1 },
-  { 82, 2 },
-  { 82, 2 },
-  { 82, 2 },
-  { 82, 2 },
-  { 82, 2 },
-  { 82, 2 },
-  { 82, 2 },
-  { 82, 2 },
-  { 82, 2 },
-  { 82, 2 },
-  { 79, 5 },
-  { 79, 9 },
-  { 79, 9 },
-  { 79, 3 },
-  { 83, 0 },
-  { 83, 2 },
-  { 86, 0 },
-  { 86, 3 },
-  { 86, 4 },
-  { 87, 0 },
-  { 87, 3 },
-  { 87, 4 },
-  { 87, 4 },
-  { 88, 0 },
-  { 88, 2 },
-  { 88, 4 },
+  { 83, 7 },
+  { 83, 4 },
+  { 83, 10 },
+  { 83, 7 },
+  { 84, 1 },
+  { 84, 1 },
+  { 83, 4 },
+  { 83, 4 },
+  { 83, 4 },
+  { 83, 8 },
+  { 83, 6 },
+  { 83, 6 },
+  { 83, 7 },
+  { 83, 7 },
   { 85, 3 },
-  { 85, 5 },
-  { 89, 3 },
-  { 89, 1 },
-  { 89, 1 },
-  { 89, 1 },
-  { 89, 1 },
-  { 89, 1 },
-  { 89, 2 },
-  { 89, 2 },
-  { 89, 1 },
-  { 89, 2 },
-  { 89, 2 },
-  { 89, 1 },
-  { 89, 1 },
-  { 89, 2 },
-  { 89, 3 },
-  { 89, 3 },
-  { 89, 4 },
-  { 89, 4 },
-  { 89, 3 },
-  { 89, 3 },
-  { 89, 3 },
-  { 89, 3 },
-  { 89, 3 },
-  { 89, 3 },
-  { 89, 3 },
-  { 89, 3 },
-  { 89, 4 },
-  { 89, 3 },
-  { 89, 4 },
+  { 85, 1 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 86, 2 },
+  { 83, 5 },
+  { 83, 9 },
+  { 83, 9 },
+  { 83, 3 },
+  { 87, 0 },
+  { 87, 2 },
+  { 90, 0 },
+  { 90, 3 },
+  { 90, 4 },
+  { 91, 0 },
+  { 91, 3 },
+  { 91, 4 },
+  { 91, 4 },
+  { 92, 0 },
+  { 92, 2 },
+  { 92, 4 },
   { 89, 3 },
   { 89, 5 },
-  { 89, 6 },
-  { 90, 0 },
-  { 90, 1 },
-  { 90, 3 },
-  { 84, 1 },
-  { 84, 3 },
-  { 84, 3 },
-  { 84, 5 },
+  { 93, 3 },
+  { 93, 1 },
+  { 93, 1 },
+  { 93, 1 },
+  { 93, 1 },
+  { 93, 1 },
+  { 93, 2 },
+  { 93, 2 },
+  { 93, 1 },
+  { 93, 2 },
+  { 93, 2 },
+  { 93, 1 },
+  { 93, 1 },
+  { 93, 2 },
+  { 93, 3 },
+  { 93, 3 },
+  { 93, 4 },
+  { 93, 4 },
+  { 93, 3 },
+  { 93, 3 },
+  { 93, 3 },
+  { 93, 3 },
+  { 93, 3 },
+  { 93, 3 },
+  { 93, 3 },
+  { 93, 3 },
+  { 93, 4 },
+  { 93, 3 },
+  { 93, 4 },
+  { 93, 3 },
+  { 93, 5 },
+  { 93, 6 },
+  { 94, 0 },
+  { 94, 1 },
+  { 94, 3 },
+  { 88, 1 },
+  { 88, 3 },
+  { 88, 3 },
+  { 88, 5 },
 };
 
 static void yy_accept(yyParser*);  /* Forward Declaration */
@@ -903,9 +918,9 @@ static void yy_reduce(
       case 0:
 #line 53 "parse.y"
 {
-  pdbAddUser(pParse, &yymsp[-4].minor.yy98, &yymsp[-1].minor.yy0);
+  pdbAddUser(pParse, &yymsp[-4].minor.yy68, &yymsp[-1].minor.yy0);
 }
-#line 908 "parse.c"
+#line 923 "parse.c"
         /* No destructor defined for ADD */
         /* No destructor defined for USER */
         /* No destructor defined for IDENTIFIED */
@@ -915,9 +930,9 @@ static void yy_reduce(
       case 1:
 #line 57 "parse.y"
 {
-  pdbDropUser(pParse, &yymsp[-1].minor.yy98);
+  pdbDropUser(pParse, &yymsp[-1].minor.yy68);
 }
-#line 920 "parse.c"
+#line 935 "parse.c"
         /* No destructor defined for DROP */
         /* No destructor defined for USER */
         /* No destructor defined for SEMI */
@@ -925,9 +940,9 @@ static void yy_reduce(
       case 2:
 #line 62 "parse.y"
 {
-  pdbChangePwd(pParse, &yymsp[-6].minor.yy98, &yymsp[-2].minor.yy0); 
+  pdbChangePwd(pParse, &yymsp[-6].minor.yy68, &yymsp[-2].minor.yy0); 
 }
-#line 930 "parse.c"
+#line 945 "parse.c"
         /* No destructor defined for SET */
         /* No destructor defined for PASSWORD */
         /* No destructor defined for FOR */
@@ -940,9 +955,9 @@ static void yy_reduce(
       case 3:
 #line 66 "parse.y"
 {
-  pdbChangeRole(pParse, &yymsp[-3].minor.yy98, &yymsp[-1].minor.yy0);
+  pdbChangeRole(pParse, &yymsp[-3].minor.yy68, &yymsp[-1].minor.yy0);
 }
-#line 945 "parse.c"
+#line 960 "parse.c"
         /* No destructor defined for SET */
         /* No destructor defined for ROLE */
         /* No destructor defined for FOR */
@@ -951,20 +966,20 @@ static void yy_reduce(
         break;
       case 4:
 #line 71 "parse.y"
-{ yygotominor.yy98 = yymsp[0].minor.yy0; }
-#line 955 "parse.c"
+{ yygotominor.yy68 = yymsp[0].minor.yy0; }
+#line 970 "parse.c"
         break;
       case 5:
 #line 72 "parse.y"
-{ yygotominor.yy98 = yymsp[0].minor.yy0; }
-#line 960 "parse.c"
+{ yygotominor.yy68 = yymsp[0].minor.yy0; }
+#line 975 "parse.c"
         break;
       case 6:
 #line 75 "parse.y"
 {
   pdbDropTable(pParse, &yymsp[-1].minor.yy0);
 }
-#line 967 "parse.c"
+#line 982 "parse.c"
         /* No destructor defined for DROP */
         /* No destructor defined for TABLE */
         /* No destructor defined for SEMI */
@@ -974,7 +989,7 @@ static void yy_reduce(
 {
   pdbAttachTable(pParse, &yymsp[-1].minor.yy0);
 }
-#line 977 "parse.c"
+#line 992 "parse.c"
         /* No destructor defined for ATTACH */
         /* No destructor defined for TABLE */
         /* No destructor defined for SEMI */
@@ -984,7 +999,7 @@ static void yy_reduce(
 {
   pdbDetachTable(pParse, &yymsp[-1].minor.yy0);
 }
-#line 987 "parse.c"
+#line 1002 "parse.c"
         /* No destructor defined for DETACH */
         /* No destructor defined for TABLE */
         /* No destructor defined for SEMI */
@@ -994,7 +1009,7 @@ static void yy_reduce(
 {
   pdbAttachFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-5].minor.yy0, &yymsp[-3].minor.yy0);
 }
-#line 997 "parse.c"
+#line 1012 "parse.c"
         /* No destructor defined for ATTACH */
         /* No destructor defined for DATAFILE */
         /* No destructor defined for COMMA */
@@ -1006,7 +1021,7 @@ static void yy_reduce(
 {
   pdbDetachFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-3].minor.yy0);
 }
-#line 1009 "parse.c"
+#line 1024 "parse.c"
         /* No destructor defined for DETACH */
         /* No destructor defined for DATAFILE */
         /* No destructor defined for FROM */
@@ -1017,7 +1032,7 @@ static void yy_reduce(
 {
   pdbDropFile(pParse, &yymsp[-1].minor.yy0, &yymsp[-3].minor.yy0);
 }
-#line 1020 "parse.c"
+#line 1035 "parse.c"
         /* No destructor defined for DROP */
         /* No destructor defined for DATAFILE */
         /* No destructor defined for FROM */
@@ -1026,9 +1041,9 @@ static void yy_reduce(
       case 12:
 #line 104 "parse.y"
 {
-  pdbCreateTable(pParse, &yymsp[-4].minor.yy0, yymsp[-2].minor.yy27);
+  pdbCreateTable(pParse, &yymsp[-4].minor.yy0, yymsp[-2].minor.yy167);
 }
-#line 1031 "parse.c"
+#line 1046 "parse.c"
         /* No destructor defined for CREATE */
         /* No destructor defined for TABLE */
         /* No destructor defined for LP */
@@ -1038,9 +1053,9 @@ static void yy_reduce(
       case 13:
 #line 108 "parse.y"
 {
-  pdbAlterTable(pParse, &yymsp[-4].minor.yy0, yymsp[-2].minor.yy27);
+  pdbAlterTable(pParse, &yymsp[-4].minor.yy0, yymsp[-2].minor.yy167);
 }
-#line 1043 "parse.c"
+#line 1058 "parse.c"
         /* No destructor defined for ALTER */
         /* No destructor defined for TABLE */
         /* No destructor defined for LP */
@@ -1050,94 +1065,118 @@ static void yy_reduce(
       case 14:
 #line 117 "parse.y"
 {
-  yygotominor.yy27 = ColumnList::AppendColumnItem(yymsp[-2].minor.yy27, yymsp[0].minor.yy40);
+  yygotominor.yy167 = ColumnList::AppendColumnItem(yymsp[-2].minor.yy167, yymsp[0].minor.yy114);
 }
-#line 1055 "parse.c"
+#line 1070 "parse.c"
         /* No destructor defined for COMMA */
         break;
       case 15:
 #line 120 "parse.y"
 {
-  yygotominor.yy27 = ColumnList::AppendColumnItem(nullptr, yymsp[0].minor.yy40);
+  yygotominor.yy167 = ColumnList::AppendColumnItem(nullptr, yymsp[0].minor.yy114);
 }
-#line 1063 "parse.c"
+#line 1078 "parse.c"
         break;
       case 16:
 #line 124 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_BOOL); }
-#line 1068 "parse.c"
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_BOOL); }
+#line 1083 "parse.c"
         /* No destructor defined for BOOL_TYPE */
         break;
       case 17:
 #line 125 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_INT64); }
-#line 1074 "parse.c"
-        /* No destructor defined for BIGINT_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_INT8); }
+#line 1089 "parse.c"
+        /* No destructor defined for TINYINT_TYPE */
         break;
       case 18:
 #line 126 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_DOUBLE); }
-#line 1080 "parse.c"
-        /* No destructor defined for DOUBLE_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_INT16); }
+#line 1095 "parse.c"
+        /* No destructor defined for SMALLINT_TYPE */
         break;
       case 19:
 #line 127 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_STRING); }
-#line 1086 "parse.c"
-        /* No destructor defined for STRING_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_INT32); }
+#line 1101 "parse.c"
+        /* No destructor defined for INT_TYPE */
         break;
       case 20:
 #line 128 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_BLOB); }
-#line 1092 "parse.c"
-        /* No destructor defined for BLOB_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_INT64); }
+#line 1107 "parse.c"
+        /* No destructor defined for BIGINT_TYPE */
         break;
       case 21:
 #line 129 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_DATETIME); }
-#line 1098 "parse.c"
-        /* No destructor defined for DATETIME_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_FLOAT); }
+#line 1113 "parse.c"
+        /* No destructor defined for FLOAT_TYPE */
         break;
       case 22:
 #line 130 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_REAL2); }
-#line 1104 "parse.c"
-        /* No destructor defined for REAL2_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_DOUBLE); }
+#line 1119 "parse.c"
+        /* No destructor defined for DOUBLE_TYPE */
         break;
       case 23:
 #line 131 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_REAL3); }
-#line 1110 "parse.c"
-        /* No destructor defined for REAL3_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_STRING); }
+#line 1125 "parse.c"
+        /* No destructor defined for STRING_TYPE */
         break;
       case 24:
 #line 132 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_REAL4); }
-#line 1116 "parse.c"
-        /* No destructor defined for REAL4_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_BLOB); }
+#line 1131 "parse.c"
+        /* No destructor defined for BLOB_TYPE */
         break;
       case 25:
 #line 133 "parse.y"
-{ yygotominor.yy40 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_REAL6); }
-#line 1122 "parse.c"
-        /* No destructor defined for REAL6_TYPE */
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_DATETIME); }
+#line 1137 "parse.c"
+        /* No destructor defined for DATETIME_TYPE */
         break;
       case 26:
-#line 139 "parse.y"
+#line 134 "parse.y"
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_REAL2); }
+#line 1143 "parse.c"
+        /* No destructor defined for REAL2_TYPE */
+        break;
+      case 27:
+#line 135 "parse.y"
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_REAL3); }
+#line 1149 "parse.c"
+        /* No destructor defined for REAL3_TYPE */
+        break;
+      case 28:
+#line 136 "parse.y"
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_REAL4); }
+#line 1155 "parse.c"
+        /* No destructor defined for REAL4_TYPE */
+        break;
+      case 29:
+#line 137 "parse.y"
+{ yygotominor.yy114 = ColumnItem::MakeColumnItem(&yymsp[-1].minor.yy0, PDB_FIELD_TYPE::TYPE_REAL6); }
+#line 1161 "parse.c"
+        /* No destructor defined for REAL6_TYPE */
+        break;
+      case 30:
+#line 143 "parse.y"
 {
-  pdbDelete(pParse, &yymsp[-2].minor.yy0, yymsp[-1].minor.yy21);
+  pdbDelete(pParse, &yymsp[-2].minor.yy0, yymsp[-1].minor.yy137);
 }
-#line 1130 "parse.c"
+#line 1169 "parse.c"
         /* No destructor defined for DELETE */
         /* No destructor defined for FROM */
         /* No destructor defined for SEMI */
         break;
-      case 27:
-#line 145 "parse.y"
+      case 31:
+#line 149 "parse.y"
 {
-  pdbInsert(pParse, &yymsp[-6].minor.yy0, yymsp[-4].minor.yy126, yymsp[-1].minor.yy142);
+  pdbInsert(pParse, &yymsp[-6].minor.yy0, yymsp[-4].minor.yy120, yymsp[-1].minor.yy180);
 }
-#line 1140 "parse.c"
+#line 1179 "parse.c"
         /* No destructor defined for INSERT */
         /* No destructor defined for INTO */
         /* No destructor defined for LP */
@@ -1145,353 +1184,353 @@ static void yy_reduce(
         /* No destructor defined for VALUES */
         /* No destructor defined for SEMI */
         break;
-      case 28:
-#line 151 "parse.y"
+      case 32:
+#line 155 "parse.y"
 {
-  pdbSelect(pParse, yymsp[-7].minor.yy126, &yymsp[-5].minor.yy0, yymsp[-4].minor.yy21, yymsp[-3].minor.yy25, yymsp[-2].minor.yy139, yymsp[-1].minor.yy45);
+  pdbSelect(pParse, yymsp[-7].minor.yy120, &yymsp[-5].minor.yy0, yymsp[-4].minor.yy137, yymsp[-3].minor.yy73, yymsp[-2].minor.yy177, yymsp[-1].minor.yy133);
 }
-#line 1153 "parse.c"
+#line 1192 "parse.c"
         /* No destructor defined for SELECT */
         /* No destructor defined for FROM */
         /* No destructor defined for SEMI */
         break;
-      case 29:
-#line 161 "parse.y"
+      case 33:
+#line 165 "parse.y"
 {
-  pdbSelect(pParse, yymsp[-1].minor.yy126, nullptr, nullptr, nullptr, nullptr, nullptr);
+  pdbSelect(pParse, yymsp[-1].minor.yy120, nullptr, nullptr, nullptr, nullptr, nullptr);
 }
-#line 1163 "parse.c"
+#line 1202 "parse.c"
         /* No destructor defined for SELECT */
         /* No destructor defined for SEMI */
         break;
-      case 30:
-#line 168 "parse.y"
-{ yygotominor.yy21 = nullptr; }
-#line 1170 "parse.c"
-        break;
-      case 31:
-#line 169 "parse.y"
-{ yygotominor.yy21 = yymsp[0].minor.yy21; }
-#line 1175 "parse.c"
-        /* No destructor defined for WHERE */
-        break;
-      case 32:
-#line 174 "parse.y"
-{ yygotominor.yy25 = nullptr; }
-#line 1181 "parse.c"
-        break;
-      case 33:
-#line 175 "parse.y"
-{ yygotominor.yy25 = new GroupOpt(&yymsp[0].minor.yy0); }
-#line 1186 "parse.c"
-        /* No destructor defined for GROUP */
-        /* No destructor defined for BY */
-        break;
       case 34:
-#line 176 "parse.y"
-{ yygotominor.yy25 = new GroupOpt(&yymsp[-1].minor.yy0, yymsp[0].minor.yy21); }
-#line 1193 "parse.c"
-        /* No destructor defined for GROUP */
-        /* No destructor defined for BY */
+#line 172 "parse.y"
+{ yygotominor.yy137 = nullptr; }
+#line 1209 "parse.c"
         break;
       case 35:
-#line 181 "parse.y"
-{ yygotominor.yy139 = nullptr; }
-#line 1200 "parse.c"
+#line 173 "parse.y"
+{ yygotominor.yy137 = yymsp[0].minor.yy137; }
+#line 1214 "parse.c"
+        /* No destructor defined for WHERE */
         break;
       case 36:
-#line 182 "parse.y"
-{ yygotominor.yy139 = new OrderByOpt(&yymsp[0].minor.yy0, true); }
-#line 1205 "parse.c"
+#line 178 "parse.y"
+{ yygotominor.yy73 = nullptr; }
+#line 1220 "parse.c"
+        break;
+      case 37:
+#line 179 "parse.y"
+{ yygotominor.yy73 = new GroupOpt(&yymsp[0].minor.yy0); }
+#line 1225 "parse.c"
+        /* No destructor defined for GROUP */
+        /* No destructor defined for BY */
+        break;
+      case 38:
+#line 180 "parse.y"
+{ yygotominor.yy73 = new GroupOpt(&yymsp[-1].minor.yy0, yymsp[0].minor.yy137); }
+#line 1232 "parse.c"
+        /* No destructor defined for GROUP */
+        /* No destructor defined for BY */
+        break;
+      case 39:
+#line 185 "parse.y"
+{ yygotominor.yy177 = nullptr; }
+#line 1239 "parse.c"
+        break;
+      case 40:
+#line 186 "parse.y"
+{ yygotominor.yy177 = new OrderByOpt(&yymsp[0].minor.yy0, true); }
+#line 1244 "parse.c"
         /* No destructor defined for ORDER */
         /* No destructor defined for BY */
         break;
-      case 37:
-#line 183 "parse.y"
-{ yygotominor.yy139 = new OrderByOpt(&yymsp[-1].minor.yy0, true); }
-#line 1212 "parse.c"
+      case 41:
+#line 187 "parse.y"
+{ yygotominor.yy177 = new OrderByOpt(&yymsp[-1].minor.yy0, true); }
+#line 1251 "parse.c"
         /* No destructor defined for ORDER */
         /* No destructor defined for BY */
         /* No destructor defined for ASC */
         break;
-      case 38:
-#line 184 "parse.y"
-{ yygotominor.yy139 = new OrderByOpt(&yymsp[-1].minor.yy0, false); }
-#line 1220 "parse.c"
+      case 42:
+#line 188 "parse.y"
+{ yygotominor.yy177 = new OrderByOpt(&yymsp[-1].minor.yy0, false); }
+#line 1259 "parse.c"
         /* No destructor defined for ORDER */
         /* No destructor defined for BY */
         /* No destructor defined for DESC */
         break;
-      case 39:
-#line 189 "parse.y"
-{ yygotominor.yy45 = nullptr; }
-#line 1228 "parse.c"
-        break;
-      case 40:
-#line 190 "parse.y"
-{ yygotominor.yy45 = new LimitOpt(&yymsp[0].minor.yy0); }
-#line 1233 "parse.c"
-        /* No destructor defined for LIMIT */
-        break;
-      case 41:
-#line 191 "parse.y"
-{ yygotominor.yy45 = new LimitOpt(&yymsp[-2].minor.yy0, &yymsp[0].minor.yy0); }
-#line 1239 "parse.c"
-        /* No destructor defined for LIMIT */
-        /* No destructor defined for COMMA */
-        break;
-      case 42:
-#line 201 "parse.y"
-{ yygotominor.yy142 = RecordList::AppendRecordList(nullptr, yymsp[-1].minor.yy123); }
-#line 1246 "parse.c"
-        /* No destructor defined for LP */
-        /* No destructor defined for RP */
-        break;
       case 43:
-#line 203 "parse.y"
-{ yygotominor.yy142 = RecordList::AppendRecordList(yymsp[-4].minor.yy142, yymsp[-1].minor.yy123); }
-#line 1253 "parse.c"
-        /* No destructor defined for COMMA */
-        /* No destructor defined for LP */
-        /* No destructor defined for RP */
+#line 193 "parse.y"
+{ yygotominor.yy133 = nullptr; }
+#line 1267 "parse.c"
         break;
       case 44:
-#line 208 "parse.y"
-{ yygotominor.yy21 = yymsp[-1].minor.yy21; }
-#line 1261 "parse.c"
+#line 194 "parse.y"
+{ yygotominor.yy133 = new LimitOpt(&yymsp[0].minor.yy0); }
+#line 1272 "parse.c"
+        /* No destructor defined for LIMIT */
+        break;
+      case 45:
+#line 195 "parse.y"
+{ yygotominor.yy133 = new LimitOpt(&yymsp[-2].minor.yy0, &yymsp[0].minor.yy0); }
+#line 1278 "parse.c"
+        /* No destructor defined for LIMIT */
+        /* No destructor defined for COMMA */
+        break;
+      case 46:
+#line 205 "parse.y"
+{ yygotominor.yy180 = RecordList::AppendRecordList(nullptr, yymsp[-1].minor.yy161); }
+#line 1285 "parse.c"
         /* No destructor defined for LP */
         /* No destructor defined for RP */
         break;
-      case 45:
-#line 209 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeStarValue(); }
-#line 1268 "parse.c"
-        /* No destructor defined for STAR */
-        break;
-      case 46:
-#line 210 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeID(&yymsp[0].minor.yy0); }
-#line 1274 "parse.c"
-        break;
       case 47:
-#line 211 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeBoolValue(true); }
-#line 1279 "parse.c"
-        /* No destructor defined for TRUE */
+#line 207 "parse.y"
+{ yygotominor.yy180 = RecordList::AppendRecordList(yymsp[-4].minor.yy180, yymsp[-1].minor.yy161); }
+#line 1292 "parse.c"
+        /* No destructor defined for COMMA */
+        /* No destructor defined for LP */
+        /* No destructor defined for RP */
         break;
       case 48:
 #line 212 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeBoolValue(false); }
-#line 1285 "parse.c"
-        /* No destructor defined for FALSE */
+{ yygotominor.yy137 = yymsp[-1].minor.yy137; }
+#line 1300 "parse.c"
+        /* No destructor defined for LP */
+        /* No destructor defined for RP */
         break;
       case 49:
 #line 213 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeIntValue(false, &yymsp[0].minor.yy0); }
-#line 1291 "parse.c"
+{ yygotominor.yy137 = ExprValue::MakeStarValue(); }
+#line 1307 "parse.c"
+        /* No destructor defined for STAR */
         break;
       case 50:
 #line 214 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeIntValue(false, &yymsp[0].minor.yy0); }
-#line 1296 "parse.c"
-        /* No destructor defined for PLUS */
+{ yygotominor.yy137 = ExprValue::MakeID(&yymsp[0].minor.yy0); }
+#line 1313 "parse.c"
         break;
       case 51:
 #line 215 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeIntValue(true, &yymsp[0].minor.yy0); }
-#line 1302 "parse.c"
-        /* No destructor defined for MINUS */
+{ yygotominor.yy137 = ExprValue::MakeBoolValue(true); }
+#line 1318 "parse.c"
+        /* No destructor defined for TRUE */
         break;
       case 52:
 #line 216 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeDoubleValue(false, &yymsp[0].minor.yy0); }
-#line 1308 "parse.c"
+{ yygotominor.yy137 = ExprValue::MakeBoolValue(false); }
+#line 1324 "parse.c"
+        /* No destructor defined for FALSE */
         break;
       case 53:
 #line 217 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeDoubleValue(false, &yymsp[0].minor.yy0); }
-#line 1313 "parse.c"
-        /* No destructor defined for PLUS */
+{ yygotominor.yy137 = ExprValue::MakeIntValue(false, &yymsp[0].minor.yy0); }
+#line 1330 "parse.c"
         break;
       case 54:
 #line 218 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeDoubleValue(true, &yymsp[0].minor.yy0); }
-#line 1319 "parse.c"
-        /* No destructor defined for MINUS */
+{ yygotominor.yy137 = ExprValue::MakeIntValue(false, &yymsp[0].minor.yy0); }
+#line 1335 "parse.c"
+        /* No destructor defined for PLUS */
         break;
       case 55:
 #line 219 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeStringValue(&yymsp[0].minor.yy0); }
-#line 1325 "parse.c"
+{ yygotominor.yy137 = ExprValue::MakeIntValue(true, &yymsp[0].minor.yy0); }
+#line 1341 "parse.c"
+        /* No destructor defined for MINUS */
         break;
       case 56:
 #line 220 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeBlobValue(&yymsp[0].minor.yy0); }
-#line 1330 "parse.c"
+{ yygotominor.yy137 = ExprValue::MakeDoubleValue(false, &yymsp[0].minor.yy0); }
+#line 1347 "parse.c"
         break;
       case 57:
 #line 221 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeTimeValue(false, &yymsp[-1].minor.yy0, &yymsp[0].minor.yy0); }
-#line 1335 "parse.c"
+{ yygotominor.yy137 = ExprValue::MakeDoubleValue(false, &yymsp[0].minor.yy0); }
+#line 1352 "parse.c"
+        /* No destructor defined for PLUS */
         break;
       case 58:
 #line 222 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeTimeValue(false, &yymsp[-1].minor.yy0, &yymsp[0].minor.yy0); }
-#line 1340 "parse.c"
-        /* No destructor defined for PLUS */
+{ yygotominor.yy137 = ExprValue::MakeDoubleValue(true, &yymsp[0].minor.yy0); }
+#line 1358 "parse.c"
+        /* No destructor defined for MINUS */
         break;
       case 59:
 #line 223 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeTimeValue(true, &yymsp[-1].minor.yy0, &yymsp[0].minor.yy0); }
-#line 1346 "parse.c"
-        /* No destructor defined for MINUS */
+{ yygotominor.yy137 = ExprValue::MakeStringValue(&yymsp[0].minor.yy0); }
+#line 1364 "parse.c"
         break;
       case 60:
-#line 225 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeFunction(&yymsp[-3].minor.yy0, yymsp[-1].minor.yy123); }
-#line 1352 "parse.c"
-        /* No destructor defined for LP */
-        /* No destructor defined for RP */
+#line 224 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeBlobValue(&yymsp[0].minor.yy0); }
+#line 1369 "parse.c"
         break;
       case 61:
+#line 225 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeTimeValue(false, &yymsp[-1].minor.yy0, &yymsp[0].minor.yy0); }
+#line 1374 "parse.c"
+        break;
+      case 62:
 #line 226 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeFunction(&yymsp[-3].minor.yy0, yymsp[-1].minor.yy123); }
-#line 1359 "parse.c"
+{ yygotominor.yy137 = ExprValue::MakeTimeValue(false, &yymsp[-1].minor.yy0, &yymsp[0].minor.yy0); }
+#line 1379 "parse.c"
+        /* No destructor defined for PLUS */
+        break;
+      case 63:
+#line 227 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeTimeValue(true, &yymsp[-1].minor.yy0, &yymsp[0].minor.yy0); }
+#line 1385 "parse.c"
+        /* No destructor defined for MINUS */
+        break;
+      case 64:
+#line 229 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeFunction(&yymsp[-3].minor.yy0, yymsp[-1].minor.yy161); }
+#line 1391 "parse.c"
         /* No destructor defined for LP */
         /* No destructor defined for RP */
         break;
-      case 62:
-#line 228 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeCompare(TK_LT, yymsp[-2].minor.yy21, yymsp[0].minor.yy21); }
-#line 1366 "parse.c"
-        /* No destructor defined for LT */
-        break;
-      case 63:
-#line 229 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeCompare(TK_LE, yymsp[-2].minor.yy21, yymsp[0].minor.yy21); }
-#line 1372 "parse.c"
-        /* No destructor defined for LE */
-        break;
-      case 64:
-#line 230 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeCompare(TK_GT, yymsp[-2].minor.yy21, yymsp[0].minor.yy21); }
-#line 1378 "parse.c"
-        /* No destructor defined for GT */
-        break;
       case 65:
-#line 231 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeCompare(TK_GE, yymsp[-2].minor.yy21, yymsp[0].minor.yy21); }
-#line 1384 "parse.c"
-        /* No destructor defined for GE */
+#line 230 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeFunction(&yymsp[-3].minor.yy0, yymsp[-1].minor.yy161); }
+#line 1398 "parse.c"
+        /* No destructor defined for LP */
+        /* No destructor defined for RP */
         break;
       case 66:
 #line 232 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeCompare(TK_EQ, yymsp[-2].minor.yy21, yymsp[0].minor.yy21); }
-#line 1390 "parse.c"
-        /* No destructor defined for EQ */
+{ yygotominor.yy137 = ExprValue::MakeCompare(TK_LT, yymsp[-2].minor.yy137, yymsp[0].minor.yy137); }
+#line 1405 "parse.c"
+        /* No destructor defined for LT */
         break;
       case 67:
 #line 233 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeCompare(TK_NE, yymsp[-2].minor.yy21, yymsp[0].minor.yy21); }
-#line 1396 "parse.c"
-        /* No destructor defined for NE */
+{ yygotominor.yy137 = ExprValue::MakeCompare(TK_LE, yymsp[-2].minor.yy137, yymsp[0].minor.yy137); }
+#line 1411 "parse.c"
+        /* No destructor defined for LE */
         break;
       case 68:
 #line 234 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeCompare(TK_AND, yymsp[-2].minor.yy21, yymsp[0].minor.yy21); }
-#line 1402 "parse.c"
-        /* No destructor defined for AND */
+{ yygotominor.yy137 = ExprValue::MakeCompare(TK_GT, yymsp[-2].minor.yy137, yymsp[0].minor.yy137); }
+#line 1417 "parse.c"
+        /* No destructor defined for GT */
         break;
       case 69:
 #line 235 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeLike(&yymsp[-2].minor.yy0, &yymsp[0].minor.yy0); }
-#line 1408 "parse.c"
-        /* No destructor defined for LIKE */
+{ yygotominor.yy137 = ExprValue::MakeCompare(TK_GE, yymsp[-2].minor.yy137, yymsp[0].minor.yy137); }
+#line 1423 "parse.c"
+        /* No destructor defined for GE */
         break;
       case 70:
 #line 236 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeIsNotNull(&yymsp[-3].minor.yy0); }
-#line 1414 "parse.c"
-        /* No destructor defined for IS */
-        /* No destructor defined for NOT */
-        /* No destructor defined for NULL */
+{ yygotominor.yy137 = ExprValue::MakeCompare(TK_EQ, yymsp[-2].minor.yy137, yymsp[0].minor.yy137); }
+#line 1429 "parse.c"
+        /* No destructor defined for EQ */
         break;
       case 71:
 #line 237 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeIsNull(&yymsp[-2].minor.yy0); }
-#line 1422 "parse.c"
-        /* No destructor defined for IS */
-        /* No destructor defined for NULL */
+{ yygotominor.yy137 = ExprValue::MakeCompare(TK_NE, yymsp[-2].minor.yy137, yymsp[0].minor.yy137); }
+#line 1435 "parse.c"
+        /* No destructor defined for NE */
         break;
       case 72:
 #line 238 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeIsNotNull(&yymsp[-3].minor.yy0); }
-#line 1429 "parse.c"
-        /* No destructor defined for IS */
-        /* No destructor defined for NOT */
-        /* No destructor defined for NULL */
+{ yygotominor.yy137 = ExprValue::MakeCompare(TK_AND, yymsp[-2].minor.yy137, yymsp[0].minor.yy137); }
+#line 1441 "parse.c"
+        /* No destructor defined for AND */
         break;
       case 73:
 #line 239 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeIsNull(&yymsp[-2].minor.yy0); }
-#line 1437 "parse.c"
-        /* No destructor defined for IS */
-        /* No destructor defined for NULL */
+{ yygotominor.yy137 = ExprValue::MakeLike(&yymsp[-2].minor.yy0, &yymsp[0].minor.yy0); }
+#line 1447 "parse.c"
+        /* No destructor defined for LIKE */
         break;
       case 74:
 #line 240 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeIn(&yymsp[-4].minor.yy0, yymsp[-1].minor.yy123); }
-#line 1444 "parse.c"
+{ yygotominor.yy137 = ExprValue::MakeIsNotNull(&yymsp[-3].minor.yy0); }
+#line 1453 "parse.c"
+        /* No destructor defined for IS */
+        /* No destructor defined for NOT */
+        /* No destructor defined for NULL */
+        break;
+      case 75:
+#line 241 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeIsNull(&yymsp[-2].minor.yy0); }
+#line 1461 "parse.c"
+        /* No destructor defined for IS */
+        /* No destructor defined for NULL */
+        break;
+      case 76:
+#line 242 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeIsNotNull(&yymsp[-3].minor.yy0); }
+#line 1468 "parse.c"
+        /* No destructor defined for IS */
+        /* No destructor defined for NOT */
+        /* No destructor defined for NULL */
+        break;
+      case 77:
+#line 243 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeIsNull(&yymsp[-2].minor.yy0); }
+#line 1476 "parse.c"
+        /* No destructor defined for IS */
+        /* No destructor defined for NULL */
+        break;
+      case 78:
+#line 244 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeIn(&yymsp[-4].minor.yy0, yymsp[-1].minor.yy161); }
+#line 1483 "parse.c"
         /* No destructor defined for IN */
         /* No destructor defined for LP */
         /* No destructor defined for RP */
         break;
-      case 75:
-#line 241 "parse.y"
-{ yygotominor.yy21 = ExprValue::MakeNotIn(&yymsp[-5].minor.yy0, yymsp[-1].minor.yy123); }
-#line 1452 "parse.c"
+      case 79:
+#line 245 "parse.y"
+{ yygotominor.yy137 = ExprValue::MakeNotIn(&yymsp[-5].minor.yy0, yymsp[-1].minor.yy161); }
+#line 1491 "parse.c"
         /* No destructor defined for NOT */
         /* No destructor defined for IN */
         /* No destructor defined for LP */
         /* No destructor defined for RP */
         break;
-      case 76:
-#line 246 "parse.y"
-{ yygotominor.yy123 = nullptr; }
-#line 1461 "parse.c"
-        break;
-      case 77:
-#line 247 "parse.y"
-{ yygotominor.yy123 = ExprValueList::AppendExprValue(nullptr, yymsp[0].minor.yy21); }
-#line 1466 "parse.c"
-        break;
-      case 78:
-#line 248 "parse.y"
-{ yygotominor.yy123 = ExprValueList::AppendExprValue(yymsp[-2].minor.yy123, yymsp[0].minor.yy21); }
-#line 1471 "parse.c"
-        /* No destructor defined for COMMA */
-        break;
-      case 79:
-#line 253 "parse.y"
-{ yygotominor.yy126 = TargetList::AppendExprValue(nullptr, yymsp[0].minor.yy21, nullptr); }
-#line 1477 "parse.c"
-        break;
       case 80:
-#line 254 "parse.y"
-{ yygotominor.yy126 = TargetList::AppendExprValue(nullptr, yymsp[-2].minor.yy21, &yymsp[0].minor.yy0); }
-#line 1482 "parse.c"
-        /* No destructor defined for AS */
+#line 250 "parse.y"
+{ yygotominor.yy161 = nullptr; }
+#line 1500 "parse.c"
         break;
       case 81:
-#line 255 "parse.y"
-{ yygotominor.yy126 = TargetList::AppendExprValue(yymsp[-2].minor.yy126, yymsp[0].minor.yy21, nullptr); }
-#line 1488 "parse.c"
-        /* No destructor defined for COMMA */
+#line 251 "parse.y"
+{ yygotominor.yy161 = ExprValueList::AppendExprValue(nullptr, yymsp[0].minor.yy137); }
+#line 1505 "parse.c"
         break;
       case 82:
-#line 256 "parse.y"
-{ yygotominor.yy126 = TargetList::AppendExprValue(yymsp[-4].minor.yy126, yymsp[-2].minor.yy21, &yymsp[0].minor.yy0); }
-#line 1494 "parse.c"
+#line 252 "parse.y"
+{ yygotominor.yy161 = ExprValueList::AppendExprValue(yymsp[-2].minor.yy161, yymsp[0].minor.yy137); }
+#line 1510 "parse.c"
+        /* No destructor defined for COMMA */
+        break;
+      case 83:
+#line 257 "parse.y"
+{ yygotominor.yy120 = TargetList::AppendExprValue(nullptr, yymsp[0].minor.yy137, nullptr); }
+#line 1516 "parse.c"
+        break;
+      case 84:
+#line 258 "parse.y"
+{ yygotominor.yy120 = TargetList::AppendExprValue(nullptr, yymsp[-2].minor.yy137, &yymsp[0].minor.yy0); }
+#line 1521 "parse.c"
+        /* No destructor defined for AS */
+        break;
+      case 85:
+#line 259 "parse.y"
+{ yygotominor.yy120 = TargetList::AppendExprValue(yymsp[-2].minor.yy120, yymsp[0].minor.yy137, nullptr); }
+#line 1527 "parse.c"
+        /* No destructor defined for COMMA */
+        break;
+      case 86:
+#line 260 "parse.y"
+{ yygotominor.yy120 = TargetList::AppendExprValue(yymsp[-4].minor.yy120, yymsp[-2].minor.yy137, &yymsp[0].minor.yy0); }
+#line 1533 "parse.c"
         /* No destructor defined for COMMA */
         /* No destructor defined for AS */
         break;
@@ -1540,7 +1579,7 @@ static void yy_syntax_error(
   const char* errmsg = TOKEN.str_;
   pdbSetError(pParse, errmsg);
 
-#line 1543 "parse.c"
+#line 1582 "parse.c"
   pdbParseARG_STORE; /* Suppress warning about unused %extra_argument variable */
 }
 

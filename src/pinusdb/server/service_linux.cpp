@@ -42,7 +42,6 @@
 #include "server/user_config.h"
 #include "server/sys_config.h"
 #include "server/table_config.h"
-#include "server/sys_license.h"
 #include "db/page_pool.h"
 #include "db/table_set.h"
 #include "commitlog/commit_log_list.h"

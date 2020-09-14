@@ -24,7 +24,7 @@ inline void SetRemoteInfo(ConnInfo* pConnInfo, const char* pRemoteHost, int remo
   strncpy(pConnInfo->remoteHost_, pRemoteHost, IP_ADDR_STR_LEN);
   pConnInfo->remoteHost_[IP_ADDR_STR_LEN - 1] = '\0';
   pConnInfo->remotePort_ = remotePort;
-  pConnInfo->connTime_ = DateTime::NowMilliseconds();
+  pConnInfo->connTime_ = DateTime::NowMicrosecond();
   pConnInfo->role_ = 0;
   pConnInfo->loginName_[0] = '\0';
 }
@@ -152,7 +152,7 @@ PdbErr_t ServerConnection::QueryConn(IQuery* pQuery)
 
     DBVAL_ELE_SET_DATETIME(vals, 4, connIt->second->connTime_);
     
-    retVal = pQuery->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendSingle(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       break;
 

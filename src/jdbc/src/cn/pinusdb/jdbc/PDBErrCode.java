@@ -93,7 +93,7 @@ public class PDBErrCode {
 	public static final int PdbE_SQL_NOT_QUERY               = 50509; // 不是查询SQL
 	
 	    //设备、索引相关
-	public static final int PdbE_RESLT_FULL                  = 50600; // 结果集已满
+	public static final int PdbE_RESULT_FULL                 = 50600; // 结果集已满
 	public static final int PdbE_DEVID_EXISTS                = 50601; // 设备ID已存在
 	public static final int PdbE_DEV_CAPACITY_FULL           = 50602; // 设备容量已满
 	public static final int PdbE_USER_EXIST                  = 50603; // 用户已存在
@@ -195,7 +195,7 @@ public class PDBErrCode {
         errMsgMap_.put(PdbE_SQL_NOT_QUERY, "不是查询SQL");
 	
 	    //设备、索引相关
-        errMsgMap_.put(PdbE_RESLT_FULL, "结果集已满");
+        errMsgMap_.put(PdbE_RESULT_FULL, "结果集已满");
         errMsgMap_.put(PdbE_DEVID_EXISTS, "设备ID已存在");
         errMsgMap_.put(PdbE_DEV_CAPACITY_FULL, "设备容量已满");
         errMsgMap_.put(PdbE_USER_EXIST, "用户已存在");

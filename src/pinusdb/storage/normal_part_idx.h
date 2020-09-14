@@ -23,17 +23,10 @@
 
 typedef struct _MemPageIdx
 {
-  uint32_t tstamp_;
-  int32_t pageNo_;
-}MemPageIdx;
-
-typedef struct _NormalPageIdx
-{
-  int64_t devId_;
   int64_t idxTs_;
   int32_t pageNo_;
-  char    pad12[12];
-}NormalPageIdx;
+  int32_t padding_;
+}MemPageIdx;
 
 class NormalPartIdx
 {
@@ -47,13 +40,15 @@ public:
   PdbErr_t Close();
 
   PdbErr_t AddIdx(int64_t devId, int64_t idxTs, int32_t pageNo);
-  PdbErr_t WriteIdx(const std::vector<NormalPageIdx>& idxVec);
 
-  PdbErr_t GetIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx);
-  PdbErr_t GetPrevIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx);
-  PdbErr_t GetNextIndex(int64_t devId, int64_t ts, NormalPageIdx* pIdx);
+  void AppendIdx(std::string& idxBuf, int64_t devId, int64_t idxTs, int32_t pageNo);
+  PdbErr_t WriteIdx(const std::string& idxBuf);
 
-  uint32_t GetPartCode() const { return static_cast<uint32_t>(bgDayTs_ / MillisPerDay); }
+  PdbErr_t GetIndex(int64_t devId, int64_t ts, MemPageIdx* pIdx);
+  PdbErr_t GetPrevIndex(int64_t devId, int64_t ts, MemPageIdx* pIdx);
+  PdbErr_t GetNextIndex(int64_t devId, int64_t ts, MemPageIdx* pIdx);
+
+  uint32_t GetPartCode() const { return static_cast<uint32_t>(bgDayTs_ / DateTime::MicrosecondPerDay); }
   int32_t GetMaxPageNo() const { return maxPageNo_; }
 
   void GetAllDevId(std::vector<int64_t>& devIdVec);

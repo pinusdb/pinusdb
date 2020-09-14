@@ -16,23 +16,24 @@
 
 #pragma once
 
-#include "query/query_field.h"
 #include "expr/sql_parser.h"
 #include "table/data_column.h"
+#include "query/group_field.h"
 #include <string>
 #include <vector>
 
 class ResultObject
 {
 public:
-  ResultObject(const std::vector<QueryField*>& fieldVec, 
+  ResultObject(const std::vector<GroupField*>& fieldVec,
     int64_t devId, int64_t tstamp);
   virtual ~ResultObject();
 
-  PdbErr_t AppendData(const DBVal* pVals, size_t valCnt);
+  PdbErr_t AppendSingle(const DBVal* pVals, size_t valCnt);
+  PdbErr_t AppendArray(BlockValues& blockValues, uint64_t groupId, const std::vector<size_t>& groupIdVec);
   PdbErr_t GetRecord(DBVal* pVals, size_t valCnt);
 
 private:
-  std::vector<QueryField*> fieldVec_;
+  std::vector<GroupField*> fieldVec_;
 };
 

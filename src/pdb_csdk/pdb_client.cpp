@@ -382,16 +382,24 @@ PdbErr_t DBClient::InitColumnInfo(const DBObj* pObj, PDBDataTable* pTable)
 
     if (StringTool::StartWithNoCase(pStr, "bool;"))
       retVal = pTable->AddColumn((pStr + 5), (strLen - 5), PDB_FIELD_TYPE::TYPE_BOOL);
+    else if (StringTool::StartWithNoCase(pStr, "tinyint;"))
+      retVal = pTable->AddColumn((pStr + 8), (strLen - 8), PDB_FIELD_TYPE::TYPE_INT8);
+    else if (StringTool::StartWithNoCase(pStr, "smallint;"))
+      retVal = pTable->AddColumn((pStr + 9), (strLen - 9), PDB_FIELD_TYPE::TYPE_INT16);
+    else if (StringTool::StartWithNoCase(pStr, "int;"))
+      retVal = pTable->AddColumn((pStr + 4), (strLen - 4), PDB_FIELD_TYPE::TYPE_INT32);
     else if (StringTool::StartWithNoCase(pStr, "bigint;"))
       retVal = pTable->AddColumn((pStr + 7), (strLen - 7), PDB_FIELD_TYPE::TYPE_INT64);
+    else if (StringTool::StartWithNoCase(pStr, "datetime;"))
+      retVal = pTable->AddColumn((pStr + 9), (strLen - 9), PDB_FIELD_TYPE::TYPE_DATETIME);
+    else if (StringTool::StartWithNoCase(pStr, "float;"))
+      retVal = pTable->AddColumn((pStr + 6), (strLen - 6), PDB_FIELD_TYPE::TYPE_FLOAT);
     else if (StringTool::StartWithNoCase(pStr, "double;"))
       retVal = pTable->AddColumn((pStr + 7), (strLen - 7), PDB_FIELD_TYPE::TYPE_DOUBLE);
     else if (StringTool::StartWithNoCase(pStr, "string;"))
       retVal = pTable->AddColumn((pStr + 7), (strLen - 7), PDB_FIELD_TYPE::TYPE_STRING);
     else if (StringTool::StartWithNoCase(pStr, "blob;"))
       retVal = pTable->AddColumn((pStr + 5), (strLen - 5), PDB_FIELD_TYPE::TYPE_BLOB);
-    else if (StringTool::StartWithNoCase(pStr, "datetime;"))
-      retVal = pTable->AddColumn((pStr + 9), (strLen - 9), PDB_FIELD_TYPE::TYPE_DATETIME);
     else
       return PdbE_PACKET_ERROR;
 

@@ -148,6 +148,66 @@ pdb_table_get_bool_by_colname(
 PDBAPI
 PdbErr_t
 PDBAPI_CALLRULE
+pdb_table_get_tinyint_by_colidx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int8_t* pVal
+);
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_tinyint_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int8_t* pVal
+);
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_smallint_by_colIdx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int16_t* pVal
+);
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_smallint_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int16_t* pVal
+);
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_int_by_colIdx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int32_t* pVal
+);
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_int_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int32_t* pVal
+);
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
 pdb_table_get_bigint_by_colidx(
   void* pTable,
   size_t rowIdx,
@@ -163,6 +223,26 @@ pdb_table_get_bigint_by_colname(
   size_t rowIdx,
   const char* pColumnName,
   int64_t* pVal
+);
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_float_by_colidx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  float* pVal
+);
+
+PDBAPI
+PdbErr_t
+PDBAPI_CALLRULE
+pdb_table_get_float_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  float* pVal
 );
 
 PDBAPI

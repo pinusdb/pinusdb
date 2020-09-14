@@ -304,7 +304,7 @@ PdbErr_t OSFile::Read(void* pBuf, size_t count, size_t offset)
 
   _Seek(offset);
   ssize_t ret = read(handle_, pBuf, count);
-  if (ret == count)
+  if (ret == (ssize_t)count)
     return PdbE_OK;
 
   LOG_ERROR("failed to read ({}) offset({}), count({}), pBuf({}), err:{}",

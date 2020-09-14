@@ -24,6 +24,7 @@
 TableInfo::TableInfo()
 {
   metaCode64_ = 0;
+  fixedSize_ = 0;
 }
 
 TableInfo::~TableInfo()
@@ -78,11 +79,60 @@ PdbErr_t TableInfo::AddField(const char* pFieldName, int32_t fieldType, bool isK
   fieldMap_.insert(std::pair<uint64_t, size_t>(nameCrc, fieldVec_.size()));
   fieldVec_.push_back(finfo);
 
+  if (fieldVec_.size() >= 2)
+  {
+    if (fieldVec_.size() == 2)
+    {
+      bool storageTable = false;
+
+      do {
+        if (fieldVec_[PDB_DEVID_INDEX].GetFieldType() != PDB_FIELD_TYPE::TYPE_INT64)
+          break;
+        if (!StringTool::ComparyNoCase(fieldVec_[PDB_DEVID_INDEX].GetFieldName(), DEVID_FIELD_NAME))
+          break;
+
+        if (fieldVec_[PDB_TSTAMP_INDEX].GetFieldType() != PDB_FIELD_TYPE::TYPE_DATETIME)
+          break;
+        if (!StringTool::ComparyNoCase(fieldVec_[PDB_TSTAMP_INDEX].GetFieldName(), TSTAMP_FIELD_NAME))
+          break;
+
+        storageTable = true;
+      } while (false);
+
+      if (storageTable)
+      {
+        storePosVec_.push_back(0); //devid
+        storePosVec_.push_back(2); //tstamp 
+        fixedSize_ = 10; // tstamp length
+      }
+    }
+    else if (storePosVec_.size() > 0)
+    {
+      storePosVec_.push_back(fixedSize_);
+      switch (fieldType)
+      {
+      case PDB_FIELD_TYPE::TYPE_BOOL: fixedSize_ += 1; break;
+      case PDB_FIELD_TYPE::TYPE_INT8: fixedSize_ += 1; break;
+      case PDB_FIELD_TYPE::TYPE_INT16: fixedSize_ += 2; break;
+      case PDB_FIELD_TYPE::TYPE_INT32: fixedSize_ += 4; break;
+      case PDB_FIELD_TYPE::TYPE_INT64: fixedSize_ += 8; break;
+      case PDB_FIELD_TYPE::TYPE_DATETIME: fixedSize_ += 8; break;
+      case PDB_FIELD_TYPE::TYPE_FLOAT: fixedSize_ += 4; break;
+      case PDB_FIELD_TYPE::TYPE_DOUBLE: fixedSize_ += 8; break;
+      case PDB_FIELD_TYPE::TYPE_STRING: fixedSize_ += 2; break;
+      case PDB_FIELD_TYPE::TYPE_BLOB: fixedSize_ += 2; break;
+      case PDB_FIELD_TYPE::TYPE_REAL2: fixedSize_ += 8; break;
+      case PDB_FIELD_TYPE::TYPE_REAL3: fixedSize_ += 8; break;
+      case PDB_FIELD_TYPE::TYPE_REAL4: fixedSize_ += 8; break;
+      case PDB_FIELD_TYPE::TYPE_REAL6: fixedSize_ += 8; break;
+      }
+    }
+  }
+
   metaCode64_ = StringTool::CRC64NoCase(pFieldName, strlen(pFieldName), 0, metaCode64_);
   metaCode64_ = StringTool::CRC64(&fieldType, sizeof(fieldType), 0, metaCode64_);
   return PdbE_OK;
 }
-
 
 //一个存储数据的表
 PdbErr_t TableInfo::ValidStorageTable() const
@@ -185,13 +235,13 @@ PdbErr_t TableInfo::GetFieldInfo(uint64_t fieldCrc, size_t* pFieldPos, int32_t* 
   return PdbE_FIELD_NOT_FOUND;
 }
 
-PdbErr_t TableInfo::GetFieldRealInfo(const char* pFieldName, size_t* pFieldPos, int32_t* pFieldType) const
+PdbErr_t TableInfo::GetFieldRealInfo(const char* pFieldName, size_t* pFieldPos, int32_t* pFieldType, size_t* pStorePos) const
 {
   uint64_t nameCrc = StringTool::CRC64NoCase(pFieldName);
-  return GetFieldRealInfo(nameCrc, pFieldPos, pFieldType);
+  return GetFieldRealInfo(nameCrc, pFieldPos, pFieldType, pStorePos);
 }
 
-PdbErr_t TableInfo::GetFieldRealInfo(size_t fieldPos, int32_t* pFieldType) const
+PdbErr_t TableInfo::GetFieldRealInfo(size_t fieldPos, int32_t* pFieldType, size_t* pStorePos) const
 {
   if (fieldPos < fieldVec_.size())
   {
@@ -200,13 +250,25 @@ PdbErr_t TableInfo::GetFieldRealInfo(size_t fieldPos, int32_t* pFieldType) const
       *pFieldType = fieldVec_[fieldPos].GetFieldType();
     }
 
+    if (pStorePos != nullptr)
+    {
+      if (storePosVec_.size() == fieldVec_.size())
+      {
+        *pStorePos = storePosVec_[fieldPos];
+      }
+      else
+      {
+        *pStorePos = 0;
+      }
+    }
+
     return PdbE_OK;
   }
 
   return PdbE_FIELD_NOT_FOUND;
 }
 
-PdbErr_t TableInfo::GetFieldRealInfo(uint64_t fieldCrc, size_t* pFieldPos, int32_t* pFieldType) const
+PdbErr_t TableInfo::GetFieldRealInfo(uint64_t fieldCrc, size_t* pFieldPos, int32_t* pFieldType, size_t* pStorePos) const
 {
   auto fieldIter = fieldMap_.find(fieldCrc);
   if (fieldIter != fieldMap_.end())
@@ -217,6 +279,18 @@ PdbErr_t TableInfo::GetFieldRealInfo(uint64_t fieldCrc, size_t* pFieldPos, int32
     if (pFieldType != nullptr)
     {
       *pFieldType = fieldVec_[fieldIter->second].GetFieldType();
+    }
+
+    if (pStorePos != nullptr)
+    {
+      if (storePosVec_.size() == fieldVec_.size())
+      {
+        *pStorePos = storePosVec_[fieldIter->second];
+      }
+      else
+      {
+        *pStorePos = 0;
+      }
     }
 
     return PdbE_OK;
@@ -255,8 +329,12 @@ void TableInfo::Serialize(std::string& dataBuf) const
     switch (fieldIt->GetFieldType())
     {
     case PDB_FIELD_TYPE::TYPE_BOOL: fullName.append("bool;"); break;
+    case PDB_FIELD_TYPE::TYPE_INT8: fullName.append("tinyint;"); break;
+    case PDB_FIELD_TYPE::TYPE_INT16: fullName.append("smallint;"); break;
+    case PDB_FIELD_TYPE::TYPE_INT32: fullName.append("int;"); break;
     case PDB_FIELD_TYPE::TYPE_INT64: fullName.append("bigint;"); break;
     case PDB_FIELD_TYPE::TYPE_DATETIME: fullName.append("datetime;"); break;
+    case PDB_FIELD_TYPE::TYPE_FLOAT: fullName.append("float;"); break;
     case PDB_FIELD_TYPE::TYPE_DOUBLE: fullName.append("double;"); break;
     case PDB_FIELD_TYPE::TYPE_STRING: fullName.append("string;"); break;
     case PDB_FIELD_TYPE::TYPE_BLOB: fullName.append("blob;"); break;

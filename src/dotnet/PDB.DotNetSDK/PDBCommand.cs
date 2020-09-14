@@ -319,37 +319,6 @@ namespace PDB.DotNetSDK
       ExecuteNonQuery(newSql);
     }
 
-    //private byte[] MakeQueryRequestPacket(string sql)
-    //{
-    //  int bodyLen = 0;
-    //  int totalLen = 0;
-    //
-    //  if (sql.Length == 0)
-    //    throw new PDBException(EDBErrorCode.PinE_ERROR_SQL,"SQL语句错误:执行的SQL语句不能为空");
-    //
-    //  byte[] tmpSql = Encoding.UTF8.GetBytes(sql);
-    //
-    //  bodyLen = tmpSql.Count();
-    //  totalLen = ProtoHeader.kHeadLen + bodyLen;
-    //
-    //  byte[] sendBuf = new byte[totalLen];
-    //  Array.Clear(sendBuf, 0, totalLen);
-    //
-    //  Array.Copy(tmpSql, 0, sendBuf, ProtoHeader.kHeadLen, tmpSql.Count());
-    //
-    //  UInt32 bodyCrc = CRC.Crc32(sendBuf, ProtoHeader.kHeadLen, bodyLen);
-    //
-    //  ProtoHeader proHdr = new ProtoHeader(sendBuf);
-    //  proHdr.SetVersion(ProtoHeader.kProtoVersion);
-    //  proHdr.SetMethod(ProtoHeader.MethodCmdQueryReq);
-    //  proHdr.SetBodyLen((uint)bodyLen);
-    //  proHdr.SetReturnVal(0);
-    //  proHdr.SetRecordCnt(1);
-    //  proHdr.SetBodyCrc(bodyCrc);
-    //  proHdr.SetHeadCrc();
-    //
-    //  return sendBuf;
-    //}
 
     private byte[] MakeRequestPacket(uint reqMethod, string sql)
     {
@@ -415,12 +384,27 @@ namespace PDB.DotNetSDK
           {
             IntTool.WriteBool(byteStream, Convert.ToBoolean(dr[fieldIdx]));
           }
-          else if ((dr[fieldIdx] is sbyte) || (dr[fieldIdx] is short)
-            || (dr[fieldIdx] is int) || (dr[fieldIdx] is long))
+          else if (dr[fieldIdx] is sbyte)
+          {
+            IntTool.WriteVarint64(byteStream, Convert.ToSByte(dr[fieldIdx]));
+          }
+          else if (dr[fieldIdx] is short)
+          {
+            IntTool.WriteVarint16(byteStream, Convert.ToInt16(dr[fieldIdx]));
+          }
+          else if (dr[fieldIdx] is int)
+          {
+            IntTool.WriteVarint32(byteStream, Convert.ToInt32(dr[fieldIdx]));
+          }
+          else if (dr[fieldIdx] is long)
           {
             IntTool.WriteVarint64(byteStream, Convert.ToInt64(dr[fieldIdx]));
           }
-          else if (dr[fieldIdx] is double || dr[fieldIdx] is float)
+          else if (dr[fieldIdx] is float)
+          {
+            IntTool.WriteFloat(byteStream, Convert.ToSingle(dr[fieldIdx]));
+          }
+          else if (dr[fieldIdx] is double)
           {
             IntTool.WriteDouble(byteStream, Convert.ToDouble(dr[fieldIdx]));
           }
@@ -495,11 +479,23 @@ namespace PDB.DotNetSDK
             case "bool":
               colInfo = new DataColumn(strArr[1], typeof(bool));
               break;
+            case "tinyint":
+              colInfo = new DataColumn(strArr[1], typeof(sbyte));
+              break;
+            case "smallint":
+              colInfo = new DataColumn(strArr[1], typeof(short));
+              break;
+            case "int":
+              colInfo = new DataColumn(strArr[1], typeof(int));
+              break;
             case "bigint":
               colInfo = new DataColumn(strArr[1], typeof(long));
               break;
             case "datetime":
               colInfo = new DataColumn(strArr[1], typeof(DateTime));
+              break;
+            case "float":
+              colInfo = new DataColumn(strArr[1], typeof(float));
               break;
             case "double":
               colInfo = new DataColumn(strArr[1], typeof(double));
@@ -631,15 +627,27 @@ namespace PDB.DotNetSDK
         case PDBType.Bool:
           return IntTool.ReadSInt8(buf, ref offset) != 0;
 
+        case PDBType.TinyInt:
+          return Convert.ToSByte(IntTool.DecodeZigZag64(IntTool.ReadRawVarint64(buf, ref offset)));
+
+        case PDBType.ShortInt:
+          return Convert.ToInt16(IntTool.DecodeZigZag64(IntTool.ReadRawVarint64(buf, ref offset)));
+
+        case PDBType.Int:
+          return Convert.ToInt32(IntTool.DecodeZigZag64(IntTool.ReadRawVarint64(buf, ref offset)));
+
         case PDBType.BigInt:
           return IntTool.DecodeZigZag64(IntTool.ReadRawVarint64(buf, ref offset));
+
+        case PDBType.Float:
+          return IntTool.ReadFloat(buf, ref offset);
 
         case PDBType.Double:
           return IntTool.ReadDouble(buf, ref offset);
 
-        case PDBType.DateTime:      
-          ulong lval= IntTool.ReadRawVarint64(buf, ref offset);
-          return new DateTime(1970, 1, 1).Add(TimeZoneInfo.Local.BaseUtcOffset).AddMilliseconds(lval);
+        case PDBType.DateTime:
+          long tmpTs = IntTool.DecodeZigZag64(IntTool.ReadRawVarint64(buf, ref offset));
+          return new DateTime(1970, 1, 1).Add(TimeZoneInfo.Local.BaseUtcOffset).AddTicks((long)tmpTs * 10);
 
         case PDBType.String:
           int valLen = 0;

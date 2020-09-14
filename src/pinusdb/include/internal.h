@@ -46,8 +46,8 @@
 #define PDB_PART_TYPE_NORMAL_VAL    1
 #define PDB_PART_TYPE_COMPRESS_VAL  2
 
-#define NORMAL_DATA_FILE_HEAD_STR   "PDB NORMAL 1"
-#define COMPRESS_DATA_FILE_HEAD_STR "PDB COMPRESS 1"
+#define NORMAL_DATA_FILE_HEAD_STR   "PDB NORMAL 2"
+#define COMPRESS_DATA_FILE_HEAD_STR "PDB COMPRESS 2"
 
 #define PDB_MAJOR_VER_VAL        2
 #define PDB_MINOR_VER_VAL        0
@@ -124,7 +124,7 @@ typedef uint8_t PdbByte;
 typedef struct _FieldInfoFormat
 {
   char fieldName_[PDB_FILED_NAME_LEN];   //字段名
-  int32_t fieldType_;   //字段类型
+  char fieldType_[4];   //字段类型,int32_t
   char padding_[12];
 }FieldInfoFormat;
 

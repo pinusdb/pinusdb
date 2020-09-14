@@ -28,8 +28,8 @@ ConditionFilter::ConditionFilter()
   alwaysFalse_ = false;
   minDevId_ = 1;
   maxDevId_ = INT64_MAX;
-  minTstamp_ = MinMillis;
-  maxTstamp_ = MaxMillis;
+  minTstamp_ = DateTime::MinMicrosecond;
+  maxTstamp_ = DateTime::MaxMicrosecond;
 }
 
 ConditionFilter::~ConditionFilter()
@@ -42,7 +42,7 @@ ConditionFilter::~ConditionFilter()
 }
 
 PdbErr_t ConditionFilter::BuildCondition(const TableInfo* pTabInfo, 
-  const ExprValue* pCondition, int64_t nowMillis)
+  const ExprValue* pCondition, int64_t nowMicroseconds)
 {
   PdbErr_t retVal = PdbE_OK;
   DBVal result;
@@ -62,17 +62,17 @@ PdbErr_t ConditionFilter::BuildCondition(const TableInfo* pTabInfo,
     if (pLeftExpr == nullptr || pRightExpr == nullptr)
       return PdbE_SQL_CONDITION_EXPR_ERROR;
 
-    retVal = BuildCondition(pTabInfo, pLeftExpr, nowMillis);
+    retVal = BuildCondition(pTabInfo, pLeftExpr, nowMicroseconds);
     if (retVal != PdbE_OK)
       return retVal;
 
-    retVal = BuildCondition(pTabInfo, pRightExpr, nowMillis);
+    retVal = BuildCondition(pTabInfo, pRightExpr, nowMicroseconds);
     if (retVal != PdbE_OK)
       return retVal;
   }
   else
   {
-    ValueItem* pConditionItem = BuildGeneralValueItem(pTabInfo, pCondition, nowMillis);
+    ValueItem* pConditionItem = BuildGeneralValueItem(pTabInfo, pCondition, nowMicroseconds);
     if (pConditionItem == nullptr)
       return PdbE_SQL_CONDITION_EXPR_ERROR;
 
@@ -138,10 +138,38 @@ PdbErr_t ConditionFilter::RunCondition(
     {
       resultVal = false;
       return PdbE_OK;
-    } 
+    }
   }
 
   resultVal = true;
+  return PdbE_OK;
+}
+
+PdbErr_t ConditionFilter::RunConditionArray(BlockValues& blkValues) const
+{
+  PdbErr_t retVal = PdbE_OK;
+  std::vector<DBVal> tmpVec;
+  tmpVec.reserve(blkValues.GetResultSize());
+
+  for (auto condiIt = conditionVec_.begin(); condiIt != conditionVec_.end(); condiIt++)
+  {
+    tmpVec.clear();
+    retVal = (*condiIt)->GetValueArray(blkValues, tmpVec);
+    if (retVal != PdbE_OK)
+    {
+      return retVal;
+    }
+
+    retVal = blkValues.MergeFilter(tmpVec);
+    if (retVal != PdbE_OK)
+    {
+      return retVal;
+    }
+
+    if (blkValues.GetResultSize() == 0)
+      break;
+  }
+
   return PdbE_OK;
 }
 
@@ -180,3 +208,12 @@ bool ConditionFilter::FilterDevId(int64_t devId) const
 
   return true;
 }
+
+void ConditionFilter::GetUseFields(std::unordered_set<size_t>& fieldSet) const
+{
+  for (size_t idx = 0; idx < conditionVec_.size(); idx++)
+  {
+    conditionVec_[idx]->GetUseFields(fieldSet);
+  }
+}
+

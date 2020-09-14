@@ -122,7 +122,11 @@ cre_columnlist(A) ::= cre_column(X). {
 }
 
 cre_column(A) ::= ID(X) BOOL_TYPE.      { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_BOOL); }
+cre_column(A) ::= ID(X) TINYINT_TYPE.   { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_INT8); }
+cre_column(A) ::= ID(X) SMALLINT_TYPE.  { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_INT16); }
+cre_column(A) ::= ID(X) INT_TYPE.       { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_INT32); }
 cre_column(A) ::= ID(X) BIGINT_TYPE.    { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_INT64); }
+cre_column(A) ::= ID(X) FLOAT_TYPE.     { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_FLOAT); }
 cre_column(A) ::= ID(X) DOUBLE_TYPE.    { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_DOUBLE); }
 cre_column(A) ::= ID(X) STRING_TYPE.    { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_STRING); }
 cre_column(A) ::= ID(X) BLOB_TYPE.      { A = ColumnItem::MakeColumnItem(&X, PDB_FIELD_TYPE::TYPE_BLOB); }

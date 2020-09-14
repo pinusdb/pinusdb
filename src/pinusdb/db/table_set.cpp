@@ -29,15 +29,15 @@
 const char* pFieldTypeStr[] = {
   "",                // 0
   "bool",            // 1
-  "bigint",          // 2
-  "datetime",        // 3
-  "double",          // 4
-  "string",          // 5
-  "blob",            // 6
-  "",                // 7
-  "",                // 8
-  "",                // 9
-  "",                // 10
+  "tinyint",         // 2
+  "smallint",        // 3
+  "int",             // 4
+  "bigint",          // 5
+  "datetime",        // 6
+  "float",           // 7
+  "double",          // 8
+  "string",          // 9
+  "blob",            // 10
   "",                // 11
   "",                // 12
   "",                // 13
@@ -492,9 +492,9 @@ PdbErr_t TableSet::DeleteDev(const char* pTabName, const DeleteParam* pDeletePar
     return PdbE_OPERATION_DENIED;
   }
 
-  int64_t nowMillis = DateTime::NowMilliseconds();
+  int64_t nowMicroseconds = DateTime::NowMicrosecond();
   ConditionFilter delCondition;
-  PdbErr_t retVal = delCondition.BuildCondition(&sysDevInfo_, pDeleteParam->pWhere_, nowMillis);
+  PdbErr_t retVal = delCondition.BuildCondition(&sysDevInfo_, pDeleteParam->pWhere_, nowMicroseconds);
   if (retVal != PdbE_OK)
   {
     LOG_INFO("failed to delete device, condition error {}", retVal);
@@ -599,7 +599,7 @@ PdbErr_t QueryTableColumn(IQuery* pQuery, const TableInfo* pTabInfo)
   for (size_t i = 0; i < fieldCnt; i++)
   {
     pFieldName = pTabInfo->GetFieldName(i);
-    pTabInfo->GetFieldRealInfo(i, &fieldType);
+    pTabInfo->GetFieldRealInfo(i, &fieldType, nullptr);
     pTypeStr = pFieldTypeStr[0];
     pTabInfo->GetFieldIsKey(i, &isKey);
     if (fieldType > 0 && fieldType < fieldTypeCnt)
@@ -610,7 +610,7 @@ PdbErr_t QueryTableColumn(IQuery* pQuery, const TableInfo* pTabInfo)
     DBVAL_ELE_SET_STRING(vals, 2, pTypeStr, strlen(pTypeStr));
     DBVAL_ELE_SET_BOOL(vals, 3, isKey);
 
-    retVal = pQuery->AppendData(vals, valCnt, nullptr);
+    retVal = pQuery->AppendSingle(vals, valCnt, nullptr);
     if (retVal != PdbE_OK)
       return retVal;
 
@@ -1050,7 +1050,7 @@ PdbErr_t TableSet::QueryVariable(const QueryParam* pQueryParam,
     if (retVal != PdbE_OK)
       break;
 
-    retVal = pQuery->AppendData(nullptr, 0, nullptr);
+    retVal = pQuery->AppendSingle(nullptr, 0, nullptr);
   } while (false);
 
   if (retVal == PdbE_OK)
