@@ -127,15 +127,36 @@ public class PDBResultSet implements ResultSet{
 	
 	@Override
 	public byte getByte(int columnIndex) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		Object objVal = getValue(curRowIdx_, columnIndex);
+		if (lastGetIsNull_) {
+			return 0;
+		} else if (objVal instanceof Byte) {
+			return (byte)objVal;
+		}
+
+		throw new SQLException("类型不匹配", "58005", PDBErrCode.PdbE_VALUE_MISMATCH);
 	}
 	@Override
 	public short getShort(int columnIndex) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		Object objVal = getValue(curRowIdx_, columnIndex);
+		if (lastGetIsNull_) {
+			return 0;
+		} else if (objVal instanceof Short) {
+			return (short)objVal;
+		}
+
+		throw new SQLException("类型不匹配", "58005", PDBErrCode.PdbE_VALUE_MISMATCH);
 	}
 	@Override
 	public int getInt(int columnIndex) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		Object objVal = getValue(curRowIdx_, columnIndex);
+		if (lastGetIsNull_) {
+			return 0;
+		} else if (objVal instanceof Integer) {
+			return (int)objVal;
+		}
+
+		throw new SQLException("类型不匹配", "58005", PDBErrCode.PdbE_VALUE_MISMATCH);
 	}
 	@Override
 	public long getLong(int columnIndex) throws SQLException {
@@ -151,13 +172,19 @@ public class PDBResultSet implements ResultSet{
 	
 	@Override
 	public float getFloat(int columnIndex) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法");
+		Object objVal = getValue(curRowIdx_, columnIndex);
+		if (lastGetIsNull_) {
+			return 0;
+		} else if (objVal instanceof Float) {
+			return (float)objVal;
+		}
+
+		throw new SQLException("类型不匹配", "58005", PDBErrCode.PdbE_VALUE_MISMATCH);
 	}
 	
 	@Override
 	public double getDouble(int columnIndex) throws SQLException {
 		Object objVal = getValue(curRowIdx_, columnIndex);
-		lastGetIsNull_ = (objVal == null);
 		if (lastGetIsNull_) {
 			return 0;
 		} else if (objVal instanceof Double) {
@@ -232,15 +259,27 @@ public class PDBResultSet implements ResultSet{
 	}
 	@Override
 	public byte getByte(String columnLabel) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		if(!colPosMap_.containsKey(columnLabel)) {
+			throw new SQLException("列名不存在", "58005", PDBErrCode.PdbE_INVALID_PARAM);
+		}
+		
+		return getByte(colPosMap_.get(columnLabel));
 	}
 	@Override
 	public short getShort(String columnLabel) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		if(!colPosMap_.containsKey(columnLabel)) {
+			throw new SQLException("列名不存在", "58005", PDBErrCode.PdbE_INVALID_PARAM);
+		}
+		
+		return getShort(colPosMap_.get(columnLabel));
 	}
 	@Override
 	public int getInt(String columnLabel) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法"); 
+		if(!colPosMap_.containsKey(columnLabel)) {
+			throw new SQLException("列名不存在", "58005", PDBErrCode.PdbE_INVALID_PARAM);
+		}
+		
+		return getInt(colPosMap_.get(columnLabel));
 	}
 	@Override
 	public long getLong(String columnLabel) throws SQLException {
@@ -252,7 +291,11 @@ public class PDBResultSet implements ResultSet{
 	}
 	@Override
 	public float getFloat(String columnLabel) throws SQLException {
-		throw new UnsupportedOperationException("不支持的方法");
+		if(!colPosMap_.containsKey(columnLabel)) {
+			throw new SQLException("列名不存在", "58005", PDBErrCode.PdbE_INVALID_PARAM);
+		}
+		
+		return getFloat(colPosMap_.get(columnLabel));
 	}
 	@Override
 	public double getDouble(String columnLabel) throws SQLException {
