@@ -964,9 +964,17 @@ PdbErr_t NormalDataPart::TraversalDataPage(const NormalDataPage* pDataPage, int6
     }
 
     if constexpr (IsAsc)
+    {
       idx++;
+      if (DBVAL_ELE_IS_DATETIME(pVals, PDB_TSTAMP_INDEX) && DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) > edTs)
+        break;
+    }
     else
+    {
       idx--;
+      if (DBVAL_ELE_IS_DATETIME(pVals, PDB_TSTAMP_INDEX) && DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) < bgTs)
+        break;
+    }
   }
 
   return PdbE_OK;

@@ -84,21 +84,21 @@ PdbErr_t QueryGroup::AppendSingle(const DBVal* pVals, size_t valCnt, bool* pIsAd
 PdbErr_t QueryGroup::AppendArray(BlockValues& blockValues, bool* pIsAdded)
 {
   PdbErr_t retVal = PdbE_OK;
-  bool singleGroup = false;
+  bool groupAll = false;
   std::vector<uint64_t> groupIdVec;
 
   retVal = condiFilter_.RunConditionArray(blockValues);
   if (retVal != PdbE_OK)
     return retVal;
 
-  retVal = GetGroupArray(blockValues, groupIdVec, singleGroup);
+  retVal = GetGroupArray(blockValues, groupIdVec, groupAll);
   if (retVal != PdbE_OK)
     return retVal;
 
   pLastObj_ = nullptr;
 
   std::vector<uint64_t> emptyIdVec;
-  if (groupIdVec.size() == 1)
+  if (groupAll && groupIdVec.size() == 1)
   {
     auto objIter = objMap_.find(groupIdVec[0]);
     if (objIter != objMap_.end())
@@ -399,9 +399,9 @@ int64_t QueryGroupAll::GetGroupId(const DBVal* pVals, size_t valCnt)
 }
 
 
-PdbErr_t QueryGroupAll::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup)
+PdbErr_t QueryGroupAll::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& groupAll)
 {
-  singleGroup = true;
+  groupAll = true;
   groupIdVec.push_back(0);
   return PdbE_OK;
 }
@@ -463,13 +463,13 @@ int64_t QueryGroupDevID::GetGroupId(const DBVal* pVals, size_t valCnt)
   return DBVAL_ELE_GET_INT64(pVals, PDB_DEVID_INDEX);
 }
 
-PdbErr_t QueryGroupDevID::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup)
+PdbErr_t QueryGroupDevID::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& groupAll)
 {
   const DBVal* pDevIdVals = blockValues.GetColumnValues(PDB_DEVID_INDEX);
   if (pDevIdVals == nullptr)
     return PdbE_INVALID_PARAM;
 
-  singleGroup = true;
+  groupAll = true;
   groupIdVec.push_back(DBVAL_GET_INT64(pDevIdVals));
   return PdbE_OK;
 }
@@ -515,14 +515,14 @@ int64_t QueryGroupTstamp::GetGroupId(const DBVal* pVals, size_t valCnt)
   return (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) - minTstamp_) / timeGroupRange_;
 }
 
-PdbErr_t QueryGroupTstamp::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup)
+PdbErr_t QueryGroupTstamp::GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& groupAll)
 {
   const DBVal* pTsVals = blockValues.GetColumnValues(PDB_TSTAMP_INDEX);
   size_t recCnt = blockValues.GetRecordSize();
   if (pTsVals == nullptr)
     return PdbE_INVALID_PARAM;
 
-  singleGroup = false;
+  groupAll = false;
   for (size_t idx = 0; idx < recCnt; idx++)
   {
     if (DBVAL_ELE_GET_DATETIME(pTsVals, idx) < minTstamp_ || DBVAL_ELE_GET_DATETIME(pTsVals, idx) > maxTstamp_)

@@ -52,7 +52,7 @@ public:
 
 protected:
   virtual int64_t GetGroupId(const DBVal* pVals, size_t valCnt) = 0;
-  virtual PdbErr_t GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup) = 0;
+  virtual PdbErr_t GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& groupAll) = 0;
   virtual PdbErr_t CustomBuild(const QueryParam* pQueryParam) { return PdbE_OK; }
 
 protected:
@@ -81,7 +81,7 @@ public:
 
 protected:
   int64_t GetGroupId(const DBVal* pVals, size_t valCnt) override;
-  PdbErr_t GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup) override;
+  PdbErr_t GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& groupAll) override;
   PdbErr_t CustomBuild(const QueryParam* pQueryParam) override;
 };
 
@@ -96,7 +96,7 @@ public:
 
 protected:
   int64_t GetGroupId(const DBVal* pVals, size_t valCnt) override;
-  PdbErr_t GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup) override;
+  PdbErr_t GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& groupAll) override;
 };
 
 class QueryGroupTstamp : public QueryGroup
@@ -115,7 +115,7 @@ public:
 
 protected:
   int64_t GetGroupId(const DBVal* pVals, size_t valCnt) override;
-  PdbErr_t GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& singleGroup) override;
+  PdbErr_t GetGroupArray(BlockValues& blockValues, std::vector<uint64_t>& groupIdVec, bool& groupAll) override;
   PdbErr_t CustomBuild(const QueryParam* pQueryParam) override;
 
 protected:

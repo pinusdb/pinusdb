@@ -39,6 +39,7 @@ GroupOpt::GroupOpt(Token* pToken1)
   else
     this->valid_ = false;
 }
+
 GroupOpt::GroupOpt(Token* pToken1, ExprValue* pTimeVal)
 {
   DBVal tmpVal;
@@ -52,7 +53,7 @@ GroupOpt::GroupOpt(Token* pToken1, ExprValue* pTimeVal)
     if (pToken1 == nullptr || pTimeVal == nullptr)
       break;
 
-    if (pTimeVal->GetValueType() != TK_TIMEVAL)
+    if (pTimeVal->GetValueType() != TK_TIMEVAL && pTimeVal->GetValueType() != TK_INTEGER)
       break;
 
     tmpVal = pTimeVal->GetValue();
@@ -65,9 +66,9 @@ GroupOpt::GroupOpt(Token* pToken1, ExprValue* pTimeVal)
       this->valid_ = true;
     }
 
-  } while (false);
-  
+  } while (false);  
 }
+
 GroupOpt::~GroupOpt()
 {
 
@@ -77,18 +78,22 @@ bool GroupOpt::Valid() const
 {
   return valid_;
 }
+
 bool GroupOpt::IsTableNameGroup() const
 {
   return valid_ ? isTableName_ : false;
 }
+
 bool GroupOpt::IsDevIdGroup() const
 {
   return valid_ ? isDevId_ : false;
 }
+
 bool GroupOpt::IsTStampGroup() const
 {
   return valid_ ? isTStamp_ : false;
 }
+
 PdbErr_t GroupOpt::GetTStampStep(int64_t& timeStampStep) const
 {
   if (valid_ && isTStamp_)
@@ -104,10 +109,12 @@ GroupOpt* GroupOpt::MakeGroupOpt(Token* pToken1)
 {
   return new GroupOpt(pToken1);
 }
+
 GroupOpt* GroupOpt::MakeGroupOpt(Token* pToken1, ExprValue* pTimeVal)
 {
   return new GroupOpt(pToken1, pTimeVal);
 }
+
 void GroupOpt::FreeGroupOpt(GroupOpt* pGroupOpt)
 {
   delete pGroupOpt;

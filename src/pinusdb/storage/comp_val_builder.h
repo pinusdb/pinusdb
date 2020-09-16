@@ -24,7 +24,7 @@
 #include <list>
 #include <vector>
 
-const size_t CompBlockRecMaxCnt = 16384;
+const size_t CompBlockRecMaxCnt = 8192;
 
 class CompValBuilder
 {

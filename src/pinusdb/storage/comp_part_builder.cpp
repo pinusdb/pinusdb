@@ -174,7 +174,7 @@ PdbErr_t CompPartBuilder::Append(const DBVal* pVal, size_t fieldCnt)
       flushFlag = true;
   }
 
-  if (flushFlag || valBuilderVec_[PDB_TSTAMP_INDEX]->GetValCnt() >= 8192)
+  if (flushFlag || valBuilderVec_[PDB_TSTAMP_INDEX]->GetValCnt() >= CompBlockRecMaxCnt)
   {
     Flush();
   }
