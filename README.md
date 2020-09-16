@@ -45,5 +45,6 @@ real6 -> 倍数1000000， 取值范围[-999,999,999.999999 ~ +999,999,999.999999
 2. 如果您公司用了松果时序数据库，我们可以提供收费的维护、升级服务。
 3. 如果您觉得我们的产品做得不错，也可以通过微信扫码打赏支持一下我们：  
 
-![image](https://github.com/pinusdb/pinusdb/blob/master/doc/rewardme.png) 
+
+![image](http://www.pinusdb.cn/upload/webimg/rewardme.png) 
 
