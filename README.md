@@ -38,18 +38,20 @@ real6 -> 倍数1000000， 取值范围[-999,999,999.999999 ~ +999,999,999.999999
 提供c/c++ SDK, .Net SDK, jdbc 驱动，未来还会支持restful及更多的二次开发接口。  
 [c/c++ SDK](http://www.pinusdb.cn/doc/c_sdk/c_sdk_demo.html "c/c++ SDK")  
 [.net SDK](http://www.pinusdb.cn/doc/dotnet_sdk/index.html ".net SDK")  
-[jdbc](http://www.pinusdb.cn/doc/jdbc/index.html "jdbc")
-具体使用细节请参考：http://www.pinusdb.cn
+[jdbc](http://www.pinusdb.cn/doc/jdbc/index.html "jdbc")  
+更多细节请参考：http://www.pinusdb.cn
 
 # 交流
 若您需要帮助或希望给我们反馈信息，请提交Issue、给我们发邮件：zhangquan@pinusdb.cn, 或者加QQ：445560747
 
-# 赞助 
-松果时序数据库是以GPL开源的软件，但是也需要相应的资金支持才能持续项目的维护和开发。您可以以下面的方式支持我们：  
-1. 如果您公司需要使用这类的产品，我们可以提供定制化开发、技术支持等服务。
-2. 如果您公司用了松果时序数据库，我们可以提供收费的维护、升级服务。
-3. 如果您觉得我们的产品做得不错，也可以通过微信扫码打赏支持一下我们：  
+# 赞助  
+松果时序数据库所有功能都开源，您可以免费使用。由于产品的更新、升级也需要资金，所以我们提供如下的收费服务，若您有需要可以联系我们：  
+1. 如果您有需要使用时序数据库产品的项目，我们可以给您提供技术方案的咨询等。  
+2. 如果您正在使用松果时序数据库的产品，我们可以给您提供技术支持、维护、升级等。  
+3. 如果您想了解我们数据库内部的实现原理，我们可以给您提供对应的培训。  
+4. 如果您的需求比较特别，我们可以为您提供数据库的定制服务。  
 
+当然，如果您觉得我们的产品不错，想鼓励一下，希望我们继续更新、升级，也可以通过微信扫码打赏来支持一下，就当请我们喝杯咖啡 : )  
 
-![image](http://www.pinusdb.cn/upload/webimg/rewardme.png) 
+![image](http://www.pinusdb.cn/upload/webimg/rewardme.png)   
 
