@@ -445,6 +445,7 @@ public:
 
   void GetUseFields(std::unordered_set<size_t>& fieldSet) const override
   {
+    fieldSet.insert(PDB_TSTAMP_INDEX);
     fieldSet.insert(fieldPos_);
   }
 
@@ -457,8 +458,14 @@ protected:
     uint64_t groupId, const uint64_t* pGroupIds)
   {
     size_t recCnt = blockValues.GetRecordSize();
+    const DBVal* pTsVals = blockValues.GetColumnValues(PDB_TSTAMP_INDEX);
     const DBVal* pVals = blockValues.GetColumnValues(fieldPos_);
     const uint8_t* pFilter = blockValues.GetFilter();
+
+    if (pTsVals == nullptr || pVals == nullptr)
+    {
+      return PdbE_INVALID_PARAM;
+    }
 
     for (size_t idx = 0; idx < recCnt; idx++)
     {
@@ -474,6 +481,9 @@ protected:
           continue;
       }
 
+      if (DBVAL_ELE_GET_TYPE(pTsVals, idx) != PDB_VALUE_TYPE::VAL_DATETIME)
+        return PdbE_INVALID_PARAM;
+
       if (DBVAL_ELE_GET_TYPE(pVals, idx) != PDB_VALUE_TYPE::VAL_NULL
         && DBVAL_ELE_GET_TYPE(pVals, idx) != ValType)
       {
@@ -482,14 +492,16 @@ protected:
 
       if constexpr (IsFirst)
       {
-        if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) >= curTs_)
+        if (DBVAL_ELE_GET_DATETIME(pTsVals, idx) >= curTs_)
           continue;
       }
       else
       {
-        if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) <= curTs_)
+        if (DBVAL_ELE_GET_DATETIME(pTsVals, idx) <= curTs_)
           continue;
       }
+
+      curTs_ = DBVAL_ELE_GET_DATETIME(pTsVals, idx);
 
       if constexpr (IsBlockValue)
       {
