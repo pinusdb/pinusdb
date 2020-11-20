@@ -83,7 +83,7 @@ do { \
 do { \
   (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_INT64; \
   (pVal)->dataLen_ = 8; \
-  (pVal)->val_.int64Val_ = (val); \
+  (pVal)->val_.int64Val_ = static_cast<int64_t>(val); \
 } while(false)
 
 #define DBVAL_SET_DATETIME(pVal, val)   \
@@ -104,7 +104,7 @@ do { \
 do { \
   (pVal)->dataType_ = PDB_VALUE_TYPE::VAL_DOUBLE; \
   (pVal)->dataLen_ = 8; \
-  (pVal)->val_.doubleVal_ = (val); \
+  (pVal)->val_.doubleVal_ = static_cast<double>(val); \
 } while(false)
 
 #define DBVAL_SET_STRING(pVal, pStr, len) \
