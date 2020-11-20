@@ -1,23 +1,17 @@
-# 松果时序数据库（PinusDB）用户手册 V1.4
-2019-10-18 , version 1.4
+# 松果时序数据库（PinusDB）用户手册 V3.0
+2020-11-20 , version 3.0
 ## 1.前言
 **概述**  
-本文档介绍松果时序数据库(以下又称PinusDB)1.4版本的C/C++ SDK使用。
+本文档介绍松果时序数据库(以下又称PinusDB)3.0版本的C/C++ SDK使用。
 
 **读者对象**  
 本文档适用于使用松果时序数据库的开发工程师。
 
 **联系我们**  
-如果您有任何疑问或想了解松果时序数据库的最新动态及研发计划，请联系我们：  
-长沙巨松软件科技有限公司  
-电话：199 7697 8105  
-QQ群：614986989  
-邮箱：service@pinusdb.cn  
-网址：http://www.pinusdb.cn  
-地址：长沙市岳麓区枫林三路8号喜地大厦2716室
+如果您有任何疑问或建议，请提交Issue或发送邮件到 zhangqhn@foxmail.com 
 
 ## 2.快速入门
-在项目中引用pdb_csdk.lib并包含pdb_api.h文件，将pdb_csdk.dll拷贝到执行程序的目录下即可（注意：松果时序数据库提供的c sdk为64位版本）。
+在项目中引用pdb_csdk.lib并包含pdb_api.h文件，将pdb_csdk.dll拷贝到执行程序的目录下即可（注意：松果时序数据库提供的c sdk为64位版本，若需要32位版本请自行下载源码编译即可）。
 
 一个简单的示例：
 ```cpp
@@ -370,7 +364,140 @@ pdb_table_get_bool_by_colidx(
 **返回值**  
 执行成功返回PdbE_OK， 执行失败返回对应的错误码。
 
-## 18. pdb_table_get_bigint_by_colidx  
+## 18. pdb_table_get_tinyint_by_colidx  
+根据行下标及列下标获取int8_t类型的值。  
+
+**函数原型**  
+```c
+PdbErr_t
+pdb_table_get_tinyint_by_colidx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int8_t* pVal
+);
+```
+**参数**  
++ pTable : [输入参数] 表。  
++ rowIdx : [输入参数] 行下标，从0开始。  
++ colIdx : [输入参数] 列下标，从0开始。  
++ pVal : [输出参数] 执行成功时，返回获取到的值。
+
+**返回值**  
+执行成功返回PdbE_OK， 执行失败返回对应的错误码。
+
+## 19. pdb_table_get_tinyint_by_colname  
+根据行下标和列名获取获取int8_t类型的值。  
+
+**函数原型**  
+```c
+PdbErr_t
+pdb_table_get_tinyint_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int8_t* pVal
+);
+```
+**参数**  
++ pTable : [输入参数] 表。  
++ rowIdx : [输入参数] 行下标，从0开始。  
++ pColumnName : [输入参数] 列名。  
++ pVal : [输出参数] 执行成功时，返回获取到的值。
+
+**返回值**  
+执行成功返回PdbE_OK， 执行失败返回对应的错误码。
+
+## 20. pdb_table_get_smallint_by_colidx  
+根据行下标及列下标获取int16_t类型的值。  
+
+**函数原型**  
+```c
+PdbErr_t
+pdb_table_get_smallint_by_colidx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int16_t* pVal
+);
+```
+**参数**  
++ pTable : [输入参数] 表。  
++ rowIdx : [输入参数] 行下标，从0开始。  
++ colIdx : [输入参数] 列下标，从0开始。  
++ pVal : [输出参数] 执行成功时，返回获取到的值。
+
+**返回值**  
+执行成功返回PdbE_OK， 执行失败返回对应的错误码。
+
+## 21. pdb_table_get_smallint_by_colname  
+根据行下标和列名获取获取int8_t类型的值。  
+
+**函数原型**  
+```c
+PdbErr_t
+pdb_table_get_smallint_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int16_t* pVal
+);
+```
+**参数**  
++ pTable : [输入参数] 表。  
++ rowIdx : [输入参数] 行下标，从0开始。  
++ pColumnName : [输入参数] 列名。  
++ pVal : [输出参数] 执行成功时，返回获取到的值。
+
+**返回值**  
+执行成功返回PdbE_OK， 执行失败返回对应的错误码。
+
+## 22. pdb_table_get_int_by_colidx  
+根据行下标及列下标获取int16_t类型的值。  
+
+**函数原型**  
+```c
+PdbErr_t
+pdb_table_get_int_by_colidx(
+  void* pTable,
+  size_t rowIdx,
+  size_t colIdx,
+  int32_t* pVal
+);
+```
+**参数**  
++ pTable : [输入参数] 表。  
++ rowIdx : [输入参数] 行下标，从0开始。  
++ colIdx : [输入参数] 列下标，从0开始。  
++ pVal : [输出参数] 执行成功时，返回获取到的值。
+
+**返回值**  
+执行成功返回PdbE_OK， 执行失败返回对应的错误码。
+
+## 23. pdb_table_get_int_by_colname  
+根据行下标和列名获取获取int32_t类型的值。  
+
+**函数原型**  
+```c
+PdbErr_t
+pdb_table_get_int_by_colname(
+  void* pTable,
+  size_t rowIdx,
+  const char* pColumnName,
+  int32_t* pVal
+);
+```
+**参数**  
++ pTable : [输入参数] 表。  
++ rowIdx : [输入参数] 行下标，从0开始。  
++ pColumnName : [输入参数] 列名。  
++ pVal : [输出参数] 执行成功时，返回获取到的值。
+
+**返回值**  
+执行成功返回PdbE_OK， 执行失败返回对应的错误码。
+
+
+## 24. pdb_table_get_bigint_by_colidx  
 根据行下标及列下标从表中获取bigint类型的值。
 
 **函数原型**  
@@ -392,7 +519,7 @@ pdb_table_get_bigint_by_colidx(
 **返回值**  
 执行成功返回PdbE_OK， 执行失败返回对应的错误码。
 
-## 19. pdb_table_get_bigint_by_colidx  
+## 25. pdb_table_get_bigint_by_colidx  
 根据行下标及列名从表中获取bigint类型的值。
 
 **函数原型**  
@@ -414,7 +541,7 @@ pdb_table_get_bigint_by_colname(
 **返回值**  
 执行成功返回PdbE_OK， 执行失败返回对应的错误码。
 
-## 20. pdb_table_get_datetime_by_colidx
+## 26. pdb_table_get_datetime_by_colidx
 根据行下标及列下标从表中获取DateTime类型的值。  
 
 **函数原型**
@@ -436,7 +563,7 @@ pdb_table_get_blob_by_colidx(
 **返回值**   
 执行成功返回PdbE_OK，执行失败返回对应错误码。
 
-## 21. pdb_table_get_datetime_by_colname
+## 27. pdb_table_get_datetime_by_colname
 根据行下标及列下标从表中获取DateTime类型的值。  
 
 **函数原型**
@@ -458,7 +585,7 @@ pdb_table_get_blob_by_colname(
 **返回值**   
 执行成功返回PdbE_OK，执行失败返回对应错误码。
 
-## 22. pdb_table_get_double_by_colidx  
+## 28. pdb_table_get_double_by_colidx  
 根据列下标从表中获取double类型的值。  
 
 **函数原型**  
@@ -480,7 +607,7 @@ pdb_table_get_double_by_colidx(
 **返回值**  
 执行成功返回PdbE_OK，执行失败返回对应的错误码。
 
-## 23. pdb_table_get_double_by_colname  
+## 29. pdb_table_get_double_by_colname  
 根据列名从表中获取duoble类型的值。  
 
 **函数原型**  
@@ -502,7 +629,7 @@ pdb_table_get_double_by_colname(
 **返回值**  
 执行成功返回PdbE_OK，执行失败返回对应的错误码。
 
-## 24. pdb_table_get_string_by_colidx  
+## 30. pdb_table_get_string_by_colidx  
 根据行下标及列下标获取string类型值。  
 
 **函数原型**  
@@ -526,7 +653,7 @@ pdb_table_get_string_by_colidx(
 **返回值**  
 执行成功返回PdbE_OK，执行失败返回对应的错误码。
 
-## 25. pdb_table_get_string_by_colname  
+## 31. pdb_table_get_string_by_colname  
 根据行下标及列名获取string类型值。  
 
 **函数原型**  
@@ -550,7 +677,7 @@ pdb_table_get_string_by_colname(
 **返回值**  
 执行成功返回PdbE_OK，执行失败返回对应的错误码。
 
-## 26. pdb_table_get_blob_by_colidx  
+## 32. pdb_table_get_blob_by_colidx  
 根据行下标及列下标获取blob类型值。  
 
 **函数原型**  
@@ -574,7 +701,7 @@ pdb_table_get_blob_by_colidx(
 **返回值**  
 执行成功返回PdbE_OK，执行失败返回对应的错误码。  
 
-## 27. pdb_table_get_blob_by_colname  
+## 33. pdb_table_get_blob_by_colname  
 根据行下标及列名获取blob类型值。  
 
 **函数原型**  

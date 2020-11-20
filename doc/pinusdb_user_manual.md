@@ -1,25 +1,23 @@
-# 松果时序数据库（PinusDB）用户手册 V1.4
-2019-10-14 , version 1.4
+# 松果时序数据库（PinusDB）用户手册 V3.0
+2020-11-20 , version 3.0
 ## 1.前言
 **概述**  
-本文档介绍松果时序数据库(以下又称PinusDB)1.4版本的使用。
+本文档介绍松果时序数据库(以下又称PinusDB)3.0版本的使用。
 
 **读者对象**  
 本文档适用于使用松果时序数据库的运维及开发工程师。
 
 **联系我们**  
-如果您有任何疑问或想了解松果时序数据库的最新动态及研发计划，请联系我们：  
-长沙巨松软件科技有限公司  
-电话：199 7697 8105  
-QQ群：614986989  
-邮箱：service@pinusdb.cn  
-网址：http://www.pinusdb.cn  
-地址：长沙市岳麓区枫林三路8号喜地大厦2716室
+如果您有任何疑问或建议，请提交Issue或发送邮件到 zhangqhn@foxmail.com 
 
 ## 2.产品介绍
 **产品概述**  
-随着互联网的发展，计算机硬件价格下降、体积小型化使得只能设备大量普及，例如：手环、共享单车、智能电表、环境监测设备、新能源汽车、汽车充电桩等等，这些设备都会联网并在运营过程中持续不断产生数据；针对这些数据的分析能为企业决策、产品升级、智能调度等提供数据支持。人类也将进入数据时代，但是智能设备数量巨大，对传统数据处理方式提出了挑战。在此背景下我们根据智能设备产生的数据特点，设计、研发了高性能的松果时序数据库，帮助客户解决海量智能设备数据的处理。  
-松果时序数据库是款针对物联网设备数据特点研发的、具备高压缩比、高性能、简单、易用的时序数据库。广泛应用于物联网（IOT）设备、智慧城市、智慧物流、环境监测等数据处理。是未来数据时代的支撑软件。  
+随着互联网的发展，计算机硬件价格下降、体积小型化使得智能设备大量普及，例如：手环、共享单车、智能电表、环境监测设备、新能源汽车、汽车充电桩等等，这些设备在运营过程中会持续产生数据；针对这些数据的分析能为企业决策、产品升级、智能调度等提供了数据支撑，人类也将步入智能时代。由于智能设备数量巨大，这就对传统数据处理方式提出了挑战。在此背景下我们根据智能设备产生的数据特点，设计、研发了高性能的松果时序数据库，帮助客户解决海量智能设备数据的处理。  
+
+松果时序数据库（以下也称PinusDB）是一款针对物联网智能设备数据特点研发的具备高压缩比、高性能的时序数据库。广泛应用于物联网（IoT）设备、智慧城市、智慧物流、环境监测等数据处理。  
+
+PinusDB针对传感数据基于时序的特点使用特殊的方式处理、存储。解决海量物联网设备高频率数据处理，经过我们特有的压缩算法降低数据存储空间90%以上，降低企业运维、管理成本。  
+ 
 **产品优势**  
 + 高压缩比  
 针对时序数据具备已知的取值范围及精度，提供real系列类型，最大限度压缩数据。一般能将历史数据存储空间压缩到原来的10%或更低。  
@@ -40,8 +38,11 @@ QQ群：614986989
 
 ## 3.数据类型
 + **bool** : 布尔类型，默认值 false
-+ **bigint** : 整型，值域[-2^63, 2^63 - 1], 存储时使用varint编码，占用1~9字节。默认值： 0  
-+ **datetime** : 时间类型，值域[1970-1-1 ~ 2999-1-1], 精确到毫秒。默认值：1970-1-1 0:0:0  
++ **tinyint** : 1字节整型，值域[-128, 127]。占用1个字节，默认值： 0  
++ **smallint** : 2字节整型，值域[-32768, 32767]。占用2个字节，默认值： 0  
++ **int** : 4字节整型，值域[-2^31, 2^31 - 1]，占用4个字节，默认值：0  
++ **bigint** : 8字节整型，值域[-2^63, 2^63 - 1], 占用8字节。默认值： 0  
++ **datetime** : 时间类型，值域[1970-1-1 ~ 2999-1-1], 精确到微秒，占用8字节。默认值：1970-1-1 0:0:0.000000  
 + **double** : 双精度浮点型，表示范围[-1.7e308, 1.7e308], 占用8字节， 默认值：0  
 + **string** : 字符串，UTF8 编码，整条数据小于8K。默认值：长度为0的空字符串
 + **blob** : 二进制数据，整条数据小于8K。默认值：长度为0的空数据
@@ -66,7 +67,7 @@ QQ群：614986989
 示例：0x283C 值的书写如下： x'283C'  
 
 + **时间类型**  
-表示距离 1970-1-1 0:0:0.000 的毫秒数，可以用格式 'YYYY-MM-DD HH:mm:ss.ms' 表示。 时间类型使用服务器所在的时区，若需要指定其他的时区可以在时间后加时区信息。东区为+，西区为-后面加时或时分。  
+表示距离 1970-1-1 0:0:0.000000 的微秒数，可以用格式 'YYYY-MM-DD HH:mm:ss.us' 表示。 时间类型使用服务器所在的时区，若需要指定其他的时区可以在时间后加时区信息。东区为+，西区为-后面加时或时分。  
 示例：北京时间可以表示为如下：  
 '2019-10-10 18:41:23.327 +08' 或 '2019-10-10 18:41:23.327 +0800'  
 
@@ -100,69 +101,126 @@ QQ群：614986989
 聚合函数可以使用AS来指定别名。  
 + last  
 功能：返回时间戳最大的值，支持所有类型的字段。返回值与字段类型一致。  
-示例：last(*fieldName*) AS *aliasName*
+示例：last(*fieldName*)  
 + first  
 功能：返回时间戳最小的值，支持所有类型的字段。返回值与字段类型一致。  
-示例：first(*fieldName*) AS *aliasName*  
+示例：first(*fieldName*)   
 + avg  
 功能：返回指定字段的平均数，支持bigint，double及real系列字段。返回值与字段类型一致。  
-示例：avg(*fieldName*) AS *aliasName*  
+示例：avg(*fieldName*)  
 + count  
 功能：返回检索到并且值不为NULL的数据行数量，支持所有类型字段。返回值为bigint类型。  
-示例：count(*fieldName*) AS *aliasName*  
+示例：count(*fieldName*)  
 + max  
-功能：返回指定字段中最大的值，支持bigint，double及real系列字段。返回值与字段类型一致。  
-示例：max(*fieldName*) AS *aliasName*  
+功能1：返回指定字段中最大的值，支持整数、浮点数及datetime类型字段。返回值与字段类型一致。  
+示例：max(*fieldName*) 
+功能2：返回指定字段(fieldName1)最大值时，字段fieldName2的值，返回值类型与fieldName2字段类型一致。  
+fieldName1 支持整数、浮点数及datetime类型字段。  
+fieldName2 支持所有数据类型。  
+示例：max(*fieldName1*, *fieldName2*) 
 + min  
-功能：返回指定字段中最小的值，支持bigint，double及real系列字段。返回值与字段类型一致。  
-示例：min(*fieldName*) AS *aliasName*  
+功能1：返回指定字段中最小的值，支持整数、浮点数及datetime类型字段。返回值与字段类型一致。 
+示例：min(*fieldName*)  
+功能2：返回指定字段(fieldName1)最小值时，字段fieldName2的值，返回值类型与fieldName2字段类型一致。  
+示例：min(*fieldName1*, *fieldName2*)
 + sum  
 功能：返回指定字段的和，支持bigint，double及real系列字段。返回值与字段类型一致。  
-示例：sum(*fieldName*) AS *aliasName*
-
-## 7.内置函数  
-### 7.1 version函数
-松果时序数据库提供获取当前服务版本的内置函数version，使用方式如下：  
+示例：sum(*fieldName*)  
++ -if
+功能：所有聚合函数都可以加if后缀，来筛选满足条件的数据进行统计。 lastif, firstif, avgif, countif, maxif, minif, sumif ，这些函数的第一个参数为条件。 
+示例： countif(*condition*)  
 ```sql
-SELECT version()
+--查询val01大于100 和 val02 大于100的条数
+SELECT countif(val01 > 100), countif(val02 > 100) FROM tab01  
+--查询val01大于500的所有val02的平均值  
+SELECT avg(val01 > 500, val02) FROM tab01
 ```
 
-### 7.2 now函数
+## 7.内置函数  
+### 7.1 now函数
 松果时序数据库提供获取服务器当前时间的内置函数now，在查询或插入数据时可以使用now函数获取服务器当前时间，精确到秒，例如以下示例：
 ```sql
 insert into tab01(devid, tstamp, ...) values(1, now(), ...)
 ```
-now函数提供不带参数、带一个参数及带两个参数的扩展，以提供更加丰富的功能。  
-+ 不带参数  
-即获取服务器当前时间，如上面的示例  
-+ 第一个参数, 时间偏移  
-对当前时间加或减一个时间，时间单位有：秒(s),分钟(m),小时(h),天(d)  
-示例:
+查询示例:
 ```sql
-select now(),now(-10s),now(10s)
+select now()
 --查询结果
---|now()               |now(-10s)           |now(10s)
---|2019-10-13 22:21:04 |2019-10-13 22:20:54 |2019-10-13 22:21:14
+--|2020-11-18 22:21:04 
 ```
-+ 第二个参数，时间对齐  
-对当前时间对齐到指定的单位，时间单位有：秒(s,second),分钟(m,minute),小时(h,hour),天(d,day),需要注意的是对齐到天时，获取的时间是数据库服务所在时区的当天零点。  
-示例：
-```sql
-select now(),now(0s,'minute'),now(0s,'hour')
---查询结果
---|now()               |now(0s,'minute')    |now(0s,'hour')
---|2019-10-13 22:28:09 |2019-10-13 22:28:00 |2019-10-13 22:00:00
-```
-利用now函数的参数可以扩展一些用法：  
-```sql
---查询表tab1中设备1最近5分钟内的数据
-select * from tab01 
-where devid = 1 and tstamp >= now(-5m) and tstamp < now()
 
---查询表tab1中设备1当天以小时为单位的统计数据
-select tstamp, max(fieldName) from tab1
-where devid = 1 and tstamp >= now(0s, 'day') and tstamp < now(1d, 'day')
-group by tstamp 1h
+### 7.2 datetimeadd函数  
+计算一个时间与另一个时间段相加，第一个参数为datetime类型，第二个参数表示微秒数，可以为负数。  
+例如：计算当前时间前1分钟及后一分钟（1分钟为60000000微秒）的示例如下：
+```sql
+SELECT datetimeadd(now(), -60000000), datetimeadd(now(), 60000000)
+```
+为了方便时间运算也可以选择使用时间符号: 秒(s),分钟(m),小时(h), 如下所示：  
+```sql
+SELECT datetimeadd(now(), 60s), datetimeadd(now(), -1d)
+```
+
+### 7.3 datetimediff函数  
+计算两个时间差的微秒数，例如:  
+```sql
+SELECT datetimediff(datetimeadd(now(), 1m), now())
+```
+
+### 7.4 datetimefloor函数  
+时间值的向下取整，取整单位: 秒(second), 分钟(minute), 小时(hour), 天(day), 示例如下：  
+```sql
+--获取今天的零点
+SELECT datetimefloor(now(), 'day')
+```
+注意：以天为单位进行取整时，使用的是服务器的时区。  
+
+### 7.5 datetimeceil函数
+时间值的向上取整, 取整单位：秒(second), 分钟(minute), 小时(hour), 天(day), 示例如下：  
+```sql
+SELECT datetimeceil(now(), 'minute')
+```
+
+### 7.6 add函数  
+加法函数，支持 tinyint, smallint, int, bigint, float, double数据类型，示例如下:  
+```sql
+SELECT add(12, 3.5)
+```
+
+### 7.7 sub函数  
+减法函数，支持 tinyint, smallint, int, bigint, float, double数据类型，示例如下：  
+```sql
+SELECT sub(12.8, 8.2)
+```
+
+### 7.8 mul函数  
+乘法函数，支持 tinyint, smallint, int, bigint, float, double数据类型，示例如下：  
+```sql
+SELECT mul(5, 8)
+```
+
+### 7.9 div函数  
+除法函数，支持 tinyint, smallint, int, bigint, float, double数据类型，示例如下：  
+```sql
+SELECT div(5, 8.0)
+```
+
+### 7.10 mod函数  
+求模函数，支持 tinyint, smallint, int, bigint 数据类型，示例如下：  
+```sql
+SELECT mod(5, 8)
+```
+
+### 7.11 if函数  
+条件函数，需要三个参数，第一个参数为条件，若条件为真返回第二个参数，若条件为假返回第三个参数，示例如下:  
+```sql
+SELECT if(5 > 8, 'true', 'false')
+```
+注意：第二、三个参数必须具备同样的数据类型。  
+
+### 7.12 abs函数  
+绝对值函数， 支持tinyint, smallint, int, bigint, float, double数据类型，示例如下：  
+```sql
+SELECT abs(-5),abs(5)
 ```
 
 ## 8.系统限制
@@ -187,10 +245,15 @@ config.ini文件中server配置节下的配置项
 + port, 服务启动的端口，默认8105；
 + cacheSize, 数据缓存大小，单位为MB；默认为0，表示系统会根据内存大小来决定缓存大小，最小为128MB，最大不超过系统内存的5/8；  
 当使用默认值时：  
-物理内存小于4GB，数据缓存设置为物理内存的1/8；  
-物理内存小于8GB，数据缓存设置为物理内存的1/4；  
-物理内存大于8GB，数据缓存设置为物理内存的1/2；
-+ queryTimeOut，查询超时时间，单位为秒，默认值：60；
+物理内存小于8GB，缓存为物理内存的1/4  
+物理内存小于64GB，缓存为物理内存的1/2  
+物理内存大于64GB，缓存为32GB  
++ writeCache, 写数据缓存大小，单位为MB，推荐使用默认值  
+默认值为0，即由系统自动设置。  
+当数据缓存小于24GB，写缓存为数据缓存的1/2  
+当数据缓存大于24GB，写缓存为12GB  
+
++ queryTimeOut，查询超时时间，单位为秒，默认值：300；
 + insertValidDay，有效写入时间窗口，单位为天，默认为1，详细信息参考名词解释相关内容；
 + tabPath，表目录，存放系统中创建的数据表及表配置文件，用户配置文件。  
 + normalDataPath，普通数据目录，存放普通数据文件。
@@ -219,6 +282,7 @@ value | string | 配置值
 address | 数据库服务的IP地址  
 port | 数据库服务的端口号  
 cacheSize | 数据库缓存大小，单位为MB  
+writeCache | 写数据缓存大小，单位为MB  
 queryTimeOut | 查询超时时间，单位为秒  
 insertValidDay | 插入时间窗口，单位为天  
 tabPath | 表目录  
@@ -251,7 +315,7 @@ tabname | string | 表名
 -|-|-  
 tabname | string | 表名  
 colname | string | 列名  
-datatype | string | 类型名，bool,bigint,datetime,double,string,blob,real2,real3,real4,real6  
+datatype | string | 类型名，bool,tinyint,smallint,int,bigint,datetime,double,string,blob,real2,real3,real4,real6  
 iskey | bool | 是否主键  
 
 **sys_dataFile** 数据文件列表，表结构如下：  

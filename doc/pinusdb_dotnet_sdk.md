@@ -1,23 +1,17 @@
-# 松果时序数据库（PinusDB）用户手册 V1.4
-2019-10-14 , version 1.4
+# 松果时序数据库（PinusDB）用户手册 V3.0
+2020-11-20 , version 3.0
 ## 1.前言
 **概述**  
-本文档介绍松果时序数据库(以下又称PinusDB)1.4版本的.Net SDK使用。
+本文档介绍松果时序数据库(以下又称PinusDB)3.0版本的.Net SDK使用。
 
 **读者对象**  
 本文档适用于使用松果时序数据库的开发工程师。
 
 **联系我们**  
-如果您有任何疑问或想了解松果时序数据库的最新动态及研发计划，请联系我们：  
-长沙巨松软件科技有限公司  
-电话：199 7697 8105  
-QQ群：614986989  
-邮箱：service@pinusdb.cn  
-网址：http://www.pinusdb.cn  
-地址：长沙市岳麓区枫林三路8号喜地大厦2716室
+如果您有任何疑问或建议，请提交Issue或发送邮件到 zhangqhn@foxmail.com 
 
 ## 2.快速开始  
-在项目中引用PDB.DotNetSDK.dll程序集即可。PDB.DotNetSDK.dll支持.Net Framework和.Net Core。  
+在项目中引用PDB.DotNetSDK.dll程序集即可。PDB.DotNetSDK.dll 支持 .Net Framework和.Net Core。  
 ```c#
 //连接字符串
 string connStr = "server=127.0.0.1;port=8105;username=sa;password=pinusdb";
@@ -58,12 +52,19 @@ SuccessCount : 执行数据插入时，插入成功的条数。
 InsertResult : 执行数据插入时，每条数据的执行结果。  
 
 **方法**  
+
++ ExecuteNonQuery(string sql)  
+执行没有返回值的SQL，例如：创建用户，修改用户权限，创建表，删除表，附加表，附件文件等等。  
+
++ ExecuteNonQuery(string sql, params PDBParameter[] parms)  
+使用参数执行没有返回值的SQL，变量名必须以@开头，可以包含字母、数字。  
+
 + ExecuteInsert(string sql)  
-执行插入语句，当执行多条插入语句时，其中某条插入失败时，后面的不会继续执行。  
-一次最多插入1000条数据。  
-一次调用只能对一个表执行插入，必须指定所有的列名。典型的插入语句如下：  
+执行插入语句，当执行多条插入语句时，其中某条插入失败时，后面的不会继续执行。    
+一次调用只能对一个表执行插入，必须指定所有的列名。典型的插入语句如下：
+注意：插入数据前，请先创建创建表，在表中创建对象，具体请参考用户手册：pinusdb_user_manual.md 
 ```sql
---单条插入
+--单条插入,插入实际的数据前需要先创建设备
 INSERT INTO tab01(devid, tstamp, val01, val02)
 VALUES(1, now(), true, 101)
 
@@ -75,8 +76,7 @@ VALUES(1, now(), true, 102),(2, now(), true, 103)
 带参数执行一条插入语句，变量名必须以@开头，可以包含字母、数字  
 
 + ExecuteInsert(DataTable dataTable)  
-将DataTable插入到松果时序数据库，表名和列名由DataTable中的表名和列名指定，列类型必须和指定表的列类型匹配。  
-一次调用最多插入1000条数据。  
+将DataTable插入到松果时序数据库，表名和列名由DataTable中的表名和列名指定，列类型必须和指定表的列类型匹配。
 ```C#
 static void TestInsertTable()
 {
@@ -129,11 +129,6 @@ static void TestInsertTable()
 + ExecuteInsert(string tabName, DataTable dataTable)  
 将DataTable插入到松果时序数据库，表名由参数tabName指定，列名由DataTable中的列名指定。其他与上个方法相同。  
 
-+ ExecuteNonQuery(string sql)  
-执行没有返回值的SQL，例如：创建用户，修改用户权限，删除表，附加表，附件文件等等。  
-
-+ ExecuteNonQuery(string sql, params PDBParameter[] parms)  
-使用参数执行没有返回值的SQL，变量名必须以@开头，可以包含字母、数字。  
 
 + ExecuteQuery(string sql)  
 执行查询SQL  
