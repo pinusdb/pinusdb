@@ -386,7 +386,7 @@ namespace PDB.DotNetSDK
           }
           else if (dr[fieldIdx] is sbyte)
           {
-            IntTool.WriteVarint64(byteStream, Convert.ToSByte(dr[fieldIdx]));
+            IntTool.WriteVarint8(byteStream, Convert.ToSByte(dr[fieldIdx]));
           }
           else if (dr[fieldIdx] is short)
           {
