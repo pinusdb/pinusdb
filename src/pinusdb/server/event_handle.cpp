@@ -671,11 +671,11 @@ PdbErr_t EventHandle::DecodeInsertTable(InsertSql* pInsertSql)
       break;
     case PDB_VALUE_TYPE::VAL_INT16:
       pTmp = Coding::VarintDecode64(pTmp, pBufLimit, &v64);
-      DBVAL_SET_INT16(&dbVal, static_cast<int8_t>(Coding::ZigzagDecode64(v64)));
+      DBVAL_SET_INT16(&dbVal, static_cast<int16_t>(Coding::ZigzagDecode64(v64)));
       break;
     case PDB_VALUE_TYPE::VAL_INT32:
       pTmp = Coding::VarintDecode64(pTmp, pBufLimit, &v64);
-      DBVAL_SET_INT32(&dbVal, static_cast<int8_t>(Coding::ZigzagDecode64(v64)));
+      DBVAL_SET_INT32(&dbVal, static_cast<int32_t>(Coding::ZigzagDecode64(v64)));
       break;
     case PDB_VALUE_TYPE::VAL_INT64:
       pTmp = Coding::VarintDecode64(pTmp, pBufLimit, &v64);
