@@ -1895,7 +1895,7 @@ public:
       else if constexpr (CompOp == TK_GT)
         result = fv > val_;
       else if constexpr (CompOp == TK_GE)
-        result = fv <= val_;
+        result = fv >= val_;
       else if constexpr (CompOp == TK_EQ)
         result = fv == val_;
       else if constexpr (CompOp == TK_NE)
