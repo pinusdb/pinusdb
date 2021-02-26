@@ -1,6 +1,7 @@
 # 松果时序数据库(pinusdb)
 
-松果时序数据库是一款针对中小规模（设备数少于10万台，每天产生的数据量少于10亿条）场景设计的时序数据库。以简单、易用、高性能为设计目标。使用SQL语句进行交互，拥有极低的学习、使用成本, 提供了丰富的功能、较高的性能。
+松果时序数据库是一款针对中小规模（设备数少于10万台，每天产生的数据量少于10亿条）场景设计的时序数据库。以简单、易用、高性能为设计目标。使用SQL语句进行交互，拥有极低的学习、使用成本, 提供了丰富的功能、较高的性能。  
+我们的目标是成为最简单、易用、健壮的单机时序数据库。
 
 ## 1. 文档  
 
@@ -10,6 +11,7 @@
 ### 1.2 二次开发  
 目前松果时序数据库提供c/c++ SDK, .Net SDK, jdbc 驱动，未来还会支持restful及更多的二次开发接口。  
 [松果时序数据库-C/C++_SDK](https://gitee.com/pinusdb/pinusdb/blob/master/doc/pinusdb_c_sdk.md)  
+[符合ADO.NET标准的.NET_SDK](https://gitee.com/maikebing/PinusDB.Data)  
 [松果时序数据库-.Net_SDK](https://gitee.com/pinusdb/pinusdb/blob/master/doc/pinusdb_dotnet_sdk.md)  
 [松果时序数据库-JDBC_SDK](https://gitee.com/pinusdb/pinusdb/blob/master/doc/pinusdb_jdbc.md)    
 

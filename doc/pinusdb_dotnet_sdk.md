@@ -1,5 +1,10 @@
 # 松果时序数据库（PinusDB）用户手册 V3.0
 2020-11-20 , version 3.0
+## 0.另一个.Net SDK
+麦壳饼同学为松果时序数据库实现了一个符合ADO.NET标准的SDK并上传到nuget。
+您可以选择任意一个SDK来连接松果时序数据库。  
+传送门：https://gitee.com/maikebing/PinusDB.Data
+
 ## 1.前言
 **概述**  
 本文档介绍松果时序数据库(以下又称PinusDB)3.0版本的.Net SDK使用。
