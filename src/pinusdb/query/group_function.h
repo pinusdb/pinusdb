@@ -1168,19 +1168,25 @@ public:
   {
     PdbErr_t retVal = PdbE_OK;
     std::vector<DBVal> tmpVec;
-    tmpVec.reserve(blockValues.GetResultSize());
+    size_t valCnt = blockValues.GetColumnSize();
+    tmpVec.reserve(valCnt);
+    size_t recordSize = blockValues.GetRecordSize();
+    for (size_t idx = 0; idx < recordSize; idx++)
+    {
+      retVal = blockValues.GetRecordValue(idx, tmpVec);
+      if (retVal != PdbE_OK)
+      {
+        return retVal;
+      }
 
-    retVal = pCondition_->GetValueArray(blockValues, tmpVec);
-    if (retVal != PdbE_OK)
-      return retVal;
-
-    retVal = blockValues.MergeFilter(tmpVec);
-    if (retVal != PdbE_OK)
-      return retVal;
-
-    retVal = pField_->AppendArray(blockValues, groupId, groupIdVec);
-
-    return retVal;
+      retVal = AppendSingle(tmpVec.data(), valCnt);
+      if (retVal != PdbE_OK)
+      {
+        return retVal;
+      }
+    }
+    
+    return PdbE_OK;
   }
 
   PdbErr_t GetResult(DBVal* pVal) override

@@ -991,8 +991,6 @@ PdbErr_t EventHandle::ExecQuery(std::string& resultData, uint32_t* pFieldCnt, ui
   if (retVal != PdbE_OK)
     return retVal;
 
-  LOG_DEBUG(pSql);
-
   SQLParser sqlParser;
   Tokenize::RunParser(&arena, &sqlParser, pSql, sqlLen);
   if (sqlParser.GetError())
