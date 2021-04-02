@@ -51,7 +51,7 @@
 
 #define PDB_MAJOR_VER_VAL        3
 #define PDB_MINOR_VER_VAL        0
-#define PDB_BUILD_VER_VAL        1
+#define PDB_BUILD_VER_VAL        2
 
 
 #define PDB_BOOL_FALSE           0
