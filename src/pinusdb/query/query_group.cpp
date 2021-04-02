@@ -116,16 +116,24 @@ PdbErr_t QueryGroup::AppendArray(BlockValues& blockValues, bool* pIsAdded)
   }
   else
   {
+    uint64_t lastId = UINT64_MAX;
     std::unordered_set<uint64_t> groupIdSet;
     for (size_t idx = 0; idx < groupIdVec.size(); idx++)
     {
+      if (lastId == groupIdVec[idx]) {
+        continue;
+      }
+
+      lastId = groupIdVec[idx];
       if (groupIdSet.find(groupIdVec[idx]) == groupIdSet.end())
       {
         groupIdSet.insert(groupIdVec[idx]);
         auto objIter = objMap_.find(groupIdVec[idx]);
-        retVal = objIter->second->AppendArray(blockValues, groupIdVec[idx], groupIdVec);
-        if (retVal != PdbE_OK)
-          return retVal;
+        if (objIter != objMap_.end()) {
+          retVal = objIter->second->AppendArray(blockValues, groupIdVec[idx], groupIdVec);
+          if (retVal != PdbE_OK)
+            return retVal;
+        }
       }
     }
   }
