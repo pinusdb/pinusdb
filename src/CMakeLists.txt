@@ -4,4 +4,3 @@ project ("PinusDB")
 
 add_subdirectory("pinusdb")
 add_subdirectory("pdb_csdk")
-add_subdirectory("pdbcli")
