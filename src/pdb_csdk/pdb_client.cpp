@@ -510,16 +510,16 @@ PdbErr_t DBClient::Recv(Arena& arena, char** ppDataBuf, size_t* pDataLen)
 
       totalLen += recvLen;
     }
+
+    if (retVal == PdbE_OK)
+    {
+      *ppDataBuf = pTmpBuf;
+      *pDataLen = (bodyLen + ProtoHeader::kProtoHeadLength);
+    }
   } 
   catch (...)
   {
     retVal = PdbE_NET_ERROR;
-  }
-
-  if (retVal == PdbE_OK)
-  {
-    *ppDataBuf = pTmpBuf;
-    *pDataLen = (bodyLen + ProtoHeader::kProtoHeadLength);
   }
 
   return retVal;
