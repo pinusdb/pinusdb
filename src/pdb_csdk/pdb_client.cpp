@@ -453,10 +453,16 @@ PdbErr_t DBClient::Request(const char* pBuf, size_t len)
     return PdbE_NET_ERROR;
   }
 
-  size_t sendLen = socket_.send(buffer(pBuf, len));
-
-  if (sendLen != len)
+  try {
+    size_t sendLen = socket_.send(buffer(pBuf, len));
+    if (sendLen != len)
+    {
+      return PdbE_NET_ERROR;
+    }
+  }
+  catch (...) {
     return PdbE_NET_ERROR;
+  }
 
   return PdbE_OK;
 }
@@ -469,39 +475,45 @@ PdbErr_t DBClient::Recv(Arena& arena, char** ppDataBuf, size_t* pDataLen)
 
   char tmpHead[ProtoHeader::kProtoHeadLength] = { 0 };
 
-  while (totalLen < ProtoHeader::kProtoHeadLength)
-  {
-    size_t tmpLen = ProtoHeader::kProtoHeadLength - totalLen;
-    size_t recvLen = socket_.read_some(buffer((tmpHead + totalLen), tmpLen), errCode);
-    if (errCode)
-      return PdbE_NET_ERROR;
-
-    totalLen += recvLen;
-  }
-
-  ProtoHeader proHdr;
-  proHdr.Load(tmpHead);
-  size_t bodyLen = static_cast<size_t>(proHdr.GetBodyLen());
-
-  char* pTmpBuf = arena.Allocate((bodyLen + ProtoHeader::kProtoHeadLength));
-  if (pTmpBuf == nullptr)
-    return PdbE_NOMEM;
-
-  memcpy(pTmpBuf, tmpHead, ProtoHeader::kProtoHeadLength);
-  totalLen = 0;
-
-  while (totalLen < bodyLen)
-  {
-    size_t tmpLen = bodyLen - totalLen;
-    char* pRecv = pTmpBuf + ProtoHeader::kProtoHeadLength + totalLen;
-    size_t recvLen = socket_.read_some(buffer(pRecv, tmpLen), errCode);
-    if (errCode)
+  try {
+    while (totalLen < ProtoHeader::kProtoHeadLength)
     {
-      retVal = PdbE_NET_ERROR;
-      break;
+      size_t tmpLen = ProtoHeader::kProtoHeadLength - totalLen;
+      size_t recvLen = socket_.read_some(buffer((tmpHead + totalLen), tmpLen), errCode);
+      if (errCode)
+        return PdbE_NET_ERROR;
+
+      totalLen += recvLen;
     }
 
-    totalLen += recvLen;
+    ProtoHeader proHdr;
+    proHdr.Load(tmpHead);
+    size_t bodyLen = static_cast<size_t>(proHdr.GetBodyLen());
+
+    char* pTmpBuf = arena.Allocate((bodyLen + ProtoHeader::kProtoHeadLength));
+    if (pTmpBuf == nullptr)
+      return PdbE_NOMEM;
+
+    memcpy(pTmpBuf, tmpHead, ProtoHeader::kProtoHeadLength);
+    totalLen = 0;
+
+    while (totalLen < bodyLen)
+    {
+      size_t tmpLen = bodyLen - totalLen;
+      char* pRecv = pTmpBuf + ProtoHeader::kProtoHeadLength + totalLen;
+      size_t recvLen = socket_.read_some(buffer(pRecv, tmpLen), errCode);
+      if (errCode)
+      {
+        retVal = PdbE_NET_ERROR;
+        break;
+      }
+
+      totalLen += recvLen;
+    }
+  } 
+  catch (...)
+  {
+    retVal = PdbE_NET_ERROR;
   }
 
   if (retVal == PdbE_OK)
