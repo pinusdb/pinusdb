@@ -212,7 +212,7 @@ PdbErr_t QueryGroup::GetResult(std::string& dataBuf, uint32_t* pFieldCnt, uint32
   if (pFieldCnt != nullptr)
     *pFieldCnt = static_cast<uint32_t>(rstFieldVec_.size());
   if (pRecordCnt != nullptr)
-    *pRecordCnt = static_cast<uint32_t>(grpFieldVec_.size());
+    *pRecordCnt = static_cast<uint32_t>(objVec_.size());
 
   return PdbE_OK;
 }
