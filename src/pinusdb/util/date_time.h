@@ -71,6 +71,8 @@ public:
   static int32_t NowDayCode();
   static uint64_t NowTickCount();
 
+  static bool GetMicrosecondByTimeUnit(const char* pUnit, size_t unitLen, int64_t* pMicrosecond);
+
   static void InitTimeZone();
 
   void GetDatePart(int* pYear, int* pMonth, int* pDay) const;

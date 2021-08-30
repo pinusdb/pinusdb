@@ -31,14 +31,14 @@
 #define CMTLOG_FILE_VER      3
 
 //crc, type, length
-constexpr const size_t kRecHead = (4 + 1 + 2);
+const size_t kRecHead = (4 + 1 + 2);
 //fileVer, fileCode, syncPos, repPos, mirrorPos
-constexpr const size_t kRecFileInfoLen = (kRecHead + 1 + 4 + 8 + 8 + 8);
+const size_t kRecFileInfoLen = (kRecHead + 1 + 4 + 8 + 8 + 8);
 //tabCrc, metaCode, devid
-constexpr const size_t kRecDataLen = (kRecHead + 8 + 4 + 8);
+const size_t kRecDataLen = (kRecHead + 8 + 4 + 8);
 //syncPos, repPos, mirrorPos
-constexpr const size_t kRecSyncLen = (kRecHead + 8 + 8 + 8);
-constexpr const uint64_t kCmtLogFileSize = (512 * 1024 * 1024);
+const size_t kRecSyncLen = (kRecHead + 8 + 8 + 8);
+const uint64_t kCmtLogFileSize = (512 * 1024 * 1024);
 
 typedef struct _CacheBlock
 {

@@ -1,0 +1,15 @@
+[Unit]
+Description=PinusDB server service
+After=network-online.target remote-fs.target nss-lookup.target
+
+[Service]
+Type=forking
+User=pinusdb
+ExecStart=/var/pinusdb/bin/pinusdbd start
+ExecStop=/var/pinusdb/bin/pinusdbd stop
+Restart=0
+ExecReload=0
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

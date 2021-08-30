@@ -23,7 +23,7 @@
 
 #include "expr/sql_parser.h"
 #include "expr/tokenize.h"
-#include "query/value_item.h"
+#include "value/value_item.h"
 
 #include "db/db_impl.h"
 #include "global_variable.h"

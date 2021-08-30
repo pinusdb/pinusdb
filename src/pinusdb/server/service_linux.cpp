@@ -35,6 +35,7 @@
 #include <thread>
 #include <chrono>
 #include "util/dbg.h"
+#include "util/log_util.h"
 
 #include "server/server_pdb.h"
 #include "server/server_connection.h"
@@ -62,6 +63,7 @@ bool glbRepStates = false;
 static void SignalHandler(int sig)
 {
   (void)sig;
+  LOG_INFO("recv signal {}", sig);
   glbRunning = false;
   glbCancelCompTask = true;
 }

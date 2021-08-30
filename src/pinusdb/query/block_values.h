@@ -35,7 +35,9 @@ public:
     resultSize_ = 0;
     filterVec_.clear();
     for (size_t idx = 0; idx < columnVec_.size(); idx++)
+    {
       columnVec_[idx] = nullptr;
+    }
   }
 
   PdbErr_t MergeFilter(std::vector<DBVal>& filterVec)

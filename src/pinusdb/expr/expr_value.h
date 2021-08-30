@@ -46,6 +46,7 @@ public:
   static ExprValue* MakeStringValue(Token* pToken);
   static ExprValue* MakeBlobValue(Token* pToken);
   static ExprValue* MakeTimeValue(bool negative, Token* pVal, Token* pUnit);
+  static ExprValue* MakeDateTime(Token* pToken);
   static ExprValue* MakeFunction(Token* pFuncName, ExprValueList* pArgList);
   static ExprValue* MakeCompare(int op, ExprValue* pLeft, ExprValue* pRight);
   static ExprValue* MakeLike(Token* pFieldName, Token* pPattern);

@@ -21,8 +21,8 @@
 #include "util/coding.h"
 
 #define PDB_MIN_VAL(a,b)            (((a) < (b)) ? (a) : (b))
-constexpr const size_t kWritBufferSize = 65536;
-constexpr const size_t kCacheCnt = 16;
+PDB_CONSTEXPR const size_t kWritBufferSize = 65536;
+PDB_CONSTEXPR const size_t kCacheCnt = 16;
 
 CommitLogFile::CommitLogFile()
 {

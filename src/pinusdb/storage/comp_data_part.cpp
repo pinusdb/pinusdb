@@ -97,7 +97,7 @@ PdbErr_t CompDataPart::QueryDevData(int64_t devId, const DataPartQueryParam& que
   int64_t edTs = queryParam.GetEdTs();
   bool isAdd = false;
 
-  if constexpr (IsSnapshot)
+  if PDB_CONSTEXPR(IsSnapshot)
   {
     bgTs = DateTime::MinMicrosecond;
     edTs = DateTime::MaxMicrosecond;
@@ -119,7 +119,7 @@ PdbErr_t CompDataPart::QueryDevData(int64_t devId, const DataPartQueryParam& que
   if (retVal != PdbE_OK)
     return retVal;
 
-  if constexpr (!IsAsc)
+  if PDB_CONSTEXPR(!IsAsc)
   {
     std::reverse(idxVec.begin(), idxVec.end());
   }
@@ -147,7 +147,7 @@ PdbErr_t CompDataPart::QueryDevData(int64_t devId, const DataPartQueryParam& que
     if (pQuery->GetIsFullFlag())
       return PdbE_OK;
 
-    if constexpr (IsSnapshot)
+    if PDB_CONSTEXPR(IsSnapshot)
     {
       if (pIsAdd != nullptr)
         *pIsAdd = true;
@@ -413,7 +413,7 @@ PdbErr_t CompDataPart::DecodeBoolVals(DBVal* pValsBg, size_t valCnt, const char*
   {
     DBVAL_SET_BOOL(pVal, (BIT_MAP_IS_SET(pBuf, idx) != 0));
 
-    if constexpr (IsAsc)
+    if PDB_CONSTEXPR(IsAsc)
       pVal++;
     else
       pVal--;
@@ -433,23 +433,23 @@ PdbErr_t CompDataPart::DecodeIntVals(DBVal* pValsBg, size_t valCnt, const char* 
   uint64_t tmpVal = 0;
 
 #define SetInnerIntValue do { \
-  if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_INT8) \
+  if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_INT8) \
     DBVAL_SET_INT8(pVal, static_cast<int8_t>(curVal)); \
-  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_INT16) \
+  else if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_INT16) \
     DBVAL_SET_INT16(pVal, static_cast<int16_t>(curVal)); \
-  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_INT32) \
+  else if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_INT32) \
     DBVAL_SET_INT32(pVal, static_cast<int32_t>(curVal)); \
-  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_INT64) \
+  else if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_INT64) \
     DBVAL_SET_INT64(pVal, curVal); \
-  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_DATETIME) \
+  else if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_DATETIME) \
     DBVAL_SET_DATETIME(pVal, curVal); \
-  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_REAL2) \
+  else if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_REAL2) \
     DBVAL_SET_DOUBLE(pVal, (curVal / 100.0)); \
-  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_REAL3) \
+  else if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_REAL3) \
     DBVAL_SET_DOUBLE(pVal, (curVal / 1000.0)); \
-  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_REAL4) \
+  else if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_REAL4) \
     DBVAL_SET_DOUBLE(pVal, (curVal / 10000.0)); \
-  else if constexpr (FieldType == PDB_FIELD_TYPE::TYPE_REAL6) \
+  else if PDB_CONSTEXPR (FieldType == PDB_FIELD_TYPE::TYPE_REAL6) \
     DBVAL_SET_DOUBLE(pVal, (curVal / 1000000.0)); \
 } while(false)
 
@@ -457,7 +457,7 @@ PdbErr_t CompDataPart::DecodeIntVals(DBVal* pValsBg, size_t valCnt, const char* 
   curVal = Coding::ZigzagDecode64(tmpVal);
   SetInnerIntValue;
 
-  if constexpr (IsAsc)
+  if PDB_CONSTEXPR(IsAsc)
     pVal++;
   else
     pVal--;
@@ -474,7 +474,7 @@ PdbErr_t CompDataPart::DecodeIntVals(DBVal* pValsBg, size_t valCnt, const char* 
   curVal = preVal + delta;
   SetInnerIntValue;
 
-  if constexpr (IsAsc)
+  if PDB_CONSTEXPR(IsAsc)
     pVal++;
   else
     pVal--;
@@ -492,7 +492,7 @@ PdbErr_t CompDataPart::DecodeIntVals(DBVal* pValsBg, size_t valCnt, const char* 
 
     SetInnerIntValue;
 
-    if constexpr (IsAsc)
+    if PDB_CONSTEXPR(IsAsc)
       pVal++;
     else
       pVal--;
@@ -536,7 +536,7 @@ PdbErr_t CompDataPart::DecodeFloatVals(DBVal* pValsBg, size_t valCnt, const char
     u32Val ^= u32Tmp;
     DBVAL_SET_FLOAT(pVal, Coding::DecodeFloat(u32Val));
 
-    if constexpr (IsAsc)
+    if PDB_CONSTEXPR(IsAsc)
       pVal++;
     else
       pVal--;
@@ -572,7 +572,7 @@ PdbErr_t CompDataPart::DecodeDoubleVals(DBVal* pValsBg, size_t valCnt, const cha
     u64Val ^= u64Tmp;
     DBVAL_SET_DOUBLE(pVal, Coding::DecodeDouble(u64Val));
 
-    if constexpr (IsAsc)
+    if PDB_CONSTEXPR(IsAsc)
       pVal++;
     else
       pVal--;
@@ -611,7 +611,7 @@ PdbErr_t CompDataPart::DecodeBlockVals(DBVal* pValsBg, size_t valCnt, const char
 
     pBuf += u32;
 
-    if constexpr (IsAsc)
+    if PDB_CONSTEXPR(IsAsc)
       pVal++;
     else
       pVal--;

@@ -120,6 +120,7 @@ ExprValue* ExprValue::MakeBlobValue(Token* pToken)
 ExprValue* ExprValue::MakeTimeValue(bool negative, Token* pVal, Token* pUnit)
 {
   int64_t tmpVal = 0;
+  int64_t microsecond = 0;
   ExprValue* pNew = new ExprValue();
   pNew->valType_ = TK_TIMEVAL;
 
@@ -130,35 +131,29 @@ ExprValue* ExprValue::MakeTimeValue(bool negative, Token* pVal, Token* pUnit)
     if (negative)
       tmpVal *= -1;
 
-    if (pUnit->len_ != 1)
-      break;
-
-    switch (pUnit->str_[0])
+    if (!DateTime::GetMicrosecondByTimeUnit(pUnit->str_, pUnit->len_, &microsecond))
     {
-    case 's':
-    case 'S':
-      tmpVal *= DateTime::MicrosecondPerSecond;
-      break;
-    case 'm':
-    case 'M':
-      tmpVal *= DateTime::MicrosecondPerMinute;
-      break;
-    case 'h':
-    case 'H':
-      tmpVal *= DateTime::MicrosecondPerHour;
-      break;
-    case 'd':
-    case 'D':
-      tmpVal *= DateTime::MicrosecondPerDay;
-      break;
-    default:
-      return pNew;
+      DBVAL_SET_INT64(&pNew->dbVal_, (tmpVal * microsecond));
     }
-
-    DBVAL_SET_INT64(&pNew->dbVal_, tmpVal);
-
   } while (false);
 
+  return pNew;
+}
+
+ExprValue* ExprValue::MakeDateTime(Token* pToken)
+{
+  ExprValue* pNew = new ExprValue();
+  DateTime dt;
+  if (dt.Parse(pToken->str_, pToken->len_))
+  {
+    pNew->valType_ = TK_TIMEVAL;
+    DBVAL_SET_DATETIME(&pNew->dbVal_, dt.TotalMicrosecond());
+  }
+  else
+  {
+    pNew->valType_ = TK_STRING;
+    DBVAL_SET_STRING(&pNew->dbVal_, pToken->str_, pToken->len_);
+  }
   return pNew;
 }
 

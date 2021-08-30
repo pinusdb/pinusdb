@@ -17,6 +17,7 @@
 #include "query/query_snapshot.h"
 #include "server/proto_header.h"
 #include "util/coding.h"
+#include "value/const_value.h"
 #include <algorithm>
 #include <string>
 

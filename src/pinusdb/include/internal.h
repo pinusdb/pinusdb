@@ -82,6 +82,24 @@
 #define PDB_USER_ROLE_READWRITE_STR   "readWrite"
 #define PDB_USER_ROLE_ADMIN_STR       "admin"
 
+/////////////////////////////////////////////////////////////////////////
+
+#ifdef _WIN32
+#ifndef PDB_CONSTEXPR
+#define PDB_CONSTEXPR constexpr
+#endif
+
+#else
+
+#ifndef PDB_CONSTEXPR
+#define PDB_CONSTEXPR 
+#endif
+
+#endif
+
+
+/////////////////////////////////////////////////////////////////////////
+
 
 ///////////////////////////////索引文件相关宏结束////////////////////////
 
@@ -129,7 +147,8 @@ typedef struct _FieldInfoFormat
 }FieldInfoFormat;
 
 enum PDB_SQL_FUNC{
-  FUNC_AGG_COUNT = 1,
+  _FUNC_AGG_MINID_ = 0,
+  FUNC_AGG_COUNT,
   FUNC_AGG_FIRST,
   FUNC_AGG_LAST,
   FUNC_AGG_AVG,
@@ -143,6 +162,7 @@ enum PDB_SQL_FUNC{
   FUNC_AGG_MIN_IF,
   FUNC_AGG_MAX_IF,
   FUNC_AGG_SUM_IF,
+  _FUNC_AGG_MAXID_,
   FUNC_ADD,
   FUNC_SUB,
   FUNC_MUL,

@@ -15,6 +15,7 @@
 */
 
 #include "util/date_time.h"
+#include "util/string_tool.h"
 
 #include <time.h>
 #include <string.h>
@@ -441,6 +442,43 @@ uint64_t DateTime::NowTickCount()
   clock_gettime(CLOCK_MONOTONIC, &ts);
   return (((int64_t)(ts.tv_sec) * 1000) + (ts.tv_nsec / 1000000));
 #endif
+}
+
+bool DateTime::GetMicrosecondByTimeUnit(const char* pUnit, size_t unitLen, int64_t* pMicrosecond)
+{
+  if (pUnit == nullptr || unitLen == 0)
+    return false;
+
+  int64_t microOffset = 0;
+  if (StringTool::ComparyNoCase(pUnit, unitLen, "s", (sizeof("s") - 1)),
+    StringTool::ComparyNoCase(pUnit, unitLen, "second", (sizeof("second") - 1)))
+  {
+    microOffset = DateTime::MicrosecondPerSecond;
+  }
+  else if (StringTool::ComparyNoCase(pUnit, unitLen, "m", (sizeof("m") - 1)),
+    StringTool::ComparyNoCase(pUnit, unitLen, "minute", (sizeof("minute") - 1)))
+  {
+    microOffset = DateTime::MicrosecondPerMinute;
+  }
+  else if (StringTool::ComparyNoCase(pUnit, unitLen, "h", (sizeof("h") - 1)),
+    StringTool::ComparyNoCase(pUnit, unitLen, "hour", (sizeof("hour") - 1)))
+  {
+    microOffset = DateTime::MicrosecondPerHour;
+  }
+  else if (StringTool::ComparyNoCase(pUnit, unitLen, "d", (sizeof("d") - 1)),
+    StringTool::ComparyNoCase(pUnit, unitLen, "day", (sizeof("day") - 1)))
+  {
+    microOffset = DateTime::MicrosecondPerDay;
+  }
+  else
+  {
+    return false;
+  }
+
+  if (pMicrosecond != nullptr)
+    *pMicrosecond = microOffset;
+
+  return true;
 }
 
 void DateTime::InitTimeZone()

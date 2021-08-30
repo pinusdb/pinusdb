@@ -24,7 +24,7 @@
 #include "query/result_object.h"
 #include "query/condition_filter.h"
 #include "table/table_info.h"
-#include "query/value_item.h"
+#include "value/value_item.h"
 
 class QueryRaw : public IQuery
 {

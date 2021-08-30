@@ -43,7 +43,7 @@ typedef struct _CmpBlkIdx
   char crc_[4];
 }CmpBlkIdx;
 
-constexpr uint32_t CmpFooterMagic = 0x7FEC8D92;
+#define CmpFooterMagic (uint32_t)0x7FEC8D92
 typedef struct _CmpFooter
 {
   char magic_[4];

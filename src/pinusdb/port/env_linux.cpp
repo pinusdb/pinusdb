@@ -26,7 +26,7 @@
 #include <fcntl.h>
 #include <dirent.h>
 
-constexpr const size_t kWritableFileBufferSize = 65536;
+PDB_CONSTEXPR size_t kWritableFileBufferSize = 65536;
 
 class LinuxNormalFile : public NormalFile
 {

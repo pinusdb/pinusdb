@@ -225,6 +225,7 @@ expr_val(A) ::= BLOB(X).                       { A = ExprValue::MakeBlobValue(&X
 expr_val(A) ::= INTEGER(X) ID(U).              { A = ExprValue::MakeTimeValue(false, &X, &U); }
 expr_val(A) ::= PLUS INTEGER(X) ID(U).         { A = ExprValue::MakeTimeValue(false, &X, &U); }
 expr_val(A) ::= MINUS INTEGER(X) ID(U).        { A = ExprValue::MakeTimeValue(true, &X, &U); }
+expr_val(A) ::= DATETIME_TYPE LP STRING(X) RP. { A = ExprValue::MakeDateTime(&X); } 
 
 expr_val(A) ::= ID(N) LP expr_val_list(L) RP.  { A = ExprValue::MakeFunction(&N, L); }
 expr_val(A) ::= ADD(N) LP expr_val_list(L) RP. { A = ExprValue::MakeFunction(&N, L); }

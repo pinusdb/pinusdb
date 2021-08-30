@@ -633,13 +633,13 @@ PdbErr_t NormalDataPart::QueryDevData(int64_t devId, const DataPartQueryParam& q
   std::mutex* pPageMutex = nullptr;
   bool isAdd = false;
 
-  if constexpr (IsSnapshot)
+  if PDB_CONSTEXPR(IsSnapshot)
   {
     bgTs = DateTime::MinMicrosecond;
     edTs = DateTime::MaxMicrosecond;
   }
   
-  if constexpr (IsAsc)
+  if PDB_CONSTEXPR(IsAsc)
     retVal = normalIdx_.GetIndex(devId, bgTs, &pageIdx);
   else
     retVal = normalIdx_.GetIndex(devId, edTs, &pageIdx);
@@ -657,7 +657,7 @@ PdbErr_t NormalDataPart::QueryDevData(int64_t devId, const DataPartQueryParam& q
   
   while (true)
   {
-    if constexpr (IsAsc)
+    if PDB_CONSTEXPR(IsAsc)
     {
       if (pageIdx.idxTs_ > edTs)
         return PdbE_OK;
@@ -710,7 +710,7 @@ PdbErr_t NormalDataPart::QueryDevData(int64_t devId, const DataPartQueryParam& q
     if (pQuery->GetIsFullFlag())
       return PdbE_OK;
   
-    if constexpr (IsSnapshot)
+    if PDB_CONSTEXPR(IsSnapshot)
     {
       if (pIsAdd != nullptr)
         *pIsAdd = true;
@@ -718,7 +718,7 @@ PdbErr_t NormalDataPart::QueryDevData(int64_t devId, const DataPartQueryParam& q
       return PdbE_OK;
     }
 
-    if constexpr (IsAsc)
+    if PDB_CONSTEXPR(IsAsc)
     {
       retVal = normalPage.GetLastTstamp(&lastTs);
       if (retVal != PdbE_OK)
@@ -806,11 +806,11 @@ PdbErr_t NormalDataPart::TraversalDataPage(const NormalDataPage* pDataPage, int6
     return tmpIdx;
   };
 
-  if constexpr (IsSnapshot)
+  if PDB_CONSTEXPR(IsSnapshot)
   {
     idx = recCnt - 1;
   }
-  else if constexpr (IsAsc)
+  else if PDB_CONSTEXPR(IsAsc)
   {
     idx = 0;
     retVal = pDataPage->GetRecTstamp(0, &tstamp);
@@ -944,7 +944,7 @@ PdbErr_t NormalDataPart::TraversalDataPage(const NormalDataPage* pDataPage, int6
     if (retVal != PdbE_OK)
       return retVal;
 
-    if constexpr (IsSnapshot)
+    if PDB_CONSTEXPR(IsSnapshot)
     {
       if (pIsAdd != nullptr)
         *pIsAdd = isAdd;
@@ -952,7 +952,7 @@ PdbErr_t NormalDataPart::TraversalDataPage(const NormalDataPage* pDataPage, int6
       return PdbE_OK;
     }
 
-    if constexpr (QuerySingle)
+    if PDB_CONSTEXPR(QuerySingle)
     {
       if (isAdd)
       {
@@ -963,7 +963,7 @@ PdbErr_t NormalDataPart::TraversalDataPage(const NormalDataPage* pDataPage, int6
       }
     }
 
-    if constexpr (IsAsc)
+    if PDB_CONSTEXPR(IsAsc)
     {
       idx++;
       if (DBVAL_ELE_IS_DATETIME(pVals, PDB_TSTAMP_INDEX) && DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) > edTs)

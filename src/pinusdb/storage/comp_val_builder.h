@@ -136,23 +136,23 @@ public:
       return PdbE_VALUE_MISMATCH;
 
     int64_t curVal{};
-    if constexpr (FieldType == PDB_VALUE_TYPE::VAL_INT8)
+    if PDB_CONSTEXPR(FieldType == PDB_VALUE_TYPE::VAL_INT8)
     {
       curVal = DBVAL_GET_INT8(&val);
     }
-    else if constexpr (FieldType == PDB_VALUE_TYPE::VAL_INT16)
+    else if PDB_CONSTEXPR(FieldType == PDB_VALUE_TYPE::VAL_INT16)
     {
       curVal = DBVAL_GET_INT16(&val);
     }
-    else if constexpr (FieldType == PDB_VALUE_TYPE::VAL_INT32)
+    else if PDB_CONSTEXPR(FieldType == PDB_VALUE_TYPE::VAL_INT32)
     {
       curVal = DBVAL_GET_INT32(&val);
     }
-    else if constexpr (FieldType == PDB_VALUE_TYPE::VAL_INT64)
+    else if PDB_CONSTEXPR(FieldType == PDB_VALUE_TYPE::VAL_INT64)
     {
       curVal = DBVAL_GET_INT64(&val);
     }
-    else if constexpr (FieldType == PDB_VALUE_TYPE::VAL_DATETIME)
+    else if PDB_CONSTEXPR(FieldType == PDB_VALUE_TYPE::VAL_DATETIME)
     {
       curVal = DBVAL_GET_DATETIME(&val);
     }

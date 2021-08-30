@@ -19,6 +19,7 @@
 #include "query/group_function.h"
 #include "util/coding.h"
 #include "server/proto_header.h"
+#include "value/const_value.h"
 
 QueryGroup::QueryGroup()
 {

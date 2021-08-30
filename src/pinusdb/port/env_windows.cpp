@@ -20,7 +20,7 @@
 
 #ifdef _WIN32
 
-constexpr const size_t kWritableFileBufferSize = 65536;
+PDB_CONSTEXPR size_t kWritableFileBufferSize = 65536;
 
 class WindowsNormalFile : public NormalFile
 {

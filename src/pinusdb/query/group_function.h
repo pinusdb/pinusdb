@@ -17,7 +17,7 @@
 
 #include "internal.h"
 #include "query/group_field.h"
-#include "query/value_item.h"
+#include "value/value_item.h"
 
 template<int ValType, typename T>
 class AvgFunc : public GroupField
@@ -42,27 +42,27 @@ public:
     if (DBVAL_ELE_GET_TYPE(pVals, fieldPos_) != ValType)
       return PdbE_INVALID_PARAM;
 
-    if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT8)
+    if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT8)
     {
       totalVal_ += DBVAL_ELE_GET_INT8(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT16)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT16)
     {
       totalVal_ += DBVAL_ELE_GET_INT16(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT32)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT32)
     {
       totalVal_ += DBVAL_ELE_GET_INT32(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT64)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT64)
     {
       totalVal_ += DBVAL_ELE_GET_INT64(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
     {
       totalVal_ += DBVAL_ELE_GET_FLOAT(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
     {
       totalVal_ += DBVAL_ELE_GET_DOUBLE(pVals, fieldPos_);
     }
@@ -103,27 +103,27 @@ public:
   {
     if (dataCnt_ > 0)
     {
-      if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT8)
+      if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT8)
       {
         DBVAL_SET_INT8(pVal, static_cast<int8_t>(totalVal_ / dataCnt_));
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT16)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT16)
       {
         DBVAL_SET_INT16(pVal, static_cast<int16_t>(totalVal_ / dataCnt_));
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT32)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT32)
       {
         DBVAL_SET_INT32(pVal, static_cast<int32_t>(totalVal_ / dataCnt_));
       }
-      if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT64)
+      if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT64)
       {
         DBVAL_SET_INT64(pVal, (totalVal_ / dataCnt_));
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
       {
         DBVAL_SET_FLOAT(pVal, static_cast<float>(totalVal_ / dataCnt_));
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
       {
         DBVAL_SET_DOUBLE(pVal, (totalVal_ / dataCnt_));
       }
@@ -160,13 +160,13 @@ protected:
 
     for (size_t idx = 0; idx < recCnt; idx++)
     {
-      if constexpr (HaveFilter)
+      if PDB_CONSTEXPR(HaveFilter)
       {
         if (pFilter[idx] == PDB_BOOL_FALSE)
           continue;
       }
 
-      if constexpr (HaveGroup)
+      if PDB_CONSTEXPR(HaveGroup)
       {
         if (pGroupIds[idx] != groupId)
           continue;
@@ -178,27 +178,27 @@ protected:
       if (DBVAL_ELE_GET_TYPE(pVals, idx) != ValType)
         return PdbE_INVALID_PARAM;
 
-      if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT8)
+      if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT8)
       {
         totalVal_ += DBVAL_ELE_GET_INT8(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT16)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT16)
       {
         totalVal_ += DBVAL_ELE_GET_INT16(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT32)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT32)
       {
         totalVal_ += DBVAL_ELE_GET_INT32(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT64)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT64)
       {
         totalVal_ += DBVAL_ELE_GET_INT64(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
       {
         totalVal_ += DBVAL_ELE_GET_FLOAT(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
       {
         totalVal_ += DBVAL_ELE_GET_DOUBLE(pVals, idx);
       }
@@ -300,13 +300,13 @@ protected:
 
     for (size_t idx = 0; idx < recCnt; idx++)
     {
-      if constexpr (HaveFilter)
+      if PDB_CONSTEXPR(HaveFilter)
       {
         if (pFilter[idx] == PDB_BOOL_FALSE)
           continue;
       }
 
-      if constexpr (HaveGroup)
+      if PDB_CONSTEXPR(HaveGroup)
       {
         if (pGroupIds[idx] != groupId)
           continue;
@@ -331,7 +331,7 @@ private:
 template<int ValType, bool IsFirst>
 class FirstOrLastValueFunc : public GroupField
 {
-  static constexpr bool IsBlockValue = (ValType == PDB_FIELD_TYPE::TYPE_STRING || ValType == PDB_FIELD_TYPE::TYPE_BLOB);
+  static const bool IsBlockValue = (ValType == PDB_FIELD_TYPE::TYPE_STRING || ValType == PDB_FIELD_TYPE::TYPE_BLOB);
 
 public:
   FirstOrLastValueFunc(size_t fieldPos)
@@ -340,7 +340,7 @@ public:
     curTs_ = IsFirst ? DateTime::MaxMicrosecond : DateTime::MinMicrosecond;
     DBVAL_SET_NULL(&curVal_);
 
-    if constexpr (IsBlockValue)
+    if PDB_CONSTEXPR(IsBlockValue)
     {
       pValBuf_ = new std::string();
     }
@@ -368,19 +368,19 @@ public:
       return PdbE_INVALID_PARAM;
     }
 
-    if constexpr (IsFirst)
+    if PDB_CONSTEXPR(IsFirst)
     {
       if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) >= curTs_)
         return PdbE_OK;
     }
 
-    if constexpr (!IsFirst)
+    if PDB_CONSTEXPR(!IsFirst)
     {
       if (DBVAL_ELE_GET_DATETIME(pVals, PDB_TSTAMP_INDEX) <= curTs_)
         return PdbE_OK;
     }
 
-    if constexpr (IsBlockValue)
+    if PDB_CONSTEXPR(IsBlockValue)
     {
       if (DBVAL_ELE_IS_NULL(pVals, fieldPos_))
       {
@@ -469,13 +469,13 @@ protected:
 
     for (size_t idx = 0; idx < recCnt; idx++)
     {
-      if constexpr (HaveFilter)
+      if PDB_CONSTEXPR(HaveFilter)
       {
         if (pFilter[idx] == PDB_BOOL_FALSE)
           continue;
       }
 
-      if constexpr (HaveGroup)
+      if PDB_CONSTEXPR(HaveGroup)
       {
         if (pGroupIds[idx] != groupId)
           continue;
@@ -490,7 +490,7 @@ protected:
         return PdbE_INVALID_PARAM;
       }
 
-      if constexpr (IsFirst)
+      if PDB_CONSTEXPR(IsFirst)
       {
         if (DBVAL_ELE_GET_DATETIME(pTsVals, idx) >= curTs_)
           continue;
@@ -503,7 +503,7 @@ protected:
 
       curTs_ = DBVAL_ELE_GET_DATETIME(pTsVals, idx);
 
-      if constexpr (IsBlockValue)
+      if PDB_CONSTEXPR(IsBlockValue)
       {
         if (DBVAL_ELE_IS_NULL(pVals, idx))
         {
@@ -551,7 +551,7 @@ public:
     targetPos_ = targetPos;
     DBVAL_SET_NULL(&targetVal_);
     DBVAL_SET_NULL(&compareVal_);
-    if constexpr (TargetType == PDB_FIELD_TYPE::TYPE_STRING || TargetType == PDB_FIELD_TYPE::TYPE_BLOB)
+    if PDB_CONSTEXPR(TargetType == PDB_FIELD_TYPE::TYPE_STRING || TargetType == PDB_FIELD_TYPE::TYPE_BLOB)
     {
       pTargetBuf_ = new std::string();
     }
@@ -577,34 +577,34 @@ public:
 
     if (!DBVAL_IS_NULL(&compareVal_))
     {
-      if constexpr (IsMax)
+      if PDB_CONSTEXPR(IsMax)
       {
-        if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT8)
+        if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT8)
         {
           if (DBVAL_ELE_GET_INT8(pVals, comparePos_) <= DBVAL_GET_INT8(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT16)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT16)
         {
           if (DBVAL_ELE_GET_INT16(pVals, comparePos_) <= DBVAL_GET_INT16(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT32)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT32)
         {
           if (DBVAL_ELE_GET_INT32(pVals, comparePos_) <= DBVAL_GET_INT32(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT64)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT64)
         {
           if (DBVAL_ELE_GET_INT64(pVals, comparePos_) <= DBVAL_GET_INT64(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_FLOAT)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_FLOAT)
         {
           if (DBVAL_ELE_GET_INT64(pVals, comparePos_) <= DBVAL_GET_FLOAT(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
         {
           if (DBVAL_ELE_GET_DOUBLE(pVals, comparePos_) <= DBVAL_GET_DOUBLE(&compareVal_))
             return PdbE_OK;
@@ -612,32 +612,32 @@ public:
       }
       else
       {
-        if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT8)
+        if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT8)
         {
           if (DBVAL_ELE_GET_INT8(pVals, comparePos_) >= DBVAL_GET_INT8(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT16)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT16)
         {
           if (DBVAL_ELE_GET_INT16(pVals, comparePos_) >= DBVAL_GET_INT16(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT32)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT32)
         {
           if (DBVAL_ELE_GET_INT32(pVals, comparePos_) >= DBVAL_GET_INT32(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT64)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT64)
         {
           if (DBVAL_ELE_GET_INT64(pVals, comparePos_) >= DBVAL_GET_INT64(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_FLOAT)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_FLOAT)
         {
           if (DBVAL_ELE_GET_INT64(pVals, comparePos_) >= DBVAL_GET_FLOAT(&compareVal_))
             return PdbE_OK;
         }
-        else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+        else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
         {
           if (DBVAL_ELE_GET_DOUBLE(pVals, comparePos_) >= DBVAL_GET_DOUBLE(&compareVal_))
             return PdbE_OK;
@@ -646,7 +646,7 @@ public:
     }
 
     compareVal_ = pVals[comparePos_];
-    if constexpr (TargetType == PDB_FIELD_TYPE::TYPE_STRING || TargetType == PDB_FIELD_TYPE::TYPE_BLOB)
+    if PDB_CONSTEXPR(TargetType == PDB_FIELD_TYPE::TYPE_STRING || TargetType == PDB_FIELD_TYPE::TYPE_BLOB)
     {
       if (DBVAL_ELE_IS_NULL(pVals, targetPos_))
       {
@@ -725,13 +725,13 @@ protected:
 
     for (size_t idx = 0; idx < recCnt; idx++)
     {
-      if constexpr (HaveFilter)
+      if PDB_CONSTEXPR(HaveFilter)
       {
         if (pFilter[idx] == PDB_BOOL_FALSE)
           continue;
       }
 
-      if constexpr (HaveGroup)
+      if PDB_CONSTEXPR(HaveGroup)
       {
         if (pGroupIds[idx] != groupId)
           continue;
@@ -749,34 +749,34 @@ protected:
 
       if (!DBVAL_IS_NULL(&compareVal_))
       {
-        if constexpr (IsMax)
+        if PDB_CONSTEXPR(IsMax)
         {
-          if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT8)
+          if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT8)
           {
             if (DBVAL_ELE_GET_INT8(pCompareVals, idx) <= DBVAL_GET_INT8(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT16)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT16)
           {
             if (DBVAL_ELE_GET_INT16(pCompareVals, idx) <= DBVAL_GET_INT16(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT32)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT32)
           {
             if (DBVAL_ELE_GET_INT32(pCompareVals, idx) <= DBVAL_GET_INT32(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT64)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT64)
           {
             if (DBVAL_ELE_GET_INT64(pCompareVals, idx) <= DBVAL_GET_INT32(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_FLOAT)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_FLOAT)
           {
             if (DBVAL_ELE_GET_FLOAT(pCompareVals, idx) <= DBVAL_GET_FLOAT(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
           {
             if (DBVAL_ELE_GET_DOUBLE(pCompareVals, idx) <= DBVAL_GET_DOUBLE(&compareVal_))
               continue;
@@ -784,32 +784,32 @@ protected:
         }
         else
         {
-          if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT8)
+          if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT8)
           {
             if (DBVAL_ELE_GET_INT8(pCompareVals, idx) >= DBVAL_GET_INT8(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT16)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT16)
           {
             if (DBVAL_ELE_GET_INT16(pCompareVals, idx) >= DBVAL_GET_INT16(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT32)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT32)
           {
             if (DBVAL_ELE_GET_INT32(pCompareVals, idx) >= DBVAL_GET_INT32(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_INT64)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_INT64)
           {
             if (DBVAL_ELE_GET_INT64(pCompareVals, idx) >= DBVAL_GET_INT32(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_FLOAT)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_FLOAT)
           {
             if (DBVAL_ELE_GET_FLOAT(pCompareVals, idx) >= DBVAL_GET_FLOAT(&compareVal_))
               continue;
           }
-          else if constexpr (CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+          else if PDB_CONSTEXPR(CompareType == PDB_FIELD_TYPE::TYPE_DOUBLE)
           {
             if (DBVAL_ELE_GET_DOUBLE(pCompareVals, idx) >= DBVAL_GET_DOUBLE(&compareVal_))
               continue;
@@ -818,7 +818,7 @@ protected:
       }
 
       compareVal_ = pCompareVals[idx];
-      if constexpr (TargetType == PDB_FIELD_TYPE::TYPE_STRING || TargetType == PDB_FIELD_TYPE::TYPE_BLOB)
+      if PDB_CONSTEXPR(TargetType == PDB_FIELD_TYPE::TYPE_STRING || TargetType == PDB_FIELD_TYPE::TYPE_BLOB)
       {
         if (DBVAL_ELE_IS_NULL(pTargetVals, idx))
         {
@@ -875,27 +875,27 @@ public:
       return PdbE_INVALID_PARAM;
 
     haveVal_ = true;
-    if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT8)
+    if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT8)
     {
       sumVal_ += DBVAL_ELE_GET_INT8(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT16)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT16)
     {
       sumVal_ += DBVAL_ELE_GET_INT16(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT32)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT32)
     {
       sumVal_ += DBVAL_ELE_GET_INT32(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT64)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT64)
     {
       sumVal_ += DBVAL_ELE_GET_INT64(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
     {
       sumVal_ += DBVAL_ELE_GET_FLOAT(pVals, fieldPos_);
     }
-    else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+    else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
     {
       sumVal_ += DBVAL_ELE_GET_DOUBLE(pVals, fieldPos_);
     }
@@ -972,13 +972,13 @@ protected:
 
     for (size_t idx = 0; idx < recCnt; idx++)
     {
-      if constexpr (HaveFilter)
+      if PDB_CONSTEXPR(HaveFilter)
       {
         if (pFilter[idx] == PDB_BOOL_FALSE)
           continue;
       }
 
-      if constexpr (HaveGroup)
+      if PDB_CONSTEXPR(HaveGroup)
       {
         if (pGroupIds[idx] != groupId)
           continue;
@@ -991,27 +991,27 @@ protected:
         return PdbE_INVALID_PARAM;
 
       haveVal_ = true;
-      if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT8)
+      if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT8)
       {
         sumVal_ += DBVAL_ELE_GET_INT8(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT16)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT16)
       {
         sumVal_ += DBVAL_ELE_GET_INT16(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT32)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT32)
       {
         sumVal_ += DBVAL_ELE_GET_INT32(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_INT64)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_INT64)
       {
         sumVal_ += DBVAL_ELE_GET_INT64(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_FLOAT)
       {
         sumVal_ += DBVAL_ELE_GET_FLOAT(pVals, idx);
       }
-      else if constexpr (ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
+      else if PDB_CONSTEXPR(ValType == PDB_FIELD_TYPE::TYPE_DOUBLE)
       {
         sumVal_ += DBVAL_ELE_GET_DOUBLE(pVals, idx);
       }

@@ -17,6 +17,7 @@
 #include "query/query_raw.h"
 #include "server/proto_header.h"
 #include "util/coding.h"
+#include "value/const_value.h"
 
 QueryRaw::QueryRaw()
 {
