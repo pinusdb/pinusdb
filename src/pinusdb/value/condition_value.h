@@ -1068,11 +1068,11 @@ public:
 
       if (DBVAL_ELE_IS_INT64(pFieldVals, idx))
       {
-        DBVAL_SET_BOOL(&tmpVal, false);
+        _CONDI_GET_COMP_RESULT(&tmpVal, DBVAL_ELE_GET_INT64(pFieldVals, idx), val_);
       }
       else
       {
-        _CONDI_GET_COMP_RESULT(&tmpVal, DBVAL_ELE_GET_INT64(pFieldVals, idx), val_);
+        DBVAL_SET_BOOL(&tmpVal, false);
       }
 
       resultVec.push_back(tmpVal);
