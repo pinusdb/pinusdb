@@ -66,7 +66,7 @@ public:
     queryField.fieldType_ = fieldType;
     queryField.queryFieldPos_ = queryFieldPos;
     queryField.storeFieldPos_ = storeFieldPos;
-    queryFieldVec_.push_back(queryField);
+    preWhereFieldVec_.push_back(queryField);
   }
 
   int64_t GetBgTs() const { return bgTs_; }
